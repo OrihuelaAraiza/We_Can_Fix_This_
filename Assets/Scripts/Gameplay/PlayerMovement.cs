@@ -8,6 +8,9 @@ public class PlayerMovement : MonoBehaviour
     [SerializeField] private int playerIndex;
     [SerializeField] private bool initialized;
 
+    public bool IsInitialized => initialized;
+    public int  PlayerIndex   => playerIndex;
+
     // ── Datos ─────────────────────────────────────────────────
     private PlayerData data;
     private Rigidbody rb;
