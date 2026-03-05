@@ -6,10 +6,10 @@ public class FailureSystem : MonoBehaviour
     public static FailureSystem Instance { get; private set; }
 
     [Header("Config")]
-    [SerializeField] private float initialFailureInterval = 15f;
-    [SerializeField] private float minimumFailureInterval = 4f;
-    [SerializeField] private float intervalDecreaseRate   = 0.95f; // multiplier per failure
-    [SerializeField] private int   maxSimultaneousBroken  = 3;
+    [SerializeField] private float initialFailureInterval = 30f;
+    [SerializeField] private float minimumFailureInterval = 12f;
+    [SerializeField] private float intervalDecreaseRate   = 0.97f; // multiplier per failure
+    [SerializeField] private int   maxSimultaneousBroken  = 2;
 
     [Header("Runtime")]
     [SerializeField] private float currentInterval;

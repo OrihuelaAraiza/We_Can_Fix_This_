@@ -19,6 +19,7 @@ public class ShipHealthUI : MonoBehaviour
         ShipHealth.Instance.OnHealthChanged += UpdateUI;
         ShipHealth.Instance.OnShipCritical  += OnCritical;
         ShipHealth.Instance.OnShipDestroyed += OnDestroyed;
+        ShipHealth.OnShipRecovered          += OnShipRecovered;
         UpdateUI(1f);
     }
 
@@ -28,6 +29,7 @@ public class ShipHealthUI : MonoBehaviour
         ShipHealth.Instance.OnHealthChanged -= UpdateUI;
         ShipHealth.Instance.OnShipCritical  -= OnCritical;
         ShipHealth.Instance.OnShipDestroyed -= OnDestroyed;
+        ShipHealth.OnShipRecovered          -= OnShipRecovered;
     }
 
     private void UpdateUI(float percent)
@@ -49,5 +51,16 @@ public class ShipHealthUI : MonoBehaviour
     private void OnDestroyed()
     {
         if (statusText) statusText.text = "✗ DESTROYED";
+    }
+
+    private void OnShipRecovered()
+    {
+        if (statusText != null)
+        {
+            statusText.text  = "";
+            statusText.color = Color.white;
+        }
+        if (fillImage != null)
+            fillImage.color = new Color(0.1f, 0.7f, 0.3f);
     }
 }

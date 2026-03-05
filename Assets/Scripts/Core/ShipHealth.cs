@@ -6,23 +6,25 @@ public class ShipHealth : MonoBehaviour
     public static ShipHealth Instance { get; private set; }
 
     [Header("Config")]
-    [SerializeField] private float maxHealth = 100f;
-    [SerializeField] private float drainPerSecond = 2f;
-    [SerializeField] private bool drainingActive = true;
+    [SerializeField] float maxHealth             = 100f;
+    [SerializeField] float drainPerBrokenStation = 3f;
+    [SerializeField] float regenPerSecond        = 1f;
+    [SerializeField] float criticalThreshold     = 0.3f;
 
     [Header("Runtime")]
-    [SerializeField] private float currentHealth;
+    [SerializeField] float currentHealth = 100f;
 
-    public float CurrentHealth => currentHealth;
-    public float MaxHealth => maxHealth;
-    public float HealthPercent => currentHealth / maxHealth;
-    public bool IsAlive => currentHealth > 0f;
+    public float CurrentHealth  => currentHealth;
+    public float MaxHealth      => maxHealth;
+    public float HealthPercent  => currentHealth / maxHealth;
+    public bool  IsAlive        => currentHealth > 0f;
 
-    public event Action<float> OnHealthChanged;   // param: 0-1
+    public event Action<float> OnHealthChanged;
     public event Action        OnShipDestroyed;
-    public event Action        OnShipCritical;    // fired once at 30%
+    public event Action        OnShipCritical;
+    public static event Action OnShipRecovered;
 
-    private bool criticalFired;
+    bool isCritical;
 
     private void Awake()
     {
@@ -31,25 +33,64 @@ public class ShipHealth : MonoBehaviour
         currentHealth = maxHealth;
     }
 
-    private void Update()
+    void Update()
     {
-        if (!drainingActive || !IsAlive) return;
-        ApplyDamage(drainPerSecond * Time.deltaTime);
+        if (currentHealth <= 0) return;
+
+        // Contar estaciones rotas activamente
+        int brokenCount = CountBrokenStations();
+
+        if (brokenCount > 0)
+        {
+            // Drenar según cuántas estaciones están rotas
+            float drain = brokenCount * drainPerBrokenStation * Time.deltaTime;
+            currentHealth -= drain;
+            currentHealth = Mathf.Max(0, currentHealth);
+            OnHealthChanged?.Invoke(currentHealth / maxHealth);
+
+            if (currentHealth <= 0)
+            {
+                OnShipDestroyed?.Invoke();
+                Debug.Log("[ShipHealth] NAVE DESTRUIDA");
+            }
+            else if (!isCritical && currentHealth / maxHealth <= criticalThreshold)
+            {
+                isCritical = true;
+                OnShipCritical?.Invoke();
+                Debug.Log("[ShipHealth] ESTADO CRÍTICO");
+            }
+        }
+        else if (currentHealth < maxHealth)
+        {
+            // Regenerar lentamente cuando todo está OK
+            currentHealth += regenPerSecond * Time.deltaTime;
+            currentHealth = Mathf.Min(maxHealth, currentHealth);
+            OnHealthChanged?.Invoke(currentHealth / maxHealth);
+
+            if (isCritical && currentHealth / maxHealth > criticalThreshold)
+            {
+                isCritical = false;
+                OnShipRecovered?.Invoke();
+                Debug.Log("[ShipHealth] Nave recuperada");
+            }
+        }
+    }
+
+    int CountBrokenStations()
+    {
+        var stations = FindObjectsOfType<RepairStation>();
+        int count = 0;
+        foreach (var s in stations)
+            if (s.State == RepairStation.StationState.Broken)
+                count++;
+        return count;
     }
 
     public void ApplyDamage(float amount)
     {
         if (!IsAlive) return;
-        currentHealth = Mathf.Clamp(currentHealth - amount, 0f, maxHealth);
+        currentHealth = Mathf.Max(0f, currentHealth - amount);
         OnHealthChanged?.Invoke(HealthPercent);
-
-        if (!criticalFired && currentHealth <= maxHealth * 0.3f)
-        {
-            criticalFired = true;
-            OnShipCritical?.Invoke();
-            Debug.Log("[ShipHealth] CRITICAL! Ship below 30%");
-        }
-
         if (currentHealth <= 0f)
         {
             OnShipDestroyed?.Invoke();
@@ -60,10 +101,7 @@ public class ShipHealth : MonoBehaviour
     public void Repair(float amount)
     {
         if (!IsAlive) return;
-        currentHealth = Mathf.Clamp(currentHealth + amount, 0f, maxHealth);
-        if (currentHealth > maxHealth * 0.3f) criticalFired = false;
+        currentHealth = Mathf.Min(maxHealth, currentHealth + amount);
         OnHealthChanged?.Invoke(HealthPercent);
     }
-
-    public void SetDraining(bool active) => drainingActive = active;
 }

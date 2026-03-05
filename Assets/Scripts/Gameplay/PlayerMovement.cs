@@ -95,7 +95,7 @@ public class PlayerMovement : MonoBehaviour
 
         Vector3 dir = (forward * moveInput.y + right * moveInput.x).normalized;
         float control = isGrounded ? 1f : data.airControlMultiplier;
-        rb.AddForce(dir * (data.moveForce * control), ForceMode.Force);
+        rb.AddForce(dir * (data.moveForce * control * 2f), ForceMode.Force);
 
         if (dir.sqrMagnitude > 0.01f)
         {
