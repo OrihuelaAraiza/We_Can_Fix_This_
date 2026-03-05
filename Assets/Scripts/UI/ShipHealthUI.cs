@@ -4,63 +4,83 @@ using TMPro;
 
 public class ShipHealthUI : MonoBehaviour
 {
-    [SerializeField] private Slider healthSlider;
-    [SerializeField] private Image  fillImage;
-    [SerializeField] private TextMeshProUGUI healthText;
-    [SerializeField] private TextMeshProUGUI statusText;
+    [Header("References")]
+    [SerializeField] Slider            healthSlider;
+    [SerializeField] TextMeshProUGUI   healthText;
+    [SerializeField] TextMeshProUGUI   statusText;
+    [SerializeField] Image             fillImage;
 
-    private static readonly Color ColorSafe     = new Color(0.2f, 0.8f, 0.2f);
-    private static readonly Color ColorWarning  = new Color(1f,   0.6f, 0f);
-    private static readonly Color ColorCritical = new Color(0.9f, 0.1f, 0.1f);
+    [Header("Colors")]
+    [SerializeField] Color colorGood     = new Color(0.2f, 0.8f, 0.3f);
+    [SerializeField] Color colorWarning  = new Color(0.9f, 0.6f, 0.1f);
+    [SerializeField] Color colorCritical = new Color(0.9f, 0.2f, 0.1f);
 
-    private void Start()
+    void OnEnable()
     {
-        if (ShipHealth.Instance == null) return;
-        ShipHealth.Instance.OnHealthChanged += UpdateUI;
-        ShipHealth.Instance.OnShipCritical  += OnCritical;
-        ShipHealth.Instance.OnShipDestroyed += OnDestroyed;
-        ShipHealth.OnShipRecovered          += OnShipRecovered;
-        UpdateUI(1f);
+        ShipHealth.OnHealthChanged  += UpdateHealth;
+        ShipHealth.OnShipCritical   += ShowCritical;
+        ShipHealth.OnShipRecovered  += ShowRecovered;
+        ShipHealth.OnShipDestroyed  += ShowDestroyed;
     }
 
-    private void OnDestroy()
+    void OnDisable()
     {
-        if (ShipHealth.Instance == null) return;
-        ShipHealth.Instance.OnHealthChanged -= UpdateUI;
-        ShipHealth.Instance.OnShipCritical  -= OnCritical;
-        ShipHealth.Instance.OnShipDestroyed -= OnDestroyed;
-        ShipHealth.OnShipRecovered          -= OnShipRecovered;
+        ShipHealth.OnHealthChanged  -= UpdateHealth;
+        ShipHealth.OnShipCritical   -= ShowCritical;
+        ShipHealth.OnShipRecovered  -= ShowRecovered;
+        ShipHealth.OnShipDestroyed  -= ShowDestroyed;
     }
 
-    private void UpdateUI(float percent)
+    void Start()
     {
-        if (healthSlider) healthSlider.value = percent;
-        if (healthText)   healthText.text    = $"{Mathf.RoundToInt(percent * 100)}%";
-        if (fillImage)
-        {
-            fillImage.color = percent > 0.6f ? ColorSafe :
-                              percent > 0.3f ? ColorWarning : ColorCritical;
-        }
+        // Inicializar UI limpia
+        SetStatus("", Color.white);
+        UpdateHealth(1f);
     }
 
-    private void OnCritical()
+    void UpdateHealth(float normalized)
     {
-        if (statusText) statusText.text = "⚠ CRITICAL";
-    }
+        if (healthSlider != null)
+            healthSlider.value = normalized;
 
-    private void OnDestroyed()
-    {
-        if (statusText) statusText.text = "✗ DESTROYED";
-    }
+        if (healthText != null)
+            healthText.text = $"{Mathf.RoundToInt(normalized * 100)}%";
 
-    private void OnShipRecovered()
-    {
-        if (statusText != null)
-        {
-            statusText.text  = "";
-            statusText.color = Color.white;
-        }
         if (fillImage != null)
-            fillImage.color = new Color(0.1f, 0.7f, 0.3f);
+        {
+            if (normalized > 0.6f)       fillImage.color = colorGood;
+            else if (normalized > 0.3f)  fillImage.color = colorWarning;
+            else                         fillImage.color = colorCritical;
+        }
+
+        // Limpiar status si salud está bien y no hay texto de destroyed
+        if (normalized > 0.3f && statusText != null
+            && statusText.text != "□ DESTROYED")
+        {
+            SetStatus("", Color.white);
+        }
+    }
+
+    void ShowCritical()
+    {
+        SetStatus("□ CRITICAL", colorCritical);
+    }
+
+    void ShowRecovered()
+    {
+        SetStatus("", Color.white);
+        Debug.Log("[ShipHealthUI] Status cleared — ship recovered");
+    }
+
+    void ShowDestroyed()
+    {
+        SetStatus("□ DESTROYED", colorCritical);
+    }
+
+    void SetStatus(string msg, Color color)
+    {
+        if (statusText == null) return;
+        statusText.text  = msg;
+        statusText.color = color;
     }
 }

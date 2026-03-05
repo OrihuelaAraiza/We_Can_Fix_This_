@@ -1,73 +1,69 @@
 using UnityEngine;
 
-// Controla las luces de emergencia globales de la nave
 public class EmergencyLightController : MonoBehaviour
 {
     [Header("References")]
-    [SerializeField] private Light directionalLight;
+    [SerializeField] Light directionalLight;
 
     [Header("Normal State")]
-    [SerializeField] private Color normalColor     = new Color(0.4f, 0.5f, 0.8f);
-    [SerializeField] private float normalIntensity = 0.8f;
+    [SerializeField] Color normalColor     = new Color(0.4f, 0.5f, 0.8f);
+    [SerializeField] float normalIntensity = 0.8f;
 
     [Header("Critical State")]
-    [SerializeField] private Color criticalColor     = new Color(0.8f, 0.1f, 0.05f);
-    [SerializeField] private float criticalIntensity = 1.2f;
-    [SerializeField] private float flickerSpeed      = 3f;
+    [SerializeField] Color criticalColor     = new Color(0.8f, 0.1f, 0.05f);
+    [SerializeField] float criticalIntensity = 1.2f;
+    [SerializeField] float flickerSpeed      = 3f;
 
-    private bool isCritical;
-    private float flickerTimer;
+    bool  isCritical;
+    float flickerTimer;
 
-    private void Start()
+    void OnEnable()
+    {
+        ShipHealth.OnShipCritical  += OnCritical;
+        ShipHealth.OnShipDestroyed += OnDestroyed;
+        ShipHealth.OnShipRecovered += OnRecovered;
+    }
+
+    void OnDisable()
+    {
+        ShipHealth.OnShipCritical  -= OnCritical;
+        ShipHealth.OnShipDestroyed -= OnDestroyed;
+        ShipHealth.OnShipRecovered -= OnRecovered;
+    }
+
+    void Start()
     {
         if (directionalLight == null)
             directionalLight = FindObjectOfType<Light>();
-
-        if (ShipHealth.Instance != null)
-        {
-            ShipHealth.Instance.OnShipCritical  += OnCritical;
-            ShipHealth.Instance.OnShipDestroyed += OnDestroyed;
-            ShipHealth.OnShipRecovered += OnRecovered;
-        }
         ApplyNormal();
     }
 
-    private void OnDestroy()
-    {
-        if (ShipHealth.Instance != null)
-        {
-            ShipHealth.Instance.OnShipCritical  -= OnCritical;
-            ShipHealth.Instance.OnShipDestroyed -= OnDestroyed;
-            ShipHealth.OnShipRecovered -= OnRecovered;
-        }
-    }
-
-    private void Update()
+    void Update()
     {
         if (!isCritical) return;
         flickerTimer += Time.deltaTime * flickerSpeed;
-        float flicker = 0.6f + 0.4f * Mathf.Sin(flickerTimer);
+        float f = 0.6f + 0.4f * Mathf.Sin(flickerTimer);
         if (directionalLight != null)
-            directionalLight.intensity = criticalIntensity * flicker;
+            directionalLight.intensity = criticalIntensity * f;
     }
 
-    private void OnCritical()
+    void OnCritical()
     {
         isCritical = true;
         if (directionalLight != null)
             directionalLight.color = criticalColor;
-        Debug.Log("[EmergencyLight] CRITICAL mode activated");
     }
 
-    private void OnRecovered()
+    void OnRecovered()
     {
         isCritical = false;
         ApplyNormal();
-        Debug.Log("[EmergencyLight] Normal mode restored");
+        Debug.Log("[EmergencyLight] Normal restored");
     }
 
-    private void OnDestroyed()
+    void OnDestroyed()
     {
+        isCritical = false;
         if (directionalLight != null)
         {
             directionalLight.color     = Color.red;
@@ -75,7 +71,7 @@ public class EmergencyLightController : MonoBehaviour
         }
     }
 
-    private void ApplyNormal()
+    void ApplyNormal()
     {
         if (directionalLight == null) return;
         directionalLight.color     = normalColor;

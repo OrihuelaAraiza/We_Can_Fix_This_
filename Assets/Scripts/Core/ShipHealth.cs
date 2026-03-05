@@ -19,10 +19,10 @@ public class ShipHealth : MonoBehaviour
     public float HealthPercent  => currentHealth / maxHealth;
     public bool  IsAlive        => currentHealth > 0f;
 
-    public event Action<float> OnHealthChanged;
-    public event Action        OnShipDestroyed;
-    public event Action        OnShipCritical;
-    public static event Action OnShipRecovered;
+    public static event Action<float> OnHealthChanged;
+    public static event Action        OnShipDestroyed;
+    public static event Action        OnShipCritical;
+    public static event Action        OnShipRecovered;
 
     bool isCritical;
 
