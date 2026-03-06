@@ -16,6 +16,10 @@ public class PlayerMovement : MonoBehaviour
     private Rigidbody rb;
     private Transform cameraTransform;
 
+    // ── Speed multipliers (rol system) ───────────────────────
+    private float speedMultiplier     = 1f;
+    private float tempBoostMultiplier = 1f;
+
     // ── Input state ───────────────────────────────────────────
     private Vector2 moveInput;
     private bool jumpPressed;
@@ -95,7 +99,7 @@ public class PlayerMovement : MonoBehaviour
 
         Vector3 dir = (forward * moveInput.y + right * moveInput.x).normalized;
         float control = isGrounded ? 1f : data.airControlMultiplier;
-        rb.AddForce(dir * (data.moveForce * control * 2f), ForceMode.Force);
+        rb.AddForce(dir * (data.moveForce * control * 2f * speedMultiplier * tempBoostMultiplier), ForceMode.Force);
 
         if (dir.sqrMagnitude > 0.01f)
         {
@@ -149,6 +153,25 @@ public class PlayerMovement : MonoBehaviour
             r.material = new Material(r.sharedMaterial) { color = color };
         }
         Debug.Log($"[PlayerMovement] Color applied: {color} to {renderers.Length} renderers");
+    }
+
+    // ── Speed multiplier API (rol system) ────────────────────
+    public void SetSpeedMultiplier(float multiplier)
+    {
+        speedMultiplier = multiplier;
+    }
+
+    public void ApplyTemporarySpeedBoost(float multiplier, float duration)
+    {
+        tempBoostMultiplier = multiplier;
+        StartCoroutine(RemoveBoostAfter(duration));
+    }
+
+    System.Collections.IEnumerator RemoveBoostAfter(float duration)
+    {
+        yield return new WaitForSeconds(duration);
+        tempBoostMultiplier = 1f;
+        Debug.Log("[PlayerMovement] Speed boost expired");
     }
 
     // ── Gizmos ────────────────────────────────────────────────

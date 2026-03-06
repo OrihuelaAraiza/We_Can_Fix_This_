@@ -7,16 +7,19 @@ public class PlayerInputHandler : MonoBehaviour
     private PlayerMovement _movement;
     private PlayerInput    _playerInput;
     private PlayerInteract _interact;
+    private PlayerRole     _role;
 
     private void Awake()
     {
         _movement    = GetComponent<PlayerMovement>();
         _playerInput = GetComponent<PlayerInput>();
         _interact    = GetComponent<PlayerInteract>();
+        _role        = GetComponent<PlayerRole>();
 
         if (_movement    == null) Debug.LogError("[Handler] No PlayerMovement!");
         if (_playerInput == null) Debug.LogError("[Handler] No PlayerInput!");
         if (_interact    == null) Debug.LogWarning("[Handler] No PlayerInteract - interact disabled");
+        if (_role        == null) Debug.LogWarning("[Handler] No PlayerRole - ability disabled");
     }
 
     private void OnEnable()
@@ -26,6 +29,7 @@ public class PlayerInputHandler : MonoBehaviour
         _playerInput.actions["Jump"].performed     += OnJumpPerformed;
         _playerInput.actions["Interact"].performed += OnInteractPerformed;
         _playerInput.actions["Interact"].canceled  += OnInteractCanceled;
+        _playerInput.actions["Ability"].performed  += OnAbilityPerformed;
     }
 
     private void OnDisable()
@@ -35,6 +39,7 @@ public class PlayerInputHandler : MonoBehaviour
         _playerInput.actions["Jump"].performed     -= OnJumpPerformed;
         _playerInput.actions["Interact"].performed -= OnInteractPerformed;
         _playerInput.actions["Interact"].canceled  -= OnInteractCanceled;
+        _playerInput.actions["Ability"].performed  -= OnAbilityPerformed;
     }
 
     private void OnMovePerformed(InputAction.CallbackContext ctx)
@@ -56,5 +61,11 @@ public class PlayerInputHandler : MonoBehaviour
     {
         Debug.Log("[Handler] Interact RELEASED");
         _interact?.SetInteractHeld(false);
+    }
+
+    private void OnAbilityPerformed(InputAction.CallbackContext ctx)
+    {
+        Debug.Log("[Handler] Ability PRESSED");
+        if (_role != null) _role.UseAbility();
     }
 }

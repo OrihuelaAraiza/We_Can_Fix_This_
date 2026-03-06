@@ -1,0 +1,29 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dbc6d02d22d814f068161162d409e81f, type: 3}
+  m_Name: Role Definition
+  m_EditorClassIdentifier: 
+  roleName: Fixie
+  description: 
+  roleColor: {r: 0, g: 0, b: 0, a: 0}
+  perkDescription: None
+  penaltyDescription: "\"Sin penalizaciones \u2014 el rol est\xE1ndar\""
+  moveSpeedMultiplier: 1
+  repairSpeedMultiplier: 1.2
+  canRepairWhileMoving: 1
+  cannotRepairEnergy: 0
+  repairDurabilityBonus: 0
+  ability: 0
+  abilityCooldown: 45
+  shipHealthPenaltyOnKnockout: 0
+  immuneToNPCPush: 0
+  cannotRepairManually: 0

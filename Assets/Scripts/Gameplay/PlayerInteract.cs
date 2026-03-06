@@ -14,6 +14,7 @@ public class PlayerInteract : MonoBehaviour
     private PlayerMovement movement;
     private IInteractable currentTarget;
     private bool holdingInteract;
+    private float repairMultiplier = 1f;
 
     private void Awake() => movement = GetComponent<PlayerMovement>();
 
@@ -60,7 +61,7 @@ public class PlayerInteract : MonoBehaviour
         }
         else if (holdingInteract && isInteracting)
         {
-            currentTarget.OnInteractHeld(movement, Time.deltaTime);
+            currentTarget.OnInteractHeld(movement, Time.deltaTime * repairMultiplier);
         }
         else if (!holdingInteract && isInteracting)
         {
@@ -78,6 +79,11 @@ public class PlayerInteract : MonoBehaviour
             isInteracting = false;
         }
         holdingInteract = held;
+    }
+
+    public void SetRepairMultiplier(float multiplier)
+    {
+        repairMultiplier = multiplier;
     }
 
     public IInteractable CurrentTarget => currentTarget;

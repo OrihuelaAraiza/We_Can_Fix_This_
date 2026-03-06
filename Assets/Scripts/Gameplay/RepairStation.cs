@@ -134,6 +134,32 @@ public class RepairStation : MonoBehaviour, IInteractable
         stationRenderer.material = stateMat;
     }
 
+    // Para habilidad Hacker — avanza progreso de reparación
+    public void ApplyRemoteRepairBoost(float progressAmount)
+    {
+        if (state != StationState.Broken) return;
+        repairProgress += progressAmount;
+        repairProgress  = Mathf.Clamp01(repairProgress);
+        Debug.Log($"[RepairStation] Remote boost applied: {repairProgress:P0}");
+        if (repairProgress >= 1f)
+            CompleteRepair();
+    }
+
+    // Para habilidad Mecánico — resetea degradación acumulada
+    public void ResetDegradation()
+    {
+        // Si la estación tiene un timer de degradación, resetearlo
+        // Por ahora simplemente repara si está rota
+        if (state == StationState.Broken)
+        {
+            state          = StationState.Functional;
+            repairProgress = 0f;
+            ApplyStateVisual();
+            OnRepaired?.Invoke(this);
+            Debug.Log($"[RepairStation] Degradation reset: {stationType}");
+        }
+    }
+
     private void OnDrawGizmos()
     {
         Color g = state switch
