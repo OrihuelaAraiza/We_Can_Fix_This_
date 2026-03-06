@@ -1,0 +1,29 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dbc6d02d22d814f068161162d409e81f, type: 3}
+  m_Name: Hacker
+  m_EditorClassIdentifier: 
+  roleName: 
+  description: 
+  roleColor: {r: 0.2901961, g: 0.9098039, b: 0.7607843, a: 0}
+  perkDescription: 
+  penaltyDescription: "No puede reparar Energ\xEDa manualmente"
+  moveSpeedMultiplier: 1
+  repairSpeedMultiplier: 1
+  canRepairWhileMoving: 0
+  cannotRepairEnergy: 1
+  repairDurabilityBonus: 0
+  ability: 1
+  abilityCooldown: 45
+  shipHealthPenaltyOnKnockout: 0
+  immuneToNPCPush: 0
+  cannotRepairManually: 0
