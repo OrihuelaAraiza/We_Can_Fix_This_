@@ -24,6 +24,38 @@ public class GameManager : MonoBehaviour
         Instance = this;
     }
 
+    void Start()
+    {
+        ApplySelectedRoles();
+    }
+
+    void ApplySelectedRoles()
+    {
+        var players = FindObjectsOfType<PlayerRole>();
+        foreach (var playerRole in players)
+        {
+            var movement = playerRole.GetComponent<PlayerMovement>();
+            if (movement == null) continue;
+
+            int index = movement.PlayerIndex;
+            var role  = RoleSelectionData.GetRole(index);
+
+            if (role != null)
+            {
+                playerRole.AssignRole(role);
+                Debug.Log($"[GameManager] Applied role {role.roleName} to P{index}");
+            }
+            else
+            {
+                // Si no hay selección (debug directo a gameplay),
+                // buscar ScriptableObject Fixie por defecto
+                var defaultRole = Resources.Load<RoleDefinition>("Roles/Fixie");
+                if (defaultRole != null)
+                    playerRole.AssignRole(defaultRole);
+            }
+        }
+    }
+
     void OnEnable()
     {
         ShipHealth.OnShipDestroyed += HandleGameOver;

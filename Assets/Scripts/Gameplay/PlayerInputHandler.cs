@@ -29,7 +29,9 @@ public class PlayerInputHandler : MonoBehaviour
         _playerInput.actions["Jump"].performed     += OnJumpPerformed;
         _playerInput.actions["Interact"].performed += OnInteractPerformed;
         _playerInput.actions["Interact"].canceled  += OnInteractCanceled;
-        _playerInput.actions["Ability"].performed  += OnAbilityPerformed;
+        // "Ability" acción requerida en el Input Actions Asset (Q / Numpad2 / Button North)
+        try { _playerInput.actions["Ability"].performed += OnAbilityPerformed; }
+        catch { Debug.LogWarning("[Handler] 'Ability' action not found in InputActions asset — add it to enable role abilities."); }
     }
 
     private void OnDisable()
@@ -39,7 +41,8 @@ public class PlayerInputHandler : MonoBehaviour
         _playerInput.actions["Jump"].performed     -= OnJumpPerformed;
         _playerInput.actions["Interact"].performed -= OnInteractPerformed;
         _playerInput.actions["Interact"].canceled  -= OnInteractCanceled;
-        _playerInput.actions["Ability"].performed  -= OnAbilityPerformed;
+        try { _playerInput.actions["Ability"].performed -= OnAbilityPerformed; }
+        catch { /* silencioso — ya se loggeó en OnEnable */ }
     }
 
     private void OnMovePerformed(InputAction.CallbackContext ctx)
