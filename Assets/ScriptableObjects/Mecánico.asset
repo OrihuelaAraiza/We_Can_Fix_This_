@@ -15,7 +15,7 @@ MonoBehaviour:
   roleName: "Mec\xE1nico"
   description: 
   roleColor: {r: 0.9098039, g: 0.7607843, b: 0.2901961, a: 0}
-  perkDescription: 
+  perkDescription: Reparaciones dejan +50% durabilidad. Resetea cooldown 1x
   penaltyDescription: "-40% velocidad de reparaci\xF3n\n"
   moveSpeedMultiplier: 1
   repairSpeedMultiplier: 0.6

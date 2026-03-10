@@ -63,6 +63,26 @@ public class PlayerManager : MonoBehaviour
         movement.Initialize(index, playerData, cameraTransform);
         players.Add(movement);
 
+        // -- Aplicar rol guardado desde el lobby --
+        var playerRole = playerInput.GetComponent<PlayerRole>();
+        if (playerRole != null)
+        {
+            var roleDef = RoleSelectionData.GetRole(index);
+            if (roleDef != null)
+            {
+                playerRole.AssignRole(roleDef);
+                Debug.Log($"[PlayerManager] Rol '{roleDef.roleName}' aplicado a P{index}");
+            }
+            else
+            {
+                Debug.LogWarning($"[PlayerManager] Sin rol guardado para P{index} — sin restricciones");
+            }
+        }
+        else
+        {
+            Debug.LogWarning($"[PlayerManager] PlayerRole no encontrado en P{index} — sin rol");
+        }
+
         Debug.Log($"[PlayerManager] Player {index + 1} fully initialized. Total players: {players.Count}");
     }
 

@@ -12,11 +12,16 @@ public class PlayerInteract : MonoBehaviour
     [SerializeField] private string currentLabel;
 
     private PlayerMovement movement;
+    private PlayerRole     playerRole;
     private IInteractable currentTarget;
     private bool holdingInteract;
     private float repairMultiplier = 1f;
 
-    private void Awake() => movement = GetComponent<PlayerMovement>();
+    private void Awake()
+    {
+        movement   = GetComponent<PlayerMovement>();
+        playerRole = GetComponent<PlayerRole>();
+    }
 
     private void Update()
     {
@@ -50,12 +55,38 @@ public class PlayerInteract : MonoBehaviour
         currentLabel = best?.GetInteractLabel() ?? "";
     }
 
+    // Devuelve false si el rol del jugador prohíbe reparar esta estación
+    private bool CanRepairStation(RepairStation station)
+    {
+        if (playerRole == null || playerRole.Role == null) return true;
+
+        var role = playerRole.Role;
+
+        if (role.cannotRepairManually)
+        {
+            Debug.Log($"[Interact] {role.roleName} no puede reparar manualmente");
+            return false;
+        }
+
+        if (role.cannotRepairEnergy &&
+            station.Type == RepairStation.StationType.Energy)
+        {
+            Debug.Log($"[Interact] {role.roleName} no puede reparar Energía");
+            return false;
+        }
+
+        return true;
+    }
+
     private void HandleHold()
     {
         if (currentTarget == null) return;
 
         if (holdingInteract && !isInteracting)
         {
+            // Verificar restricciones de rol antes de iniciar reparación
+            if (currentTarget is RepairStation rs && !CanRepairStation(rs)) return;
+
             isInteracting = true;
             currentTarget.OnInteractStart(movement);
         }

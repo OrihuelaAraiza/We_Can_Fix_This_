@@ -24,34 +24,50 @@ public class GameManager : MonoBehaviour
         Instance = this;
     }
 
+    // Roles aplicados principalmente en PlayerManager.OnPlayerJoined().
+    // ApplySelectedRoles() actúa como fallback de diagnóstico.
+
     void Start()
     {
-        ApplySelectedRoles();
+        // Llamar con delay para dar tiempo al PlayerInputManager de spawnear jugadores
+        Invoke(nameof(ApplySelectedRoles), 0.5f);
     }
 
     void ApplySelectedRoles()
     {
-        var players = FindObjectsOfType<PlayerRole>();
-        foreach (var playerRole in players)
+        Debug.Log("[GameManager] ApplySelectedRoles called");
+
+        // Buscar por PlayerMovement (componente garantizado en el prefab)
+        var movements = FindObjectsOfType<PlayerMovement>();
+        Debug.Log($"[GameManager] Found {movements.Length} players con PlayerMovement");
+
+        foreach (var movement in movements)
         {
-            var movement = playerRole.GetComponent<PlayerMovement>();
-            if (movement == null) continue;
+            // Agregar PlayerRole si el prefab no lo tiene
+            if (!movement.TryGetComponent<PlayerRole>(out var pr))
+            {
+                pr = movement.gameObject.AddComponent<PlayerRole>();
+                Debug.Log($"[GameManager] PlayerRole agregado dinámicamente a P{movement.PlayerIndex}");
+            }
 
             int index = movement.PlayerIndex;
             var role  = RoleSelectionData.GetRole(index);
 
             if (role != null)
             {
-                playerRole.AssignRole(role);
-                Debug.Log($"[GameManager] Applied role {role.roleName} to P{index}");
+                if (pr.Role == null)
+                {
+                    pr.AssignRole(role);
+                    Debug.Log($"[GameManager] ✓ {role.roleName} → P{index}");
+                }
+                else
+                {
+                    Debug.Log($"[GameManager] P{index} ya tiene '{pr.Role.roleName}' — skip");
+                }
             }
             else
             {
-                // Si no hay selección (debug directo a gameplay),
-                // buscar ScriptableObject Fixie por defecto
-                var defaultRole = Resources.Load<RoleDefinition>("Roles/Fixie");
-                if (defaultRole != null)
-                    playerRole.AssignRole(defaultRole);
+                Debug.LogWarning($"[GameManager] Sin rol guardado para P{index}");
             }
         }
     }

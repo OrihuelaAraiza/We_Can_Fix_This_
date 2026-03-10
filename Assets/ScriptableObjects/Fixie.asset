@@ -15,8 +15,8 @@ MonoBehaviour:
   roleName: Fixie
   description: 
   roleColor: {r: 0, g: 0, b: 0, a: 0}
-  perkDescription: None
-  penaltyDescription: "\"Sin penalizaciones \u2014 el rol est\xE1ndar\""
+  perkDescription: "Repara 20% m\xE1s r\xE1pido. Puede reparar en movimiento"
+  penaltyDescription: "Sin penalizaciones \u2014 el rol est\xE1ndar"
   moveSpeedMultiplier: 1
   repairSpeedMultiplier: 1.2
   canRepairWhileMoving: 1

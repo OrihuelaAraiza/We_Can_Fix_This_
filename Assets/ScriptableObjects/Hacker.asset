@@ -12,10 +12,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: dbc6d02d22d814f068161162d409e81f, type: 3}
   m_Name: Hacker
   m_EditorClassIdentifier: 
-  roleName: 
+  roleName: Hacker
   description: 
   roleColor: {r: 0.2901961, g: 0.9098039, b: 0.7607843, a: 0}
-  perkDescription: 
+  perkDescription: "Repara estaci\xF3n remota c/45s. Ve todas las fallas en mapa"
   penaltyDescription: "No puede reparar Energ\xEDa manualmente"
   moveSpeedMultiplier: 1
   repairSpeedMultiplier: 1

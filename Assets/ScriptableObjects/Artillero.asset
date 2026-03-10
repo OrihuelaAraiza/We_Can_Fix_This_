@@ -15,7 +15,7 @@ MonoBehaviour:
   roleName: Artillero
   description: 
   roleColor: {r: 0.9098039, g: 0.3647059, b: 0.2901961, a: 0}
-  perkDescription: 
+  perkDescription: "x2 da\xF1o a Smoggos. Activa torreta remotamente 1x"
   penaltyDescription: -30% velocidad de movimiento
   moveSpeedMultiplier: 0.7
   repairSpeedMultiplier: 1

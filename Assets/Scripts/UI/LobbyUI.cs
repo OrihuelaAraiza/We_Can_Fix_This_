@@ -51,10 +51,73 @@ public class LobbyUI : MonoBehaviour
         playerPanels[playerIndex].Initialize(playerIndex, roles);
         playerPanels[playerIndex].SetVisible(true);
         RepositionPanels(playerIndex + 1);
+        ConnectPanelButtons(playerIndex);
 
         // Ocultar instrucciones cuando el último slot se ocupa
         if (joinPromptPanel != null && playerIndex >= 3)
             joinPromptPanel.SetActive(false);
+    }
+
+    // ── Conexión de botones desde el MonoBehaviour ─────────────
+    // PlayerLobbyPanel es [Serializable], no MonoBehaviour.
+    // Los listeners se registran aquí para garantizar que el
+    // contexto del MonoBehaviour (this) sea el punto de captura.
+
+    void ConnectPanelButtons(int playerIndex)
+    {
+        if (playerIndex >= playerPanels.Count) return;
+        var panel = playerPanels[playerIndex];
+
+        if (panel.prevRoleButton != null)
+        {
+            panel.prevRoleButton.onClick.RemoveAllListeners();
+            int idx = playerIndex;
+            panel.prevRoleButton.onClick.AddListener(() => OnPrevRole(idx));
+        }
+
+        if (panel.nextRoleButton != null)
+        {
+            panel.nextRoleButton.onClick.RemoveAllListeners();
+            int idx = playerIndex;
+            panel.nextRoleButton.onClick.AddListener(() => OnNextRole(idx));
+        }
+
+        if (panel.readyButton != null)
+        {
+            panel.readyButton.onClick.RemoveAllListeners();
+            int idx = playerIndex;
+            panel.readyButton.onClick.AddListener(() => OnReadyButton(idx));
+        }
+
+        Debug.Log($"[LobbyUI] Botones conectados para P{playerIndex}");
+    }
+
+    void OnPrevRole(int playerIndex)
+    {
+        Debug.Log($"[LobbyUI] PrevRole P{playerIndex}");
+        var roles   = LobbyManager.Instance?.GetAvailableRoles();
+        if (roles == null || roles.Count == 0) return;
+        var current = LobbyManager.Instance.GetSelectedRole(playerIndex);
+        int idx     = roles.IndexOf(current);
+        int prev    = (idx - 1 + roles.Count) % roles.Count;
+        LobbyManager.Instance.SelectRole(playerIndex, roles[prev]);
+    }
+
+    void OnNextRole(int playerIndex)
+    {
+        Debug.Log($"[LobbyUI] NextRole P{playerIndex}");
+        var roles   = LobbyManager.Instance?.GetAvailableRoles();
+        if (roles == null || roles.Count == 0) return;
+        var current = LobbyManager.Instance.GetSelectedRole(playerIndex);
+        int idx     = roles.IndexOf(current);
+        int next    = (idx + 1) % roles.Count;
+        LobbyManager.Instance.SelectRole(playerIndex, roles[next]);
+    }
+
+    void OnReadyButton(int playerIndex)
+    {
+        Debug.Log($"[LobbyUI] ReadyButton P{playerIndex}");
+        LobbyManager.Instance?.ToggleReady(playerIndex);
     }
 
     void RepositionPanels(int activePanelCount)
@@ -142,15 +205,45 @@ public class PlayerLobbyPanel
         if (playerLabel != null)
             playerLabel.text = $"JUGADOR {index + 1}";
 
-        // Asignar listeners
+        // Forzar texto visible en botones
+        SetButtonText(prevRoleButton, "◀");
+        SetButtonText(nextRoleButton, "▶");
+        SetButtonText(readyButton,    "READY");
+
+        // Remover listeners anteriores
+        prevRoleButton?.onClick.RemoveAllListeners();
+        nextRoleButton?.onClick.RemoveAllListeners();
+        readyButton?.onClick.RemoveAllListeners();
+
+        // Capturar índice en closure para que cada panel tenga su propio valor
+        int capturedIndex = index;
+
         if (prevRoleButton != null)
-            prevRoleButton.onClick.AddListener(PrevRole);
+            prevRoleButton.onClick.AddListener(() => {
+                PrevRole();
+                Debug.Log($"[Lobby] BtnPrev clicked P{capturedIndex}");
+            });
+
         if (nextRoleButton != null)
-            nextRoleButton.onClick.AddListener(NextRole);
+            nextRoleButton.onClick.AddListener(() => {
+                NextRole();
+                Debug.Log($"[Lobby] BtnNext clicked P{capturedIndex}");
+            });
+
         if (readyButton != null)
-            readyButton.onClick.AddListener(ToggleReady);
+            readyButton.onClick.AddListener(() => {
+                ToggleReady();
+                Debug.Log($"[Lobby] BtnReady clicked P{capturedIndex}");
+            });
 
         RefreshDisplay();
+    }
+
+    void SetButtonText(Button btn, string text)
+    {
+        if (btn == null) return;
+        var tmp = btn.GetComponentInChildren<TextMeshProUGUI>();
+        if (tmp != null) { tmp.text = text; tmp.color = Color.black; }
     }
 
     void PrevRole()
@@ -169,6 +262,7 @@ public class PlayerLobbyPanel
 
     void ToggleReady()
     {
+        Debug.Log($"[Lobby] ToggleReady llamado para playerIndex={playerIndex}");
         LobbyManager.Instance?.ToggleReady(playerIndex);
     }
 

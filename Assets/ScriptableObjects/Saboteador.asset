@@ -15,7 +15,7 @@ MonoBehaviour:
   roleName: Saboteador
   description: 
   roleColor: {r: 0.9098039, g: 0.2901961, b: 0.2901961, a: 0}
-  perkDescription: 
+  perkDescription: "Bomba el\xE9ctrica vs drones. Inmune a empujones de NPCs"
   penaltyDescription: -25% salud de nave si es noqueado
   moveSpeedMultiplier: 1.1
   repairSpeedMultiplier: 1
