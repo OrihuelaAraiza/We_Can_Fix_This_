@@ -107,4 +107,28 @@ public class FailureSystem : MonoBehaviour
 
     public void SetActive(bool value) => active = value;
     public List<RepairStation> GetAllStations() => allStations;
+
+    // Métodos estáticos para que clases externas disparen los eventos sin violar CS0070
+    public static void NotifyStationFailed(RepairStation station)   => OnStationFailed?.Invoke(station);
+    public static void NotifyStationRepaired(RepairStation station) => OnStationRepaired?.Invoke(station);
+
+    /// <summary>Fuerza una falla en una estación específica (llamado por CoreXBrain).</summary>
+    public void ForceFailStation(RepairStation station)
+    {
+        if (station == null) return;
+        if (station.State == RepairStation.StationState.Broken ||
+            station.State == RepairStation.StationState.Repairing) return;
+
+        station.TriggerFailure();
+        totalFailures++;
+        Debug.Log($"[FailureSystem] CoreX forzó falla en: {station.Type}");
+    }
+
+    /// <summary>Cambia la tasa de fallas (fallas por minuto). CoreXBrain llama esto al entrar de fase.</summary>
+    public void SetFailureRate(float failuresPerMinute)
+    {
+        if (failuresPerMinute <= 0) return;
+        currentInterval = Mathf.Max(minimumFailureInterval, 60f / failuresPerMinute);
+        Debug.Log($"[FailureSystem] Failure rate -> {failuresPerMinute:F1}/min (interval={currentInterval:F1}s)");
+    }
 }

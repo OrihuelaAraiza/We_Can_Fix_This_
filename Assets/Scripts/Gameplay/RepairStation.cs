@@ -88,6 +88,19 @@ public class RepairStation : MonoBehaviour, IInteractable
         => state == StationState.Broken ? $"Reparar {stationType} [E]" : "";
 
     // ── Public API ─────────────────────────────────────────────
+
+    /// <summary>Rompe la estación y dispara el evento estático de FailureSystem (usado por CoreX).</summary>
+    public void TriggerFailure()
+    {
+        if (state == StationState.Broken || state == StationState.Repairing) return;
+        state         = StationState.Broken;
+        repairProgress = 0f;
+        ApplyStateVisual();
+        FailureSystem.NotifyStationFailed(this);
+        OnBroken?.Invoke(this);
+        Debug.Log($"[RepairStation] {stationType} FALLO (CoreX)");
+    }
+
     public void BreakStation()
     {
         if (state == StationState.Broken || state == StationState.Repairing) return;

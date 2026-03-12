@@ -205,9 +205,9 @@ public class PlayerLobbyPanel
         if (playerLabel != null)
             playerLabel.text = $"JUGADOR {index + 1}";
 
-        // Forzar texto visible en botones
-        SetButtonText(prevRoleButton, "◀");
-        SetButtonText(nextRoleButton, "▶");
+        // Forzar texto visible en botones (ASCII — evita warnings de Unicode con LiberationSans)
+        SetButtonText(prevRoleButton, "<");
+        SetButtonText(nextRoleButton, ">");
         SetButtonText(readyButton,    "READY");
 
         // Remover listeners anteriores
@@ -282,7 +282,7 @@ public class PlayerLobbyPanel
         if (perkText != null)
             perkText.text = role.perkDescription;
         if (penaltyText != null)
-            penaltyText.text = "⚠ " + role.penaltyDescription;
+            penaltyText.text = "! " + role.penaltyDescription;
         if (roleColorBar != null)
             roleColorBar.color = role.roleColor;
     }

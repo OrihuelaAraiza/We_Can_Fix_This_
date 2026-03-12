@@ -99,6 +99,13 @@ public class GameManager : MonoBehaviour
         Debug.Log("[GameManager] VICTORIA");
     }
 
+    /// <summary>Llamado por CoreXBrain cuando el Core-X es derrotado.</summary>
+    public void TriggerVictory()
+    {
+        Debug.Log("[GameManager] Core-X derrotado — VICTORIA!");
+        HandleGameWon();
+    }
+
     void RestartScene()
     {
         SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
