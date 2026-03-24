@@ -2,7 +2,8 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 
-public class ShipHealthUI : MonoBehaviour
+// Legacy — replaced by Assets/Scripts/UI/HUD/ShipHealthUI.cs
+public class LegacyShipHealthUI : MonoBehaviour
 {
     [Header("References")]
     [SerializeField] Slider            healthSlider;
