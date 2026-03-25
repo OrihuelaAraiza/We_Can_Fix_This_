@@ -102,6 +102,9 @@ public class PlayerManager : MonoBehaviour
     public IReadOnlyList<PlayerMovement> GetPlayers() => players;
     public int PlayerCount => players.Count;
 
+    /// Called by ShipLayoutGenerator at runtime to wire procedurally-placed spawn points.
+    public void SetSpawnPoints(Transform[] points) => spawnPoints = points;
+
     // ── Gizmos ────────────────────────────────────────────────
     private void OnDrawGizmos()
     {
