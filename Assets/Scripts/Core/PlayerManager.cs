@@ -16,6 +16,9 @@ public class PlayerManager : MonoBehaviour
 
     private readonly List<PlayerMovement> players = new();
 
+    /// Fired whenever a player joins or leaves — PlayerSlotsUI listens to this.
+    public static event System.Action OnPlayerCountChanged;
+
     // ── Singleton ──────────────────────────────────────────────
     private void Awake()
     {
@@ -62,6 +65,7 @@ public class PlayerManager : MonoBehaviour
         // -- Inicializar --
         movement.Initialize(index, playerData, cameraTransform);
         players.Add(movement);
+        OnPlayerCountChanged?.Invoke();
 
         // -- Aplicar rol guardado desde el lobby --
         var playerRole = playerInput.GetComponent<PlayerRole>();
@@ -90,6 +94,7 @@ public class PlayerManager : MonoBehaviour
     {
         PlayerMovement movement = playerInput.GetComponent<PlayerMovement>();
         if (movement != null) players.Remove(movement);
+        OnPlayerCountChanged?.Invoke();
         Debug.Log($"[PlayerManager] Player {playerInput.playerIndex + 1} left.");
     }
 

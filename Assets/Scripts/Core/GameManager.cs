@@ -106,6 +106,13 @@ public class GameManager : MonoBehaviour
         HandleGameWon();
     }
 
+    /// <summary>Llamado por SurvivalTimerUI cuando el tiempo se agota.</summary>
+    public void OnTimerExpired()
+    {
+        Debug.Log("[GameManager] Timer expired — DERROTA!");
+        HandleGameOver();
+    }
+
     void RestartScene()
     {
         SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);

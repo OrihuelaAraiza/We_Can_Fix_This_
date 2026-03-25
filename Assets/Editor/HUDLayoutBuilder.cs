@@ -7,591 +7,731 @@ using TMPro;
 
 /// <summary>
 /// Tools > WCFT > Build HUD Layout
-/// Destroys all UI children on GameplayCanvas, then reconstructs the full
-/// lo-fi terminal HUD with all design tokens, scripts, and serialized-field wiring.
-/// Run from the 02_Gameplay scene. Ctrl+Z undoes everything.
+/// Destroys all UI children on GameplayCanvas and reconstructs the full
+/// lo-fi terminal HUD. Run from the 02_Gameplay scene. Ctrl+Z undoes.
 /// </summary>
 public static class HUDLayoutBuilder
 {
-    // ── Design tokens ────────────────────────────────────────────────────
+    // ── Design tokens ─────────────────────────────────────────────────────
     static readonly Color BG          = Hex("#161a1e");
     static readonly Color Border      = Hex("#2a3040");
     static readonly Color BarBG       = Hex("#0e1218");
-    static readonly Color BarFill     = Hex("#2a7040");
     static readonly Color TextPrimary = Hex("#c8d8c0");
     static readonly Color TextDim     = Hex("#607060");
     static readonly Color TextLabel   = Hex("#485848");
     static readonly Color Screw       = Hex("#1e2830");
+    static readonly Color Transparent = new Color(0, 0, 0, 0);
 
     // Player accent colors [0..3] = P1..P4
-    static readonly Color[] PlayerBorder       = { Hex("#3a6080"), Hex("#803a50"), Hex("#708030"), Hex("#5a4080") };
-    static readonly Color[] PlayerLabel        = { Hex("#60a0d0"), Hex("#d06080"), Hex("#a8c040"), Hex("#9060d0") };
-    static readonly Color[] PlayerName         = { Hex("#4880a8"), Hex("#a84868"), Hex("#88a030"), Hex("#7848a8") };
-    static readonly Color[] PlayerIconStroke   = { Hex("#284858"), Hex("#582838"), Hex("#485820"), Hex("#382858") };
+    static readonly Color[] PlayerBorder     = { Hex("#182618"), Hex("#182030"), Hex("#282008"), Hex("#2a2a2a") };
+    static readonly Color[] PlayerLabel      = { Hex("#284820"), Hex("#20304a"), Hex("#483808"), Hex("#333333") };
+    static readonly Color[] PlayerName       = { Hex("#8aaa88"), Hex("#88a0c8"), Hex("#c8b870"), Hex("#333333") };
+    static readonly Color[] PlayerIconBG     = { Hex("#101410"), Hex("#101218"), Hex("#141008"), new Color(0,0,0,0) };
+    static readonly Color[] PlayerIconStroke = { Hex("#203018"), Hex("#182840"), Hex("#403010"), Hex("#2a2a2a") };
 
-    // Bar fill colors by semantic role
+    // Bar fill colors
     static readonly Color BarIntegrity = Hex("#2a7040");
     static readonly Color BarPower     = Hex("#204878");
     static readonly Color BarHull      = Hex("#483018");
     static readonly Color BarAggress   = Hex("#7a2820");
 
-    static readonly Color Transparent = new Color(0, 0, 0, 0);
-
-    // ── Font handles (loaded once) ────────────────────────────────────────
+    // ── Font handles (reset each run) ─────────────────────────────────────
     static TMP_FontAsset _vt323;
     static TMP_FontAsset _caveat;
 
-    static TMP_FontAsset VT323  => _vt323  ??= AssetDatabase.LoadAssetAtPath<TMP_FontAsset>("Assets/Fonts/VT323 SDF.asset");
-    static TMP_FontAsset Caveat => _caveat ??= AssetDatabase.LoadAssetAtPath<TMP_FontAsset>("Assets/Fonts/Caveat-Bold SDF.asset");
+    static TMP_FontAsset VT323  => _vt323  ??=
+        AssetDatabase.LoadAssetAtPath<TMP_FontAsset>("Assets/Fonts/VT323 SDF.asset") ??
+        AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(
+            "Assets/TextMesh Pro/Resources/Fonts & Materials/LiberationSans SDF.asset");
+
+    static TMP_FontAsset Caveat => _caveat ??=
+        AssetDatabase.LoadAssetAtPath<TMP_FontAsset>("Assets/Fonts/Caveat-Bold SDF.asset");
 
     // ── Entry point ───────────────────────────────────────────────────────
     [MenuItem("Tools/WCFT/Build HUD Layout")]
     static void BuildHUDLayout()
     {
+        _vt323  = null;   // force fresh load each run
+        _caveat = null;
+
         var canvasGO = GameObject.Find("GameplayCanvas");
         if (canvasGO == null)
         {
             EditorUtility.DisplayDialog("HUDLayoutBuilder",
-                "GameplayCanvas not found.\nOpen the 02_Gameplay scene and try again.", "OK");
+                "GameplayCanvas not found.\nOpen 02_Gameplay and try again.", "OK");
             return;
         }
 
         if (!EditorUtility.DisplayDialog("HUDLayoutBuilder",
-            "This will DESTROY all children of GameplayCanvas and rebuild the HUD from scratch.\n\nContinue?",
+            "Destroy all children of GameplayCanvas and rebuild HUD?\n\nCtrl+Z undoes.",
             "Yes, rebuild", "Cancel"))
             return;
 
         Undo.IncrementCurrentGroup();
         Undo.SetCurrentGroupName("Build HUD Layout");
 
-        // Clear existing children
         var canvasTr = canvasGO.transform;
         for (int i = canvasTr.childCount - 1; i >= 0; i--)
             Undo.DestroyObjectImmediate(canvasTr.GetChild(i).gameObject);
 
-        // ── Build panels ──────────────────────────────────────────────────
         BuildShipHealthPanel(canvasTr);
+        BuildTimerPanel(canvasTr);
         BuildCoreXPanel(canvasTr);
-        BuildFailureListPanel(canvasTr);
+        BuildStationStatusPanel(canvasTr);
         BuildPlayerSlotsPanel(canvasTr);
         BuildWinLosePanel(canvasTr);
 
-        // ── Wire HUDManager ───────────────────────────────────────────────
         WireHUDManager(canvasGO);
+        WireAlertSystem(canvasGO);
 
-        // ── Save & finish ──────────────────────────────────────────────────
-        EditorSceneManager.SaveScene(SceneManager.GetActiveScene());
         EditorSceneManager.MarkSceneDirty(SceneManager.GetActiveScene());
+        EditorSceneManager.SaveScene(SceneManager.GetActiveScene());
 
-        Debug.Log("[HUDLayoutBuilder] ✓ HUD layout built, wired, and scene saved.\n" +
-                  "Remaining manual steps:\n" +
-                  "  1. Create UIStyleConfig asset (Assets/ScriptableObjects → Create → WCFTThis → UIStyleConfig)\n" +
-                  "     Assign VT323 SDF and Caveat-Bold SDF fonts, then drag into each HUD script's Style field.\n" +
-                  "  2. Build FailureItem.prefab: StatusDot Image + FailureName TMP + FailureSub TMP\n" +
-                  "     Attach FailureItemUI, wire fields, save to Assets/Prefabs/UI/.\n" +
-                  "     Drag prefab into FailureListUI.failureItemPrefab.\n" +
-                  "  3. Build PlayerSlot.prefab from PlayerSlot_P1: add child Images/TMP, attach PlayerSlot,\n" +
-                  "     wire fields, save to Assets/Prefabs/UI/.");
+        Debug.Log("[HUDLayoutBuilder] ✓ HUD built and scene saved.\n" +
+                  "Manual steps remaining:\n" +
+                  "  · Create UIStyleConfig asset → assign VT323 + Caveat fonts\n" +
+                  "  · Build FailureItem.prefab and wire into FailureListUI.failureItemPrefab");
 
-        EditorUtility.DisplayDialog("HUDLayoutBuilder",
-            "✓ HUD layout built and scene saved!\n\nCheck Console for remaining manual steps.", "OK");
+        EditorUtility.DisplayDialog("HUDLayoutBuilder", "✓ HUD built and scene saved!", "OK");
     }
 
     // ═════════════════════════════════════════════════════════════════════
-    // SHIP HEALTH PANEL  (top-left, 200×82)
+    // SHIP HEALTH PANEL  top-left · 200 × 82
+    // All children: anchorMin=(0,1) anchorMax=(0,1) pivot=(0,1)
     // ═════════════════════════════════════════════════════════════════════
     static void BuildShipHealthPanel(Transform canvas)
     {
         var panel = MakePanel(canvas, "ShipHealthPanel", BG, Border,
             anchorMin: new Vector2(0, 1), anchorMax: new Vector2(0, 1),
-            pivot: new Vector2(0, 1),
+            pivot:     new Vector2(0, 1),
             size: new Vector2(200, 82), pos: new Vector2(12, -12));
 
         AddScrews(panel.transform, 200, 82);
 
-        // ── Title ─────────────────────────────────────────────────────────
-        var titleLbl = MakeLabel(panel.transform, "TitleLabel", "SHIP STATUS",
-            VT323, 11, TextLabel, TextAnchor.UpperLeft);
-        SetRect(titleLbl, AnchorFull(), new Vector2(8, -5), new Vector2(-8, -18));
+        // INTG label
+        var intLbl = Label(panel.transform, "LabelIntegrity", "INTG",
+            11, TextDim, TextAnchor.MiddleLeft);
+        Pin(intLbl.transform, 8, -8, 120, 16);
 
-        // ── Integrity row ──────────────────────────────────────────────────
-        var intRow = MakeContainer(panel.transform, "IntegrityRow");
-        SetRect(intRow, AnchorFull(), new Vector2(8, -22), new Vector2(-8, -35));
+        // Integrity bar — full-width
+        var intBar = MakeBar(panel.transform, "IntegrityBar", BarBG, BarIntegrity);
+        Pin(intBar.transform, 8, -26, 150, 11);
 
-        var intLbl = MakeLabel(intRow.transform, "Label", "INTG",
-            VT323, 11, TextDim, TextAnchor.MiddleLeft);
-        SetRect(intLbl, new Vector2(0, 0), new Vector2(0, 1), Vector2.zero, new Vector2(-8, -5));
+        // Pct label
+        var intPct = Label(panel.transform, "IntegrityPct", "100%",
+            10, TextPrimary, TextAnchor.MiddleRight);
+        Pin(intPct.transform, 162, -24, 34, 18);
 
-        var intBar = MakeBar(intRow.transform, "IntegrityBar", BarBG, BarIntegrity);
-        SetRect(intBar, new Vector2(0, 0), new Vector2(1, 1), new Vector2(30, 2), new Vector2(-30, -2));
+        // PWR label + bar (left half)
+        var pwrLbl = Label(panel.transform, "LabelPower", "PWR",
+            11, TextDim, TextAnchor.MiddleLeft);
+        Pin(pwrLbl.transform, 8, -42, 85, 13);
 
-        var intPct = MakeLabel(intRow.transform, "IntegrityPct", "100%",
-            VT323, 10, TextPrimary, TextAnchor.MiddleRight);
-        SetRect(intPct, new Vector2(1, 0), new Vector2(1, 1), new Vector2(-38, 0), new Vector2(0, 0));
+        var pwrBar = MakeBar(panel.transform, "PowerBar", BarBG, BarPower);
+        Pin(pwrBar.transform, 8, -56, 85, 7);
 
-        // ── Power row ────────────────────────────────────────────────────
-        var pwrRow = MakeContainer(panel.transform, "PowerRow");
-        SetRect(pwrRow, AnchorFull(), new Vector2(8, -37), new Vector2(-8, -50));
+        // HULL label + bar (right half)
+        var hullLbl = Label(panel.transform, "LabelHull", "HULL",
+            11, TextDim, TextAnchor.MiddleLeft);
+        Pin(hullLbl.transform, 105, -42, 85, 13);
 
-        var pwrLbl = MakeLabel(pwrRow.transform, "Label", "PWR ",
-            VT323, 11, TextDim, TextAnchor.MiddleLeft);
-        SetRect(pwrLbl, new Vector2(0, 0), new Vector2(0, 1), Vector2.zero, new Vector2(-8, -5));
+        var hullBar = MakeBar(panel.transform, "HullBar", BarBG, BarHull);
+        Pin(hullBar.transform, 105, -56, 85, 7);
 
-        var pwrBar = MakeBar(pwrRow.transform, "PowerBar", BarBG, BarPower);
-        SetRect(pwrBar, new Vector2(0, 0), new Vector2(1, 1), new Vector2(30, 2), new Vector2(-30, -2));
+        // Status text (alert messages)
+        var statusLbl = Label(panel.transform, "StatusText", "",
+            10, Hex("#a03030"), TextAnchor.MiddleLeft);
+        Pin(statusLbl.transform, 8, -68, 184, 14);
 
-        // ── Hull row ──────────────────────────────────────────────────────
-        var hullRow = MakeContainer(panel.transform, "HullRow");
-        SetRect(hullRow, AnchorFull(), new Vector2(8, -52), new Vector2(-8, -65));
-
-        var hullLbl = MakeLabel(hullRow.transform, "Label", "HULL",
-            VT323, 11, TextDim, TextAnchor.MiddleLeft);
-        SetRect(hullLbl, new Vector2(0, 0), new Vector2(0, 1), Vector2.zero, new Vector2(-8, -5));
-
-        var hullBar = MakeBar(hullRow.transform, "HullBar", BarBG, BarHull);
-        SetRect(hullBar, new Vector2(0, 0), new Vector2(1, 1), new Vector2(30, 2), new Vector2(-30, -2));
-
-        // ── Status text ───────────────────────────────────────────────────
-        var statusLbl = MakeLabel(panel.transform, "StatusText", "",
-            VT323, 10, Hex("#a03030"), TextAnchor.LowerLeft);
-        SetRect(statusLbl, AnchorFull(), new Vector2(8, 4), new Vector2(-8, 14));
-
-        // ── Attach script ─────────────────────────────────────────────────
-        var shipHealthUI = EnsureComp<ShipHealthUI>(panel);
-        {
-            var so = new SerializedObject(shipHealthUI);
-            SetSlider(so, "integrityBar", intBar);
-            SetObjProp(so, "integrityPct", intPct);
-            SetSlider(so, "powerBar", pwrBar);
-            SetSlider(so, "hullBar", hullBar);
-            SetObjProp(so, "statusText", statusLbl);
-            so.ApplyModifiedProperties();
-        }
+        var ui = EnsureComp<ShipHealthUI>(panel);
+        var so = new SerializedObject(ui);
+        SetSlider(so, "integrityBar", intBar);
+        SetProp(so,   "integrityPct", intPct);
+        SetSlider(so, "powerBar",     pwrBar);
+        SetSlider(so, "hullBar",      hullBar);
+        SetProp(so,   "statusText",   statusLbl);
+        so.ApplyModifiedProperties();
     }
 
     // ═════════════════════════════════════════════════════════════════════
-    // CORE-X PANEL  (top-center, 196×78)
+    // CORE-X PANEL  top-center · 196 × 78
     // ═════════════════════════════════════════════════════════════════════
     static void BuildCoreXPanel(Transform canvas)
     {
         var panel = MakePanel(canvas, "CoreXPanel", BG, Border,
             anchorMin: new Vector2(0.5f, 1), anchorMax: new Vector2(0.5f, 1),
-            pivot: new Vector2(0.5f, 1),
+            pivot:     new Vector2(0.5f, 1),
             size: new Vector2(196, 78), pos: new Vector2(0, -12));
 
         AddScrews(panel.transform, 196, 78);
 
-        // Title
-        var titleLbl = MakeLabel(panel.transform, "TitleLabel", "CORE-X",
-            VT323, 13, TextPrimary, TextAnchor.UpperCenter);
-        SetRect(titleLbl, AnchorFull(), new Vector2(8, -5), new Vector2(-8, -20));
+        // Phase label (top)
+        var phaseLbl = Label(panel.transform, "PhaseLabel", "PHASE I",
+            12, TextPrimary, TextAnchor.MiddleLeft);
+        Pin(phaseLbl.transform, 10, -8, 176, 16);
 
-        // Aggression bar + label
-        var aggRow = MakeContainer(panel.transform, "AggressionRow");
-        SetRect(aggRow, AnchorFull(), new Vector2(8, -24), new Vector2(-8, -37));
+        // Aggression title (decorative, not wired)
+        var aggTitle = Label(panel.transform, "AggressionTitle", "AGGRESSION",
+            11, TextDim, TextAnchor.MiddleLeft);
+        Pin(aggTitle.transform, 10, -26, 176, 22);
 
-        var aggLbl = MakeLabel(aggRow.transform, "Label", "AGG ",
-            VT323, 11, TextDim, TextAnchor.MiddleLeft);
-        SetRect(aggLbl, new Vector2(0, 0), new Vector2(0, 1), Vector2.zero, new Vector2(-8, -5));
+        // Aggression bar
+        var aggBar = MakeBar(panel.transform, "AggressionBar", BarBG, BarAggress);
+        Pin(aggBar.transform, 10, -50, 176, 11);
 
-        var aggBar = MakeBar(aggRow.transform, "AggressionBar", BarBG, BarAggress);
-        SetRect(aggBar, new Vector2(0, 0), new Vector2(1, 1), new Vector2(30, 2), new Vector2(-4, -2));
+        // Status labels
+        var reactiveLbl = Label(panel.transform, "ReactiveLabel", "● REACTIVE",
+            10, TextDim, TextAnchor.MiddleLeft);
+        Pin(reactiveLbl.transform, 10, -64, 96, 14);
 
-        // Phase label
-        var phaseLbl = MakeLabel(panel.transform, "PhaseLabel", "PHASE I",
-            VT323, 11, TextDim, TextAnchor.MiddleCenter);
-        SetRect(phaseLbl, AnchorFull(), new Vector2(8, -40), new Vector2(-8, -52));
+        var activeLbl = Label(panel.transform, "ActiveLabel", "● ACTIVE",
+            10, Hex("#a03030"), TextAnchor.MiddleLeft);
+        Pin(activeLbl.transform, 116, -64, 70, 14);
 
-        // Reactive / Active labels row
-        var statusRow = MakeContainer(panel.transform, "StatusRow");
-        SetRect(statusRow, AnchorFull(), new Vector2(8, -54), new Vector2(-8, -66));
-
-        var reactiveLbl = MakeLabel(statusRow.transform, "ReactiveLabel", "● REACTIVE",
-            VT323, 10, TextDim, TextAnchor.MiddleLeft);
-        SetRect(reactiveLbl, new Vector2(0, 0), new Vector2(0.5f, 1), Vector2.zero, Vector2.zero);
-
-        var activeLbl = MakeLabel(statusRow.transform, "ActiveLabel", "● ACTIVE",
-            VT323, 10, Hex("#a03030"), TextAnchor.MiddleRight);
-        SetRect(activeLbl, new Vector2(0.5f, 0), new Vector2(1, 1), Vector2.zero, Vector2.zero);
-
-        // Attach script
-        var coreXUI = EnsureComp<CoreXUI>(panel);
-        {
-            var so = new SerializedObject(coreXUI);
-            SetSlider(so, "aggressionBar", aggBar);
-            SetObjProp(so, "phaseLabel", phaseLbl);
-            SetObjProp(so, "reactiveLabel", reactiveLbl);
-            SetObjProp(so, "activeLabel", activeLbl);
-            so.ApplyModifiedProperties();
-        }
+        var ui = EnsureComp<CoreXUI>(panel);
+        var so = new SerializedObject(ui);
+        SetSlider(so, "aggressionBar",  aggBar);
+        SetProp(so,   "phaseLabel",     phaseLbl);
+        SetProp(so,   "reactiveLabel",  reactiveLbl);
+        SetProp(so,   "activeLabel",    activeLbl);
+        so.ApplyModifiedProperties();
     }
 
     // ═════════════════════════════════════════════════════════════════════
-    // FAILURE LIST PANEL  (top-right, 150×100)
+    // TIMER PANEL  top-left below ShipHealthPanel · 120 × 44
     // ═════════════════════════════════════════════════════════════════════
-    static void BuildFailureListPanel(Transform canvas)
+    static void BuildTimerPanel(Transform canvas)
     {
-        var panel = MakePanel(canvas, "FailureListPanel", BG, Border,
-            anchorMin: new Vector2(1, 1), anchorMax: new Vector2(1, 1),
-            pivot: new Vector2(1, 1),
-            size: new Vector2(150, 100), pos: new Vector2(-12, -12));
+        var panel = MakePanel(canvas, "TimerPanel", BG, Border,
+            anchorMin: new Vector2(0, 1), anchorMax: new Vector2(0, 1),
+            pivot:     new Vector2(0, 1),
+            size: new Vector2(120, 44), pos: new Vector2(12, -102));
 
-        AddScrews(panel.transform, 150, 100);
+        // "TIME LEFT" label
+        var lbl = LabelRaw(panel.transform, "TimerLabel", "TIME LEFT",
+            12, Hex("#3a4048"), TextAlignmentOptions.Left);
+        Pin(lbl.transform, 8, -7, 104, 14);
 
-        // Title
-        var titleLbl = MakeLabel(panel.transform, "TitleLabel", "FAILURES",
-            VT323, 11, TextLabel, TextAnchor.UpperLeft);
-        SetRect(titleLbl, AnchorFull(), new Vector2(8, -5), new Vector2(-8, -18));
+        // Countdown value
+        var val = LabelRaw(panel.transform, "TimerValue", "10:00",
+            24, Hex("#c8a020"), TextAlignmentOptions.Left);
+        Pin(val.transform, 8, -22, 104, 20);
 
-        // Scroll / VLG container
-        var listContainer = MakeContainer(panel.transform, "FailureList");
-        SetRect(listContainer, AnchorFull(), new Vector2(6, -20), new Vector2(-6, -6));
-
-        var vlg = EnsureComp<VerticalLayoutGroup>(listContainer);
-        vlg.spacing              = 3f;
-        vlg.childForceExpandWidth  = true;
-        vlg.childForceExpandHeight = false;
-        vlg.childAlignment       = TextAnchor.UpperLeft;
-        var csf = EnsureComp<ContentSizeFitter>(listContainer);
-        csf.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
-
-        // Attach script
-        var failureListUI = EnsureComp<FailureListUI>(panel);
-        {
-            var so = new SerializedObject(failureListUI);
-            SetObjProp(so, "listParent", listContainer.transform);
-            // failureItemPrefab must be wired manually after prefab creation
-            so.ApplyModifiedProperties();
-        }
+        var ui = EnsureComp<SurvivalTimerUI>(panel);
+        var so = new SerializedObject(ui);
+        SetProp(so, "timerValue", val);
+        so.FindProperty("survivalDuration").floatValue = 600f;
+        so.ApplyModifiedProperties();
     }
 
     // ═════════════════════════════════════════════════════════════════════
-    // PLAYER SLOTS  (bottom-center, 272×70)
+    // STATION STATUS PANEL  top-right · 156 × 112
+    // 4 rows: POWER · COMMS · GRAVITY · HULL
+    // ═════════════════════════════════════════════════════════════════════
+    static void BuildStationStatusPanel(Transform canvas)
+    {
+        var panel = MakePanel(canvas, "StationStatusPanel", BG, Border,
+            anchorMin: new Vector2(1, 1), anchorMax: new Vector2(1, 1),
+            pivot:     new Vector2(1, 1),
+            size: new Vector2(156, 112), pos: new Vector2(-12, -12));
+
+        AddScrews(panel.transform, 156, 112);
+
+        // Header
+        var header = LabelRaw(panel.transform, "HeaderLabel", "SHIP SYSTEMS",
+            12, Hex("#3a4048"), TextAlignmentOptions.Left);
+        Pin(header.transform, 8, -8, 140, 16);
+
+        // Station data
+        string[] stationIds = { "POWER", "COMMS", "GRAVITY", "HULL" };
+
+        // Collect refs for wiring StationStatusUI
+        var dotImages    = new Image[4];
+        var nameTexts    = new TMP_Text[4];
+        var statusLabels = new TMP_Text[4];
+
+        for (int i = 0; i < 4; i++)
+        {
+            // Row parent — pin to top-left of panel
+            var row = new GameObject($"StationRow_{i}");
+            Undo.RegisterCreatedObjectUndo(row, "Create StationRow");
+            row.transform.SetParent(panel.transform, false);
+            var rowRT = row.AddComponent<RectTransform>();
+            rowRT.anchorMin        = new Vector2(0, 1);
+            rowRT.anchorMax        = new Vector2(0, 1);
+            rowRT.pivot            = new Vector2(0, 1);
+            rowRT.anchoredPosition = new Vector2(8, -28 - i * 20f);
+            rowRT.sizeDelta        = new Vector2(140, 17);
+
+            // A) Status dot — hard 7×7
+            var dot = MakeImage(row.transform, "StatusDot", Hex("#287040"));
+            var dotRT = dot.GetComponent<RectTransform>();
+            dotRT.anchorMin        = new Vector2(0, 0.5f);
+            dotRT.anchorMax        = new Vector2(0, 0.5f);
+            dotRT.pivot            = new Vector2(0, 0.5f);
+            dotRT.anchoredPosition = new Vector2(0, 0);
+            dotRT.sizeDelta        = new Vector2(7, 7);
+            dotImages[i] = dot.GetComponent<Image>();
+
+            // B) Station name
+            var nameTMP = LabelRaw(row.transform, "StationName", stationIds[i],
+                14, Hex("#88a888"), TextAlignmentOptions.Left);
+            var nameRT = nameTMP.GetComponent<RectTransform>();
+            nameRT.anchorMin        = new Vector2(0, 0.5f);
+            nameRT.anchorMax        = new Vector2(0, 0.5f);
+            nameRT.pivot            = new Vector2(0, 0.5f);
+            nameRT.anchoredPosition = new Vector2(12, 2);
+            nameRT.sizeDelta        = new Vector2(80, 14);
+            nameTMP.overflowMode       = TextOverflowModes.Overflow;
+            nameTMP.enableWordWrapping = false;
+            nameTexts[i] = nameTMP;
+
+            // C) Status label (right-aligned, anchored to right edge of row)
+            var statusTMP = LabelRaw(row.transform, "StatusLabel", "OK",
+                13, Hex("#405040"), TextAlignmentOptions.Right);
+            var statusRT = statusTMP.GetComponent<RectTransform>();
+            statusRT.anchorMin        = new Vector2(1, 0.5f);
+            statusRT.anchorMax        = new Vector2(1, 0.5f);
+            statusRT.pivot            = new Vector2(1, 0.5f);
+            statusRT.anchoredPosition = new Vector2(0, 2);
+            statusRT.sizeDelta        = new Vector2(50, 14);
+            statusTMP.overflowMode       = TextOverflowModes.Overflow;
+            statusTMP.enableWordWrapping = false;
+            statusLabels[i] = statusTMP;
+        }
+
+        // Wire StationStatusUI via SerializedObject
+        var ui = EnsureComp<StationStatusUI>(panel);
+        var so = new SerializedObject(ui);
+        var rowsProp = so.FindProperty("rows");
+        if (rowsProp != null)
+        {
+            rowsProp.arraySize = 4;
+            for (int i = 0; i < 4; i++)
+            {
+                var elem = rowsProp.GetArrayElementAtIndex(i);
+                elem.FindPropertyRelative("stationId").stringValue  = stationIds[i];
+                elem.FindPropertyRelative("statusDot").objectReferenceValue   = dotImages[i];
+                elem.FindPropertyRelative("nameText").objectReferenceValue    = nameTexts[i];
+                elem.FindPropertyRelative("statusLabel").objectReferenceValue = statusLabels[i];
+            }
+        }
+        so.ApplyModifiedProperties();
+    }
+
+    // ═════════════════════════════════════════════════════════════════════
+    // PLAYER SLOTS  bottom-center · 280 × 72
     // ═════════════════════════════════════════════════════════════════════
     static void BuildPlayerSlotsPanel(Transform canvas)
     {
         var container = MakeContainer(canvas, "PlayerSlots",
             anchorMin: new Vector2(0.5f, 0), anchorMax: new Vector2(0.5f, 0),
-            pivot: new Vector2(0.5f, 0),
-            size: new Vector2(272, 70), pos: new Vector2(0, 12));
+            pivot:     new Vector2(0.5f, 0),
+            size: new Vector2(280, 72), pos: new Vector2(0, 12));
 
         var hlg = EnsureComp<HorizontalLayoutGroup>(container);
-        hlg.spacing              = 6f;
-        hlg.childForceExpandHeight = true;
+        hlg.spacing                = 6f;
+        hlg.childAlignment         = TextAnchor.MiddleCenter;
         hlg.childForceExpandWidth  = false;
-        hlg.childAlignment       = TextAnchor.MiddleCenter;
-        hlg.padding              = new RectOffset(4, 4, 0, 0);
+        hlg.childForceExpandHeight = false;
+        hlg.childControlWidth      = false;
+        hlg.childControlHeight     = false;
+        hlg.padding                = new RectOffset(4, 4, 2, 2);
 
+        string[] roleNames = { "MECHANIC", "HACKER", "GUNNER", "EMPTY" };
         var slotComponents = new PlayerSlot[4];
+
         for (int i = 0; i < 4; i++)
         {
-            string slotName = $"PlayerSlot_P{i + 1}";
-            var slot = MakePanel(container.transform, slotName, BG, PlayerBorder[i],
+            var slot = MakePanel(container.transform, $"PlayerSlot_P{i + 1}", BG, PlayerBorder[i],
                 anchorMin: new Vector2(0.5f, 0.5f), anchorMax: new Vector2(0.5f, 0.5f),
-                pivot: new Vector2(0.5f, 0.5f),
-                size: new Vector2(62, 68), pos: Vector2.zero);
+                pivot:     new Vector2(0.5f, 0.5f),
+                size: new Vector2(64, 68), pos: Vector2.zero);
 
             var le = EnsureComp<LayoutElement>(slot);
-            le.preferredWidth  = 62;
+            le.preferredWidth  = 64;
             le.preferredHeight = 68;
 
-            // P# label top-left
-            var pLbl = MakeLabel(slot.transform, "PlayerLabel", $"P{i + 1}",
-                VT323, 10, PlayerLabel[i], TextAnchor.UpperLeft);
-            SetRect(pLbl, AnchorFull(), new Vector2(4, -3), new Vector2(-4, -14));
+            // P# label — pinned to top-center
+            var pLbl = Label(slot.transform, "PlayerLabel", $"P{i + 1}",
+                11, PlayerLabel[i], TextAnchor.MiddleCenter);
+            PinCenter(pLbl.transform, 0, -5, 54, 14);
 
-            // Icon BG (center square)
-            var iconBG = MakeImage(slot.transform, "RoleIconBG", PlayerIconStroke[i]);
-            SetRect(iconBG,
-                anchorMin: new Vector2(0.5f, 0.5f), anchorMax: new Vector2(0.5f, 0.5f),
-                pivot: new Vector2(0.5f, 0.5f),
-                size: new Vector2(28, 28), pos: new Vector2(0, 4));
+            // Role icon BG
+            var iconBG = MakeImage(slot.transform, "RoleIconBG", PlayerIconBG[i]);
+            PinCenter(iconBG.transform, 0, -22, 22, 22);
+            var iconOutline = EnsureComp<Outline>(iconBG);
+            iconOutline.effectColor    = PlayerIconStroke[i];
+            iconOutline.effectDistance = new Vector2(1.5f, 1.5f);
 
-            // Role icon (inside BG)
+            // Role icon placeholder (hidden)
             var roleIcon = MakeImage(slot.transform, "RoleIcon", Color.white);
-            SetRect(roleIcon,
-                anchorMin: new Vector2(0.5f, 0.5f), anchorMax: new Vector2(0.5f, 0.5f),
-                pivot: new Vector2(0.5f, 0.5f),
-                size: new Vector2(22, 22), pos: new Vector2(0, 4));
+            PinCenter(roleIcon.transform, 0, -25, 18, 18);
             roleIcon.GetComponent<Image>().enabled = false;
 
-            // Role name label (bottom)
-            var roleLbl = MakeLabel(slot.transform, "RoleNameText", "EMPTY",
-                VT323, 9, PlayerName[i], TextAnchor.LowerCenter);
-            SetRect(roleLbl, AnchorFull(), new Vector2(2, 3), new Vector2(-2, 14));
+            // Role name
+            var roleLbl = Label(slot.transform, "RoleNameText", roleNames[i],
+                13, PlayerName[i], TextAnchor.MiddleCenter);
+            PinCenter(roleLbl.transform, 0, -52, 60, 16);
 
-            // Panel border highlight (thin outline at bottom)
-            var borderImg = MakeImage(slot.transform, "PanelBorder", PlayerBorder[i]);
-            SetRect(borderImg,
-                anchorMin: new Vector2(0, 0), anchorMax: new Vector2(1, 0),
-                pivot: new Vector2(0.5f, 0),
-                size: new Vector2(0, 2), pos: Vector2.zero);
+            // P4 ghost opacity
+            if (i == 3)
+            {
+                var cg = EnsureComp<CanvasGroup>(slot);
+                cg.alpha = 0.20f;
+            }
 
             slotComponents[i] = EnsureComp<PlayerSlot>(slot);
-            {
-                var so = new SerializedObject(slotComponents[i]);
-                SetObjProp(so, "playerLabel",   pLbl);
-                SetObjProp(so, "roleIconBG",    iconBG.GetComponent<Image>());
-                SetObjProp(so, "roleIcon",      roleIcon.GetComponent<Image>());
-                SetObjProp(so, "roleNameText",  roleLbl);
-                SetObjProp(so, "panelBorder",   borderImg.GetComponent<Image>());
-                so.ApplyModifiedProperties();
-            }
+            var soS = new SerializedObject(slotComponents[i]);
+            SetProp(soS, "playerLabel",  pLbl);
+            SetProp(soS, "roleIconBG",   iconBG.GetComponent<Image>());
+            SetProp(soS, "roleIcon",     roleIcon.GetComponent<Image>());
+            SetProp(soS, "roleNameText", roleLbl);
+            soS.ApplyModifiedProperties();
         }
 
-        // Attach PlayerSlotsUI
         var playerSlotsUI = EnsureComp<PlayerSlotsUI>(container);
+        var soP = new SerializedObject(playerSlotsUI);
+        var slotsProp = soP.FindProperty("slots");
+        if (slotsProp != null)
         {
-            var so = new SerializedObject(playerSlotsUI);
-            var slotsProp = so.FindProperty("slots");
-            if (slotsProp != null)
-            {
-                slotsProp.arraySize = 4;
-                for (int i = 0; i < 4; i++)
-                    slotsProp.GetArrayElementAtIndex(i).objectReferenceValue = slotComponents[i];
-            }
-            so.ApplyModifiedProperties();
+            slotsProp.arraySize = 4;
+            for (int i = 0; i < 4; i++)
+                slotsProp.GetArrayElementAtIndex(i).objectReferenceValue = slotComponents[i];
         }
+        soP.ApplyModifiedProperties();
     }
 
     // ═════════════════════════════════════════════════════════════════════
-    // WIN/LOSE PANEL  (center, 220×140, starts inactive)
+    // WIN/LOSE PANEL  center · 240 × 160 · starts inactive
+    // All children anchored to center (0.5, 0.5) with anchoredPosition offset
     // ═════════════════════════════════════════════════════════════════════
     static void BuildWinLosePanel(Transform canvas)
     {
-        // Full-screen transparent parent (always active — needed for OnEnable events)
+        // Full-screen transparent parent keeps WinLoseUI.OnEnable firing
         var winLosePanel = MakeContainer(canvas, "WinLosePanel",
             anchorMin: Vector2.zero, anchorMax: Vector2.one,
             pivot: new Vector2(0.5f, 0.5f),
             size: Vector2.zero, pos: Vector2.zero);
 
-        // Visible content child
         var content = MakePanel(winLosePanel.transform, "WinLoseContent", BG, Border,
             anchorMin: new Vector2(0.5f, 0.5f), anchorMax: new Vector2(0.5f, 0.5f),
-            pivot: new Vector2(0.5f, 0.5f),
-            size: new Vector2(220, 140), pos: Vector2.zero);
+            pivot:     new Vector2(0.5f, 0.5f),
+            size: new Vector2(240, 160), pos: Vector2.zero);
 
-        AddScrews(content.transform, 220, 140);
+        AddScrews(content.transform, 240, 160);
 
-        // Mission label (top)
-        var missionLbl = MakeLabel(content.transform, "MissionLabel", "MISSION COMPLETE",
-            VT323, 12, TextLabel, TextAnchor.UpperCenter);
-        SetRect(missionLbl, AnchorFull(), new Vector2(8, -8), new Vector2(-8, -22));
+        // Helper: pin child to center of content panel
+        static void C(Transform t, float x, float y, float w, float h)
+        {
+            var rt = t.GetComponent<RectTransform>() ?? t.gameObject.AddComponent<RectTransform>();
+            rt.anchorMin        = new Vector2(0.5f, 0.5f);
+            rt.anchorMax        = new Vector2(0.5f, 0.5f);
+            rt.pivot            = new Vector2(0.5f, 0.5f);
+            rt.anchoredPosition = new Vector2(x, y);
+            rt.sizeDelta        = new Vector2(w, h);
+        }
 
-        // Result title (large)
-        var resultTitle = MakeLabel(content.transform, "ResultTitle", "VICTORY!",
-            Caveat, 22, Hex("#2a8040"), TextAnchor.MiddleCenter);
-        SetRect(resultTitle, AnchorFull(), new Vector2(8, -24), new Vector2(-8, -62));
+        // Mission label
+        var missionLbl = LabelRaw(content.transform, "MissionLabel", "MISSION COMPLETE",
+            12, Hex("#204828"), TextAlignmentOptions.Center);
+        C(missionLbl.transform, 0, 58, 220, 18);
+
+        // Result title
+        var resultTitle = LabelRaw(content.transform, "ResultTitle", "VICTORY!",
+            42, Hex("#2a8040"), TextAlignmentOptions.Center);
+        C(resultTitle.transform, 0, 28, 220, 46);
 
         // Subtitle
-        var subtitleLbl = MakeLabel(content.transform, "SubtitleText", "Core-X neutralized",
-            VT323, 11, TextDim, TextAnchor.MiddleCenter);
-        SetRect(subtitleLbl, AnchorFull(), new Vector2(8, -64), new Vector2(-8, -82));
+        var subtitleLbl = LabelRaw(content.transform, "SubtitleText", "Corexis stabilized",
+            13, Hex("#203828"), TextAlignmentOptions.Center);
+        C(subtitleLbl.transform, 0, -8, 220, 18);
 
-        // Divider image
-        var divider = MakeImage(content.transform, "Divider", Border);
-        SetRect(divider,
-            anchorMin: new Vector2(0.1f, 0), anchorMax: new Vector2(0.9f, 0),
-            pivot: new Vector2(0.5f, 0),
-            size: new Vector2(0, 1), pos: new Vector2(0, 55));
+        // Buttons row container
+        var btnRow = new GameObject("ButtonsRow");
+        Undo.RegisterCreatedObjectUndo(btnRow, "Create ButtonsRow");
+        btnRow.transform.SetParent(content.transform, false);
+        btnRow.AddComponent<RectTransform>();
+        C(btnRow.transform, 0, -50, 220, 36);
 
-        // Button row
-        var btnRow = MakeContainer(content.transform, "ButtonRow");
-        SetRect(btnRow, AnchorFull(), new Vector2(12, 10), new Vector2(-12, 44));
+        var rowHLG = EnsureComp<HorizontalLayoutGroup>(btnRow);
+        rowHLG.spacing                = 12f;
+        rowHLG.childAlignment         = TextAnchor.MiddleCenter;
+        rowHLG.childForceExpandWidth  = false;
+        rowHLG.childForceExpandHeight = false;
+        rowHLG.childControlWidth      = false;
+        rowHLG.childControlHeight     = false;
 
-        var hlg = EnsureComp<HorizontalLayoutGroup>(btnRow);
-        hlg.spacing              = 8f;
-        hlg.childForceExpandWidth  = true;
-        hlg.childForceExpandHeight = true;
+        // Restart button
+        var restartBtn = MakeStyledButton(btnRow.transform, "RestartButton", "RESTART",
+            Hex("#1e5030"), Hex("#2a7040"), Hex("#80c898"));
+        EnsureComp<LayoutElement>(restartBtn).preferredWidth  = 100;
+        EnsureComp<LayoutElement>(restartBtn).preferredHeight = 34;
 
-        var restartBtn = MakeButton(btnRow.transform, "RestartButton", "RESTART",
-            Hex("#1e5030"), TextPrimary, VT323, 12);
-        var lobbyBtn = MakeButton(btnRow.transform, "LobbyButton", "LOBBY",
-            Hex("#1e3020"), TextDim, VT323, 12);
+        // Lobby button
+        var lobbyBtn = MakeStyledButton(btnRow.transform, "LobbyButton", "MAIN MENU",
+            Hex("#2a1a1a"), Hex("#3a1818"), Hex("#c88888"));
+        EnsureComp<LayoutElement>(lobbyBtn).preferredWidth  = 100;
+        EnsureComp<LayoutElement>(lobbyBtn).preferredHeight = 34;
 
-        // Panel border image (recolored on victory/defeat)
-        var panelBorder = MakeImage(content.transform, "PanelBorder", Border);
-        SetRect(panelBorder,
-            anchorMin: Vector2.zero, anchorMax: Vector2.one,
-            pivot: new Vector2(0.5f, 0.5f),
-            size: Vector2.zero, pos: Vector2.zero);
-        var img = panelBorder.GetComponent<Image>();
-        img.type = Image.Type.Sliced;
-
-        // Deactivate content by default
         content.SetActive(false);
 
-        // Attach WinLoseUI to the parent (not content)
-        var winLoseUI = EnsureComp<WinLoseUI>(winLosePanel);
-        {
-            var so = new SerializedObject(winLoseUI);
-            SetObjProp(so, "panel",           content);
-            SetObjProp(so, "missionLabel",    missionLbl);
-            SetObjProp(so, "resultTitle",     resultTitle);
-            SetObjProp(so, "subtitleText",    subtitleLbl);
-            SetObjProp(so, "restartButton",   restartBtn.GetComponent<Button>());
-            SetObjProp(so, "lobbyButton",     lobbyBtn.GetComponent<Button>());
-            SetObjProp(so, "panelBorderImage", panelBorder.GetComponent<Image>());
-            so.ApplyModifiedProperties();
-        }
+        var ui = EnsureComp<WinLoseUI>(winLosePanel);
+        var so = new SerializedObject(ui);
+        SetProp(so, "panel",         content);
+        SetProp(so, "missionLabel",  missionLbl);
+        SetProp(so, "resultTitle",   resultTitle);
+        SetProp(so, "subtitleText",  subtitleLbl);
+        SetProp(so, "restartButton", restartBtn.GetComponent<Button>());
+        SetProp(so, "lobbyButton",   lobbyBtn.GetComponent<Button>());
+        so.ApplyModifiedProperties();
     }
 
     // ═════════════════════════════════════════════════════════════════════
-    // Wire HUDManager on GameplayCanvas
+    // Wire HUDManager
     // ═════════════════════════════════════════════════════════════════════
     static void WireHUDManager(GameObject canvasGO)
     {
         var hudManager = EnsureComp<HUDManager>(canvasGO);
         var so = new SerializedObject(hudManager);
-
-        SetObjProp(so, "shipHealth",  canvasGO.transform.Find("ShipHealthPanel")?.GetComponent<ShipHealthUI>());
-        SetObjProp(so, "coreX",       canvasGO.transform.Find("CoreXPanel")?.GetComponent<CoreXUI>());
-        SetObjProp(so, "failureList", canvasGO.transform.Find("FailureListPanel")?.GetComponent<FailureListUI>());
-        SetObjProp(so, "playerSlots", canvasGO.transform.Find("PlayerSlots")?.GetComponent<PlayerSlotsUI>());
-        SetObjProp(so, "winLose",     canvasGO.transform.Find("WinLosePanel")?.GetComponent<WinLoseUI>());
-
+        SetProp(so, "shipHealth",    canvasGO.transform.Find("ShipHealthPanel")?.GetComponent<ShipHealthUI>());
+        SetProp(so, "coreX",         canvasGO.transform.Find("CoreXPanel")?.GetComponent<CoreXUI>());
+        SetProp(so, "stationStatus", canvasGO.transform.Find("StationStatusPanel")?.GetComponent<StationStatusUI>());
+        SetProp(so, "timer",         canvasGO.transform.Find("TimerPanel")?.GetComponent<SurvivalTimerUI>());
+        SetProp(so, "playerSlots",   canvasGO.transform.Find("PlayerSlots")?.GetComponent<PlayerSlotsUI>());
+        SetProp(so, "winLose",       canvasGO.transform.Find("WinLosePanel")?.GetComponent<WinLoseUI>());
         so.ApplyModifiedProperties();
+    }
+
+    // ═════════════════════════════════════════════════════════════════════
+    // Wire AlertSystem
+    // ═════════════════════════════════════════════════════════════════════
+    static void WireAlertSystem(GameObject canvasGO)
+    {
+        var alertSystem = Object.FindObjectOfType<AlertSystem>();
+        if (alertSystem == null)
+        {
+            Debug.LogWarning("[HUDLayoutBuilder] AlertSystem not found — skipping.");
+            return;
+        }
+
+        var prefab = EnsureDirectionalAlertPrefab();
+        var so = new SerializedObject(alertSystem);
+        SetProp(so, "canvasRect", canvasGO.GetComponent<RectTransform>());
+        if (prefab != null)
+            SetProp(so, "alertPrefab", prefab);
+        so.ApplyModifiedProperties();
+    }
+
+    static GameObject EnsureDirectionalAlertPrefab()
+    {
+        const string path = "Assets/Prefabs/UI/DirectionalAlert.prefab";
+        var existing = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+        if (existing != null) return existing;
+
+        if (!AssetDatabase.IsValidFolder("Assets/Prefabs"))
+            AssetDatabase.CreateFolder("Assets", "Prefabs");
+        if (!AssetDatabase.IsValidFolder("Assets/Prefabs/UI"))
+            AssetDatabase.CreateFolder("Assets/Prefabs", "UI");
+
+        var root = new GameObject("DirectionalAlert");
+        var rt = root.AddComponent<RectTransform>();
+        rt.sizeDelta = new Vector2(24, 24);
+        var img = root.AddComponent<Image>();
+        img.color = new Color(1f, 0.35f, 0.1f, 1f);
+        img.raycastTarget = false;
+
+        var textGO = new GameObject("Label");
+        textGO.transform.SetParent(root.transform, false);
+        var trt = textGO.AddComponent<RectTransform>();
+        trt.anchorMin = new Vector2(0.5f, 0); trt.anchorMax = new Vector2(0.5f, 0);
+        trt.pivot = new Vector2(0.5f, 1); trt.sizeDelta = new Vector2(60, 16);
+        trt.anchoredPosition = new Vector2(0, -2);
+        var tmp = textGO.AddComponent<TextMeshProUGUI>();
+        tmp.text = "⚠"; tmp.fontSize = 14; tmp.color = Color.white;
+        tmp.alignment = TextAlignmentOptions.Center;
+        tmp.raycastTarget = false; tmp.fontStyle = FontStyles.Normal;
+        if (VT323 != null) tmp.font = VT323;
+
+        var asset = PrefabUtility.SaveAsPrefabAsset(root, path);
+        Object.DestroyImmediate(root);
+        AssetDatabase.Refresh();
+        return asset;
     }
 
     // ═════════════════════════════════════════════════════════════════════
     // Factory helpers
     // ═════════════════════════════════════════════════════════════════════
 
-    /// Panel with Image + Outline effect
     static GameObject MakePanel(Transform parent, string name, Color bg, Color outlineColor,
         Vector2 anchorMin, Vector2 anchorMax, Vector2 pivot, Vector2 size, Vector2 pos)
     {
-        var existing = parent.Find(name);
-        if (existing != null) return existing.gameObject;
+        var ex = parent.Find(name);
+        if (ex != null) return ex.gameObject;
 
         var go = new GameObject(name);
         Undo.RegisterCreatedObjectUndo(go, "Create " + name);
         go.transform.SetParent(parent, false);
 
         var img = go.AddComponent<Image>();
-        img.color         = bg;
-        img.raycastTarget = false;
+        img.color = bg; img.raycastTarget = false;
 
-        var outline = go.AddComponent<Outline>();
-        outline.effectColor    = outlineColor;
-        outline.effectDistance = new Vector2(1, -1);
+        var ol = go.AddComponent<Outline>();
+        ol.effectColor    = outlineColor;
+        ol.effectDistance = new Vector2(1, -1);
 
         var rt = go.GetComponent<RectTransform>();
-        rt.anchorMin        = anchorMin;
-        rt.anchorMax        = anchorMax;
-        rt.pivot            = pivot;
-        rt.sizeDelta        = size;
-        rt.anchoredPosition = pos;
-
+        rt.anchorMin = anchorMin; rt.anchorMax = anchorMax;
+        rt.pivot = pivot; rt.sizeDelta = size; rt.anchoredPosition = pos;
         return go;
     }
 
-    /// Transparent container (layout only)
     static GameObject MakeContainer(Transform parent, string name,
         Vector2 anchorMin = default, Vector2 anchorMax = default,
         Vector2 pivot = default, Vector2 size = default, Vector2 pos = default)
     {
-        var existing = parent.Find(name);
-        if (existing != null) return existing.gameObject;
+        var ex = parent.Find(name);
+        if (ex != null) return ex.gameObject;
 
         var go = new GameObject(name);
         Undo.RegisterCreatedObjectUndo(go, "Create " + name);
         go.transform.SetParent(parent, false);
 
         var img = go.AddComponent<Image>();
-        img.color         = Transparent;
-        img.raycastTarget = false;
+        img.color = Transparent; img.raycastTarget = false;
 
         var rt = go.GetComponent<RectTransform>();
-        rt.anchorMin        = anchorMin;
-        rt.anchorMax        = anchorMax;
-        rt.pivot            = pivot;
-        rt.sizeDelta        = size;
-        rt.anchoredPosition = pos;
-
+        rt.anchorMin = anchorMin; rt.anchorMax = anchorMax;
+        rt.pivot = pivot; rt.sizeDelta = size; rt.anchoredPosition = pos;
         return go;
     }
 
-    // Overload for child containers using offset-based SetRect after creation
-    static GameObject MakeContainer(Transform parent, string name)
-    {
-        var existing = parent.Find(name);
-        if (existing != null) return existing.gameObject;
-
-        var go = new GameObject(name);
-        Undo.RegisterCreatedObjectUndo(go, "Create " + name);
-        go.transform.SetParent(parent, false);
-
-        var img = go.AddComponent<Image>();
-        img.color         = Transparent;
-        img.raycastTarget = false;
-
-        go.AddComponent<RectTransform>();
-        return go;
-    }
-
-    /// Non-interactable Slider (no handle sprite, fill only)
+    /// Non-interactable horizontal Slider — fill only, no handle
     static Slider MakeBar(Transform parent, string name, Color bgColor, Color fillColor)
     {
-        // Background
-        var barBG = new GameObject(name);
-        Undo.RegisterCreatedObjectUndo(barBG, "Create " + name);
-        barBG.transform.SetParent(parent, false);
+        var ex = parent.Find(name);
+        if (ex != null) return ex.GetComponent<Slider>();
 
-        var bgImg = barBG.AddComponent<Image>();
-        bgImg.color         = bgColor;
-        bgImg.raycastTarget = false;
+        var barGO = new GameObject(name);
+        Undo.RegisterCreatedObjectUndo(barGO, "Create " + name);
+        barGO.transform.SetParent(parent, false);
 
-        // Fill area
+        var bgImg = barGO.AddComponent<Image>();
+        bgImg.color = bgColor; bgImg.raycastTarget = false;
+
+        // Fill Area — stretch to fill bar bounds
         var fillArea = new GameObject("Fill Area");
-        fillArea.transform.SetParent(barBG.transform, false);
-        var fillAreaRT = fillArea.AddComponent<RectTransform>();
-        fillAreaRT.anchorMin  = Vector2.zero;
-        fillAreaRT.anchorMax  = Vector2.one;
-        fillAreaRT.sizeDelta  = new Vector2(-2, -2);
-        fillAreaRT.anchoredPosition = Vector2.zero;
+        fillArea.transform.SetParent(barGO.transform, false);
+        var faRT = fillArea.AddComponent<RectTransform>();
+        faRT.anchorMin = Vector2.zero; faRT.anchorMax = Vector2.one;
+        faRT.sizeDelta = Vector2.zero; faRT.anchoredPosition = Vector2.zero;
 
-        // Fill
+        // Fill image
         var fill = new GameObject("Fill");
         fill.transform.SetParent(fillArea.transform, false);
         var fillImg = fill.AddComponent<Image>();
-        fillImg.color         = fillColor;
-        fillImg.raycastTarget = false;
+        fillImg.color = fillColor; fillImg.raycastTarget = false;
         var fillRT = fill.GetComponent<RectTransform>();
-        fillRT.anchorMin  = Vector2.zero;
-        fillRT.anchorMax  = new Vector2(1, 1);
-        fillRT.sizeDelta  = Vector2.zero;
-        fillRT.anchoredPosition = Vector2.zero;
+        fillRT.anchorMin = Vector2.zero; fillRT.anchorMax = Vector2.one;
+        fillRT.sizeDelta = Vector2.zero; fillRT.anchoredPosition = Vector2.zero;
 
-        // Slider component
-        var slider = barBG.AddComponent<Slider>();
-        slider.fillRect      = fillRT;
-        slider.interactable  = false;
-        slider.transition    = Selectable.Transition.None;
-        slider.value         = 1f;
+        var slider = barGO.AddComponent<Slider>();
+        slider.direction    = Slider.Direction.LeftToRight;
+        slider.fillRect     = fillRT;
+        slider.handleRect   = null;
+        slider.interactable = false;
+        slider.transition   = Selectable.Transition.None;
+        slider.value        = 1f;
+
+        // Remove "Handle Slide Area" if Unity added one automatically
+        var handleArea = barGO.transform.Find("Handle Slide Area");
+        if (handleArea != null) Object.DestroyImmediate(handleArea.gameObject);
 
         return slider;
     }
 
-    /// TMP_Text label
-    static TMP_Text MakeLabel(Transform parent, string name, string text,
-        TMP_FontAsset font, int size, Color color, TextAnchor anchor)
+    /// TMP label using VT323 font (TextAnchor overload)
+    static TMP_Text Label(Transform parent, string name, string text,
+        int size, Color color, TextAnchor anchor)
+        => MakeLabelFont(parent, name, text, VT323, size, color, anchor);
+
+    /// TMP label using VT323 font with direct TMP alignment (no conversion needed)
+    static TMP_Text LabelRaw(Transform parent, string name, string text,
+        int size, Color color, TextAlignmentOptions alignment)
     {
-        var existing = parent.Find(name);
-        if (existing != null) return existing.GetComponent<TMP_Text>();
+        var ex = parent.Find(name);
+        if (ex != null) return ex.GetComponent<TMP_Text>();
 
         var go = new GameObject(name);
         Undo.RegisterCreatedObjectUndo(go, "Create " + name);
         go.transform.SetParent(parent, false);
 
         var tmp = go.AddComponent<TextMeshProUGUI>();
-        tmp.text      = text;
-        tmp.fontSize  = size;
-        tmp.color     = color;
+        tmp.text          = text;
+        tmp.fontSize      = size;
+        tmp.color         = color;
+        tmp.fontStyle     = FontStyles.Normal;
+        tmp.alignment     = alignment;
+        tmp.raycastTarget = false;
+        if (VT323 != null) tmp.font = VT323;
+        return tmp;
+    }
+
+    /// Button with Image + Outline + TMP label, sized by LayoutElement
+    static GameObject MakeStyledButton(Transform parent, string name, string labelText,
+        Color bgColor, Color outlineColor, Color textColor)
+    {
+        var ex = parent.Find(name);
+        if (ex != null) return ex.gameObject;
+
+        var go = new GameObject(name);
+        Undo.RegisterCreatedObjectUndo(go, "Create " + name);
+        go.transform.SetParent(parent, false);
+
+        var img = go.AddComponent<Image>();
+        img.color = bgColor;
+        var ol = go.AddComponent<Outline>();
+        ol.effectColor    = outlineColor;
+        ol.effectDistance = new Vector2(1.5f, 1.5f);
+        var btn = go.AddComponent<Button>();
+        btn.targetGraphic = img;
+
+        var txtGO = new GameObject("Label");
+        txtGO.transform.SetParent(go.transform, false);
+        var tmp = txtGO.AddComponent<TextMeshProUGUI>();
+        tmp.text      = labelText;
+        tmp.fontSize  = 18;
+        tmp.color     = textColor;
+        tmp.alignment = TextAlignmentOptions.Center;
+        tmp.fontStyle = FontStyles.Normal;
+        tmp.raycastTarget = false;
+        if (VT323 != null) tmp.font = VT323;
+
+        var txtRT = txtGO.GetComponent<RectTransform>();
+        txtRT.anchorMin = Vector2.zero; txtRT.anchorMax = Vector2.one;
+        txtRT.offsetMin = Vector2.zero; txtRT.offsetMax = Vector2.zero;
+        return go;
+    }
+
+    /// TMP label with explicit font
+    static TMP_Text MakeLabelFont(Transform parent, string name, string text,
+        TMP_FontAsset font, int size, Color color, TextAnchor anchor)
+    {
+        var ex = parent.Find(name);
+        if (ex != null) return ex.GetComponent<TMP_Text>();
+
+        var go = new GameObject(name);
+        Undo.RegisterCreatedObjectUndo(go, "Create " + name);
+        go.transform.SetParent(parent, false);
+
+        var tmp = go.AddComponent<TextMeshProUGUI>();
+        tmp.text          = text;
+        tmp.fontSize      = size;
+        tmp.color         = color;
+        tmp.fontStyle     = FontStyles.Normal;
         tmp.raycastTarget = false;
         if (font != null) tmp.font = font;
 
-        // Map TextAnchor → TMP alignment
         tmp.alignment = anchor switch
         {
             TextAnchor.UpperLeft    => TextAlignmentOptions.TopLeft,
@@ -605,33 +745,28 @@ public static class HUDLayoutBuilder
             TextAnchor.LowerRight   => TextAlignmentOptions.BottomRight,
             _                       => TextAlignmentOptions.Left,
         };
-
         return tmp;
     }
 
-    /// Plain Image
     static GameObject MakeImage(Transform parent, string name, Color color)
     {
-        var existing = parent.Find(name);
-        if (existing != null) return existing.gameObject;
+        var ex = parent.Find(name);
+        if (ex != null) return ex.gameObject;
 
         var go = new GameObject(name);
         Undo.RegisterCreatedObjectUndo(go, "Create " + name);
         go.transform.SetParent(parent, false);
 
         var img = go.AddComponent<Image>();
-        img.color         = color;
-        img.raycastTarget = false;
-
+        img.color = color; img.raycastTarget = false;
         return go;
     }
 
-    /// Button with background image + TMP label child
-    static GameObject MakeButton(Transform parent, string name, string label,
+    static GameObject MakeButton(Transform parent, string name, string labelText,
         Color bgColor, Color textColor, TMP_FontAsset font, int fontSize)
     {
-        var existing = parent.Find(name);
-        if (existing != null) return existing.gameObject;
+        var ex = parent.Find(name);
+        if (ex != null) return ex.gameObject;
 
         var go = new GameObject(name);
         Undo.RegisterCreatedObjectUndo(go, "Create " + name);
@@ -639,121 +774,70 @@ public static class HUDLayoutBuilder
 
         var img = go.AddComponent<Image>();
         img.color = bgColor;
-
         var btn = go.AddComponent<Button>();
         btn.targetGraphic = img;
 
-        // Label child
         var txtGO = new GameObject("Text");
         txtGO.transform.SetParent(go.transform, false);
         var tmp = txtGO.AddComponent<TextMeshProUGUI>();
-        tmp.text      = label;
-        tmp.fontSize  = fontSize;
-        tmp.color     = textColor;
-        tmp.alignment = TextAlignmentOptions.Center;
+        tmp.text = labelText; tmp.fontSize = fontSize; tmp.color = textColor;
+        tmp.alignment = TextAlignmentOptions.Center; tmp.fontStyle = FontStyles.Normal;
         if (font != null) tmp.font = font;
-
         var txtRT = txtGO.GetComponent<RectTransform>();
-        txtRT.anchorMin  = Vector2.zero;
-        txtRT.anchorMax  = Vector2.one;
-        txtRT.sizeDelta  = Vector2.zero;
-        txtRT.anchoredPosition = Vector2.zero;
-
+        txtRT.anchorMin = Vector2.zero; txtRT.anchorMax = Vector2.one;
+        txtRT.sizeDelta = Vector2.zero; txtRT.anchoredPosition = Vector2.zero;
         return go;
     }
 
-    /// 4 corner screw decorations
     static void AddScrews(Transform parent, float w, float h)
     {
         float inset = 5f;
-        Vector2[] corners = {
-            new Vector2( inset,    -inset),
-            new Vector2( w - inset, -inset),
-            new Vector2( inset,    -(h - inset)),
-            new Vector2( w - inset, -(h - inset)),
-        };
-
-        Vector2[] anchors = {
-            new Vector2(0, 1), new Vector2(1, 1),
-            new Vector2(0, 0), new Vector2(1, 0),
-        };
-
-        Vector2[] pivots = {
-            new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
-            new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
-        };
+        Vector2[] anchors   = { new Vector2(0,1), new Vector2(1,1), new Vector2(0,0), new Vector2(1,0) };
+        Vector2[] positions = { new Vector2(inset,-inset), new Vector2(-inset,-inset),
+                                new Vector2(inset, inset), new Vector2(-inset, inset) };
 
         for (int i = 0; i < 4; i++)
         {
             var screw = MakeImage(parent, $"Screw_{i}", Screw);
             var rt = screw.GetComponent<RectTransform>();
-            rt.anchorMin  = anchors[i];
-            rt.anchorMax  = anchors[i];
-            rt.pivot      = pivots[i];
-            rt.sizeDelta  = new Vector2(5, 5);
-
-            // Position relative to corner
-            float xSign = (i % 2 == 0) ? 1f : -1f;
-            float ySign = (i < 2) ? -1f : 1f;
-            rt.anchoredPosition = new Vector2(xSign * inset, ySign * inset);
+            rt.anchorMin = anchors[i]; rt.anchorMax = anchors[i];
+            rt.pivot     = new Vector2(0.5f, 0.5f);
+            rt.sizeDelta = new Vector2(5, 5);
+            rt.anchoredPosition = positions[i];
         }
     }
 
-    // ── RectTransform helpers ─────────────────────────────────────────────
+    // ── RectTransform positional helpers ──────────────────────────────────
 
-    static Vector4 AnchorFull() => Vector4.zero; // sentinel — use SetRect(AnchorFull overload)
-
-    // Offset-based (children inside a panel using offsets from edges)
-    static void SetRect(TMP_Text go, Vector4 _, Vector2 offsetMin, Vector2 offsetMax)
+    /// Pin to top-left corner; x/y already include sign (y is negative = down)
+    static void Pin(Transform t, float x, float y, float w, float h)
     {
-        var rt = go.GetComponent<RectTransform>();
-        rt.anchorMin  = Vector2.zero;
-        rt.anchorMax  = Vector2.one;
-        rt.offsetMin  = offsetMin;
-        rt.offsetMax  = offsetMax;
+        var rt = t.GetComponent<RectTransform>() ?? t.gameObject.AddComponent<RectTransform>();
+        rt.anchorMin        = new Vector2(0, 1);
+        rt.anchorMax        = new Vector2(0, 1);
+        rt.pivot            = new Vector2(0, 1);
+        rt.anchoredPosition = new Vector2(x, y);
+        rt.sizeDelta        = new Vector2(w, h);
     }
 
+    /// Pin to top-center; x is offset from center
+    static void PinCenter(Transform t, float x, float y, float w, float h)
+    {
+        var rt = t.GetComponent<RectTransform>() ?? t.gameObject.AddComponent<RectTransform>();
+        rt.anchorMin        = new Vector2(0.5f, 1);
+        rt.anchorMax        = new Vector2(0.5f, 1);
+        rt.pivot            = new Vector2(0.5f, 1);
+        rt.anchoredPosition = new Vector2(x, y);
+        rt.sizeDelta        = new Vector2(w, h);
+    }
+
+    /// Fixed-size pivot-based placement (for non-TMP objects)
     static void SetRect(GameObject go, Vector2 anchorMin, Vector2 anchorMax,
         Vector2 pivot, Vector2 size, Vector2 pos)
     {
-        var rt = go.GetComponent<RectTransform>();
-        if (rt == null) rt = go.AddComponent<RectTransform>();
-        rt.anchorMin        = anchorMin;
-        rt.anchorMax        = anchorMax;
-        rt.pivot            = pivot;
-        rt.sizeDelta        = size;
-        rt.anchoredPosition = pos;
-    }
-
-    // Stretch rect using offsetMin/Max relative to parent
-    static void SetRect(GameObject go, Vector4 _, Vector2 offsetMin, Vector2 offsetMax)
-    {
-        var rt = go.GetComponent<RectTransform>();
-        if (rt == null) rt = go.AddComponent<RectTransform>();
-        rt.anchorMin  = Vector2.zero;
-        rt.anchorMax  = Vector2.one;
-        rt.offsetMin  = offsetMin;
-        rt.offsetMax  = offsetMax;
-    }
-
-    static void SetRect(TMP_Text go, Vector2 anchorMin, Vector2 anchorMax,
-        Vector2 offsetMin, Vector2 offsetMax)
-    {
-        var rt = go.GetComponent<RectTransform>();
-        rt.anchorMin  = anchorMin;
-        rt.anchorMax  = anchorMax;
-        rt.offsetMin  = offsetMin;
-        rt.offsetMax  = offsetMax;
-    }
-
-    static void SetRect(Slider s, Vector2 anchorMin, Vector2 anchorMax,
-        Vector2 offsetMin, Vector2 offsetMax)
-    {
-        var rt = s.GetComponent<RectTransform>();
-        rt.anchorMin  = anchorMin;
-        rt.anchorMax  = anchorMax;
-        rt.offsetMin  = offsetMin;
-        rt.offsetMax  = offsetMax;
+        var rt = go.GetComponent<RectTransform>() ?? go.AddComponent<RectTransform>();
+        rt.anchorMin = anchorMin; rt.anchorMax = anchorMax;
+        rt.pivot = pivot; rt.sizeDelta = size; rt.anchoredPosition = pos;
     }
 
     // ── SerializedObject helpers ──────────────────────────────────────────
@@ -765,22 +849,18 @@ public static class HUDLayoutBuilder
         return c;
     }
 
-    static void SetObjProp(SerializedObject so, string prop, Object value)
+    static void SetProp(SerializedObject so, string prop, Object value)
     {
         var p = so.FindProperty(prop);
-        if (p != null)
-            p.objectReferenceValue = value;
-        else
-            Debug.LogWarning($"[HUDLayoutBuilder] '{prop}' not found on {so.targetObject.GetType().Name}");
+        if (p != null) p.objectReferenceValue = value;
+        else Debug.LogWarning($"[HUDLayoutBuilder] '{prop}' not found on {so.targetObject.GetType().Name}");
     }
 
     static void SetSlider(SerializedObject so, string prop, Slider value)
     {
         var p = so.FindProperty(prop);
-        if (p != null)
-            p.objectReferenceValue = value;
-        else
-            Debug.LogWarning($"[HUDLayoutBuilder] '{prop}' not found on {so.targetObject.GetType().Name}");
+        if (p != null) p.objectReferenceValue = value;
+        else Debug.LogWarning($"[HUDLayoutBuilder] '{prop}' not found on {so.targetObject.GetType().Name}");
     }
 
     static Color Hex(string hex)

@@ -24,6 +24,8 @@ public class PlayerSlot : MonoBehaviour
 
     public void SetPlayer(int index, string roleName, Sprite icon, UIStyleConfig style)
     {
+        gameObject.SetActive(true);   // always show when a player is present
+
         if (canvasGroup != null)
             canvasGroup.alpha = 1f;
 
@@ -55,16 +57,6 @@ public class PlayerSlot : MonoBehaviour
 
     public void SetEmpty(UIStyleConfig style)
     {
-        if (canvasGroup != null)
-            canvasGroup.alpha = emptyAlpha;
-
-        if (playerLabel != null)
-            playerLabel.text = "--";
-
-        if (roleNameText != null)
-            roleNameText.text = "EMPTY";
-
-        if (roleIcon != null)
-            roleIcon.enabled = false;
+        gameObject.SetActive(false);  // hide entirely — no ghost boxes
     }
 }

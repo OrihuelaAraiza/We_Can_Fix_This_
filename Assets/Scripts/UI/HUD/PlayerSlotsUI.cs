@@ -1,84 +1,71 @@
 using System.Collections;
 using UnityEngine;
 
+/// <summary>
+/// Populates the 4 bottom player slots at runtime.
+/// Waits 1 second so GameManager.ApplySelectedRoles() finishes first,
+/// then reads PlayerRole directly from each active PlayerMovement.
+/// Also re-populates whenever a role is assigned mid-session.
+/// </summary>
 public class PlayerSlotsUI : MonoBehaviour
 {
-    [SerializeField] PlayerSlot[] slots;
+    [SerializeField] PlayerSlot[] slots;   // 4 slots wired in HUDLayoutBuilder
 
     [Header("Style")]
     [SerializeField] UIStyleConfig style;
 
+    void OnEnable()
+    {
+        PlayerRole.OnRoleAssigned          += HandleRoleAssigned;
+        PlayerManager.OnPlayerCountChanged += PopulateSlots;
+    }
+
+    void OnDisable()
+    {
+        PlayerRole.OnRoleAssigned          -= HandleRoleAssigned;
+        PlayerManager.OnPlayerCountChanged -= PopulateSlots;
+    }
+
     IEnumerator Start()
     {
-        // Wait for GameManager.ApplySelectedRoles to finish
-        yield return new WaitForSeconds(0.8f);
+        // Give GameManager.ApplySelectedRoles() time to finish (it delays 0.5s)
+        yield return new WaitForSeconds(1f);
         PopulateSlots();
     }
 
+    void HandleRoleAssigned(PlayerRole _) => PopulateSlots();
+
     void PopulateSlots()
     {
-        var players = FindObjectsOfType<PlayerMovement>();
-
-        // Mark all slots empty first
+        // Hide all slots first
         for (int i = 0; i < slots.Length; i++)
-        {
-            if (slots[i] != null)
-                slots[i].SetEmpty(style);
-        }
+            slots[i]?.SetEmpty(style);
 
-        // Fill slots from found players
+        // Find every active player and show their slot
+        var players = FindObjectsOfType<PlayerMovement>();
         foreach (var player in players)
         {
             int idx = player.PlayerIndex;
             if (idx < 0 || idx >= slots.Length || slots[idx] == null) continue;
 
-            string roleName = "CREW";
-            Sprite roleIcon = null;
+            var roleComp = player.GetComponent<PlayerRole>();
+            string roleName = roleComp?.Role?.roleName ?? "CREW";
 
-            // Try to read PlayerRole component if it exists
-            var roleComp = player.GetComponent<MonoBehaviour>();
-            // Use reflection-free approach: check for PlayerRole by name
-            foreach (var comp in player.GetComponents<MonoBehaviour>())
-            {
-                if (comp.GetType().Name == "PlayerRole")
-                {
-                    // Try to get role name via property
-                    var roleProp = comp.GetType().GetProperty("Role");
-                    if (roleProp != null)
-                    {
-                        var roleObj = roleProp.GetValue(comp);
-                        if (roleObj != null)
-                        {
-                            var nameField = roleObj.GetType().GetField("roleName");
-                            if (nameField != null)
-                                roleName = (string)nameField.GetValue(roleObj) ?? "CREW";
-
-                            var iconField = roleObj.GetType().GetField("roleIcon");
-                            if (iconField != null)
-                                roleIcon = iconField.GetValue(roleObj) as Sprite;
-                        }
-                    }
-                    break;
-                }
-            }
-
-            slots[idx].SetPlayer(idx, roleName, roleIcon, style);
+            slots[idx].SetPlayer(idx, roleName, null, style);
         }
     }
 
-    // ── Public API ──────────────────────────────────────────────
+    // ── Public API (called by external systems) ──────────────────
 
-    public void SetPlayerRole(int playerIndex, string roleName, Sprite icon)
+    public void SetPlayerRole(int playerIndex, string roleName, UnityEngine.Sprite icon)
     {
         if (playerIndex < 0 || playerIndex >= slots.Length) return;
-        if (slots[playerIndex] != null)
-            slots[playerIndex].SetPlayer(playerIndex, roleName, icon, style);
+        slots[playerIndex]?.SetPlayer(playerIndex, roleName, icon, style);
     }
 
     public void SetPlayerEmpty(int playerIndex)
     {
         if (playerIndex < 0 || playerIndex >= slots.Length) return;
-        if (slots[playerIndex] != null)
-            slots[playerIndex].SetEmpty(style);
+        slots[playerIndex]?.SetEmpty(style);
     }
 }
