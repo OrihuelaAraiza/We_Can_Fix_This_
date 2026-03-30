@@ -35,7 +35,7 @@ public class FailureListUI : MonoBehaviour
         currentFailures.Add(new FailureData
         {
             systemName = sysName,
-            location   = StationLocation(station.Type),
+            location   = StationLocation(station),
             severity   = FailureSeverity.CRITICAL
         });
         RefreshFailures(currentFailures);
@@ -80,7 +80,15 @@ public class FailureListUI : MonoBehaviour
         };
     }
 
-    static string StationLocation(RepairStation.StationType type)
+    static string StationLocation(RepairStation station)
+    {
+        if (station != null && !string.IsNullOrWhiteSpace(station.CurrentLocationLabel))
+            return station.CurrentLocationLabel;
+
+        return station != null ? LegacyStationLocation(station.Type) : "UNKNOWN";
+    }
+
+    static string LegacyStationLocation(RepairStation.StationType type)
     {
         return type switch
         {

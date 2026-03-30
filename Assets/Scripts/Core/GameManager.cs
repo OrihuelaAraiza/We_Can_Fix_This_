@@ -1,3 +1,4 @@
+using System.Collections;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -27,10 +28,10 @@ public class GameManager : MonoBehaviour
     // Roles aplicados principalmente en PlayerManager.OnPlayerJoined().
     // ApplySelectedRoles() actúa como fallback de diagnóstico.
 
-    void Start()
+    IEnumerator Start()
     {
-        // Llamar con delay para dar tiempo al PlayerInputManager de spawnear jugadores
-        Invoke(nameof(ApplySelectedRoles), 0.5f);
+        yield return new WaitForSeconds(0.5f);
+        ApplySelectedRoles();
     }
 
     void ApplySelectedRoles()

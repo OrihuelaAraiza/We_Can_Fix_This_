@@ -14,6 +14,7 @@ public class RepairStation : MonoBehaviour, IInteractable
     [Header("Runtime")]
     [SerializeField] private StationState state = StationState.Functional;
     [SerializeField] private float repairProgress; // 0-1
+    [SerializeField] private string currentLocationLabel = "UNKNOWN";
 
     // Materiales de estado
     [Header("Visuals")]
@@ -32,6 +33,7 @@ public class RepairStation : MonoBehaviour, IInteractable
     public StationState State => state;
     public StationType Type => stationType;
     public float RepairProgress => repairProgress;
+    public string CurrentLocationLabel => string.IsNullOrWhiteSpace(currentLocationLabel) ? "UNKNOWN" : currentLocationLabel;
 
     private void Awake()
     {
@@ -171,6 +173,11 @@ public class RepairStation : MonoBehaviour, IInteractable
             OnRepaired?.Invoke(this);
             Debug.Log($"[RepairStation] Degradation reset: {stationType}");
         }
+    }
+
+    public void SetGeneratedLocationLabel(string locationLabel)
+    {
+        currentLocationLabel = string.IsNullOrWhiteSpace(locationLabel) ? "UNKNOWN" : locationLabel;
     }
 
     private void OnDrawGizmos()

@@ -8,7 +8,7 @@ ModelImporter:
       type: UnityEngine:Material
       assembly: UnityEngine.CoreModule
       name: CosmicRetroComputer_1
-    second: {fileID: 2100000, guid: e22b9977b3f29304c9c190b41e7bbb7b, type: 2}
+    second: {fileID: 2100000, guid: 4d5bd3fdae0f30947b61abeab6cf8627, type: 2}
   - first:
       type: UnityEngine:Material
       assembly: UnityEngine.CoreModule

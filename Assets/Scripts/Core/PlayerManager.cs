@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -30,14 +31,37 @@ public class PlayerManager : MonoBehaviour
     // ── Llamado por PlayerInputManager automáticamente ─────────
     public void OnPlayerJoined(PlayerInput playerInput)
     {
+        StartCoroutine(InitializeJoinedPlayer(playerInput));
+    }
+
+    IEnumerator InitializeJoinedPlayer(PlayerInput playerInput)
+    {
+        if (playerInput == null) yield break;
+
+        Rigidbody rb = playerInput.GetComponent<Rigidbody>();
+        bool hadRigidbody = rb != null;
+        bool originalKinematic = hadRigidbody && rb.isKinematic;
+        bool originalUseGravity = hadRigidbody && rb.useGravity;
+
+        if (hadRigidbody)
+        {
+            rb.isKinematic = true;
+            rb.useGravity = false;
+            rb.velocity = Vector3.zero;
+            rb.angularVelocity = Vector3.zero;
+        }
+
+        if (playerInput == null) yield break;
+
         int index = playerInput.playerIndex;
-        Debug.Log($"[PlayerManager] OnPlayerJoined called - index:{index} device:{playerInput.devices[0].displayName}");
+        string deviceName = playerInput.devices.Count > 0 ? playerInput.devices[0].displayName : "Unknown";
+        Debug.Log($"[PlayerManager] OnPlayerJoined called - index:{index} device:{deviceName}");
 
         if (index >= 4)
         {
             Debug.LogWarning($"[PlayerManager] Max 4 players. Rejecting index {index}");
             Destroy(playerInput.gameObject);
-            return;
+            yield break;
         }
 
         // -- Posición spawn --
@@ -50,20 +74,36 @@ public class PlayerManager : MonoBehaviour
         PlayerMovement movement = playerInput.GetComponent<PlayerMovement>();
         if (movement == null)
         {
+            if (hadRigidbody)
+            {
+                rb.isKinematic = originalKinematic;
+                rb.useGravity = originalUseGravity;
+            }
             Debug.LogError($"[PlayerManager] PlayerMovement NOT FOUND on spawned player {index}! " +
                            "Make sure the Player prefab has PlayerMovement component.");
-            return;
+            yield break;
         }
 
         // -- Validar datos --
         if (playerData == null)
         {
+            if (hadRigidbody)
+            {
+                rb.isKinematic = originalKinematic;
+                rb.useGravity = originalUseGravity;
+            }
             Debug.LogError("[PlayerManager] PlayerData is NULL! Assign it in the Inspector.");
-            return;
+            yield break;
         }
 
         // -- Inicializar --
         movement.Initialize(index, playerData, cameraTransform);
+        if (hadRigidbody)
+        {
+            rb.isKinematic = originalKinematic;
+            rb.useGravity = originalUseGravity;
+        }
+
         players.Add(movement);
         OnPlayerCountChanged?.Invoke();
 
