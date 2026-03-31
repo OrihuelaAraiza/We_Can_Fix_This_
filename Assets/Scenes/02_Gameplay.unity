@@ -2934,10 +2934,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   playerData: {fileID: 11400000, guid: 6c1e8891fff54478789892c827c00ba1, type: 2}
   spawnPoints:
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
+  - {fileID: 976708040}
+  - {fileID: 698631702}
+  - {fileID: 605151549}
+  - {fileID: 2085396268}
   cameraTransform: {fileID: 278711866}
   debugLog: 1
 --- !u!4 &506897553
@@ -3473,6 +3473,80 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 622705985}
   m_CullTransparentMesh: 1
+--- !u!1 &633995997
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 633995999}
+  - component: {fileID: 633995998}
+  m_Layer: 0
+  m_Name: ShipLayoutGenerator
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &633995998
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 633995997}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bc3addb7c5eb64f0883d8e0f1b5125de, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  prefabBridge: {fileID: 6761527346485313815, guid: a4e1e5b0de2d8c0499251f4d8e4ed5b9,
+    type: 3}
+  prefabRepairPower: {fileID: 2221858988653214281, guid: 990d56fa3d746394f9af91f1f7e13e93,
+    type: 3}
+  prefabRepairComms: {fileID: 7349885136687983361, guid: 6783c5ec87aeb42498277cdb0d72997b,
+    type: 3}
+  prefabRepairGravity: {fileID: 1834238983003463374, guid: 631d40d38defa6540afbc1682b6ffd0f,
+    type: 3}
+  prefabRepairHull: {fileID: 8898410738537091160, guid: 1a61c61069c8dd245992e72661750149,
+    type: 3}
+  prefabCrewBunks: {fileID: 50796717183806602, guid: e698a4b2a549a5c459672dbc359c0bdf,
+    type: 3}
+  prefabGunStation: {fileID: 5771590454832209734, guid: 766aa664a302df24e82f95f4ab669b79,
+    type: 3}
+  prefabStorage: {fileID: 5064092884146666899, guid: 3623acf1a5a3dd24abe1f6a35729db52,
+    type: 3}
+  prefabCorridorStraight: {fileID: 3479597394611083003, guid: b13a4327d1537db49925911a104e6de9,
+    type: 3}
+  prefabCorridorStraight_v2: {fileID: 833155999859562363, guid: d2db9f914793ccb4283c2eaddd1d6fd6,
+    type: 3}
+  prefabCorridorStraight_v3: {fileID: 641275811868224904, guid: 505a2d98ecdddab4ba84f3ca4de9309c,
+    type: 3}
+  prefabCorridorTurn: {fileID: 850743061720746441, guid: 0e7fe03cbc41f424eb74e8a57439c6c7,
+    type: 3}
+  prefabCorridorT: {fileID: 3178349818039851786, guid: 0004635dfb30bc4469032e4eb449918b,
+    type: 3}
+  seed: 0
+  corridorGap: 4
+  shipInteriorParent: {fileID: 0}
+  logValidation: 1
+--- !u!4 &633995999
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 633995997}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -36.74693, y: -0.11725389, z: 4.4461613}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &646166748
 GameObject:
   m_ObjectHideFlags: 0
@@ -11424,7 +11498,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &2083483674
 Transform:
   m_ObjectHideFlags: 0
@@ -11975,3 +12049,4 @@ SceneRoots:
   - {fileID: 1958684333}
   - {fileID: 1402242546}
   - {fileID: 2127989896}
+  - {fileID: 633995999}

@@ -634,6 +634,26 @@ PrefabInstance:
       propertyPath: m_Name
       value: Module_RepairStation_GRAVITY
       objectReference: {fileID: 0}
+    - target: {fileID: 7668090313054968366, guid: 631d40d38defa6540afbc1682b6ffd0f,
+        type: 3}
+      propertyPath: spawnPoints.Array.data[0]
+      value: 
+      objectReference: {fileID: 0}
+    - target: {fileID: 7668090313054968366, guid: 631d40d38defa6540afbc1682b6ffd0f,
+        type: 3}
+      propertyPath: spawnPoints.Array.data[1]
+      value: 
+      objectReference: {fileID: 0}
+    - target: {fileID: 7668090313054968366, guid: 631d40d38defa6540afbc1682b6ffd0f,
+        type: 3}
+      propertyPath: spawnPoints.Array.data[2]
+      value: 
+      objectReference: {fileID: 0}
+    - target: {fileID: 7668090313054968366, guid: 631d40d38defa6540afbc1682b6ffd0f,
+        type: 3}
+      propertyPath: spawnPoints.Array.data[3]
+      value: 
+      objectReference: {fileID: 0}
     - target: {fileID: 8923133219219849820, guid: 631d40d38defa6540afbc1682b6ffd0f,
         type: 3}
       propertyPath: m_LocalPosition.x

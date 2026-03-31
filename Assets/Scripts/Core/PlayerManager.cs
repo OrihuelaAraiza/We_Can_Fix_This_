@@ -53,6 +53,19 @@ public class PlayerManager : MonoBehaviour
 
         if (playerInput == null) yield break;
 
+        // Wait for layout with 10-second timeout
+        if (!ShipLayoutGenerator.IsReady)
+        {
+            float elapsed = 0f;
+            while (!ShipLayoutGenerator.IsReady && elapsed < 10f)
+            {
+                elapsed += Time.deltaTime;
+                yield return null;
+            }
+            if (!ShipLayoutGenerator.IsReady)
+                Debug.LogWarning("[PlayerManager] ShipLayout timeout — spawning anyway.");
+        }
+
         int index = playerInput.playerIndex;
         string deviceName = playerInput.devices.Count > 0 ? playerInput.devices[0].displayName : "Unknown";
         Debug.Log($"[PlayerManager] OnPlayerJoined called - index:{index} device:{deviceName}");
@@ -100,8 +113,9 @@ public class PlayerManager : MonoBehaviour
         movement.Initialize(index, playerData, cameraTransform);
         if (hadRigidbody)
         {
-            rb.isKinematic = originalKinematic;
-            rb.useGravity = originalUseGravity;
+            // Always ensure player is physically active after initialization
+            rb.isKinematic = false;
+            rb.useGravity  = true;
         }
 
         players.Add(movement);
