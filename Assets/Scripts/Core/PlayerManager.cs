@@ -78,9 +78,13 @@ public class PlayerManager : MonoBehaviour
         }
 
         // -- Posición spawn --
-        Vector3 spawnPos = (spawnPoints != null && index < spawnPoints.Length)
-            ? spawnPoints[index].position
+        Transform spawnAnchor = (spawnPoints != null && index < spawnPoints.Length)
+            ? spawnPoints[index]
+            : null;
+        Vector3 requestedSpawnPos = spawnAnchor != null
+            ? spawnAnchor.position
             : new Vector3(index * 2f, 1f, 0f);
+        Vector3 spawnPos = ResolveSupportedSpawnPosition(requestedSpawnPos);
         playerInput.transform.position = spawnPos;
 
         // -- Buscar PlayerMovement con retry --
@@ -157,7 +161,50 @@ public class PlayerManager : MonoBehaviour
     public int PlayerCount => players.Count;
 
     /// Called by ShipLayoutGenerator at runtime to wire procedurally-placed spawn points.
-    public void SetSpawnPoints(Transform[] points) => spawnPoints = points;
+    public void SetSpawnPoints(Transform[] points)
+    {
+        spawnPoints = points;
+        if (debugLog)
+            Debug.Log($"[PlayerManager] Spawn points wired: {(spawnPoints != null ? spawnPoints.Length : 0)}");
+    }
+
+    Vector3 ResolveSupportedSpawnPosition(Vector3 requestedPosition)
+    {
+        if (TryRaycastSupportedSpawn(requestedPosition, 1.5f, out Vector3 grounded))
+            return grounded;
+
+        if (TryRaycastSupportedSpawn(requestedPosition, 2.5f, out grounded))
+            return grounded;
+
+        return requestedPosition + Vector3.up * 0.15f;
+    }
+
+    bool TryRaycastSupportedSpawn(Vector3 requestedPosition, float rayHeight, out Vector3 groundedPosition)
+    {
+        groundedPosition = default;
+        float maxAcceptedY = requestedPosition.y + 0.75f;
+        Ray ray = new Ray(requestedPosition + Vector3.up * rayHeight, Vector3.down);
+        RaycastHit[] hits = Physics.RaycastAll(ray, 12f, ~0, QueryTriggerInteraction.Ignore);
+        if (hits == null || hits.Length == 0)
+            return false;
+
+        float bestDistance = float.PositiveInfinity;
+        bool found = false;
+        foreach (RaycastHit hit in hits)
+        {
+            if (hit.collider == null || hit.normal.y < 0.5f || hit.point.y > maxAcceptedY)
+                continue;
+
+            if (hit.distance >= bestDistance)
+                continue;
+
+            bestDistance = hit.distance;
+            groundedPosition = hit.point + Vector3.up * 0.15f;
+            found = true;
+        }
+
+        return found;
+    }
 
     // ── Gizmos ────────────────────────────────────────────────
     private void OnDrawGizmos()

@@ -3502,36 +3502,71 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: bc3addb7c5eb64f0883d8e0f1b5125de, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  prefabBridge: {fileID: 6761527346485313815, guid: a4e1e5b0de2d8c0499251f4d8e4ed5b9,
+  prefabBridge: {fileID: 6761527346485313815, guid: ae93418354fd4e446bd44e87639f6dc2,
     type: 3}
-  prefabRepairPower: {fileID: 2221858988653214281, guid: 990d56fa3d746394f9af91f1f7e13e93,
+  setPower:
+    variantN: {fileID: 2221858988653214281, guid: 2a16bf028fba8b847a548097985b716b,
+      type: 3}
+    variantNE: {fileID: 3748218667162637103, guid: 49caf0b805998e24a9d2423889e57a5c,
+      type: 3}
+    variantNS: {fileID: 2423744367043308014, guid: 85bdc981a4adf464bb2aa61a6861fe22,
+      type: 3}
+  setComms:
+    variantN: {fileID: 7349885136687983361, guid: b81b6ab4cf35f274ca7a83c7b4b9a7b2,
+      type: 3}
+    variantNE: {fileID: 5342735368522830821, guid: de77b5e5ec8bddb489b8252db1dce66a,
+      type: 3}
+    variantNS: {fileID: 5167689466903084501, guid: bec3d6e9034f10940ad9c51b2c6a6501,
+      type: 3}
+  setGravity:
+    variantN: {fileID: 1834238983003463374, guid: 43b5274b7c253c54a92c53a82c0855e5,
+      type: 3}
+    variantNE: {fileID: 5302112061873761807, guid: 93234737984f2624e9f7c7c104eb9377,
+      type: 3}
+    variantNS: {fileID: 683820696218590792, guid: a15622464cd2a3a48b8c148e35944277,
+      type: 3}
+  setHull:
+    variantN: {fileID: 7913237208610467164, guid: d1df1c872d797f3489d50782236b94f6,
+      type: 3}
+    variantNE: {fileID: 3692386697299051937, guid: 603805c6d48532a46a903bcd6f3b01a1,
+      type: 3}
+    variantNS: {fileID: 2280932376345438635, guid: 728dab60b0c4ccd41a7c308a6a80a55c,
+      type: 3}
+  setCrewBunks:
+    variantN: {fileID: 50796717183806602, guid: 4e92db8d6bf44b04b81164e725447e3e,
+      type: 3}
+    variantNE: {fileID: 9120566737107067186, guid: efea9d95f9d03dd459b28a539dba9345,
+      type: 3}
+    variantNS: {fileID: 4743238775757988320, guid: 975a59ab2a8f8154f9292c53f6531ac9,
+      type: 3}
+  setGunStation:
+    variantN: {fileID: 5771590454832209734, guid: 7245c7da0c3aa534ca49307486288ed3,
+      type: 3}
+    variantNE: {fileID: 4066055477276405579, guid: 6685557d756523b449bdf2f2efa9826e,
+      type: 3}
+    variantNS: {fileID: 4550568249404981897, guid: 5e88cce6cd0eed2449c9d8206fb047d0,
+      type: 3}
+  setStorage:
+    variantN: {fileID: 5064092884146666899, guid: 57f1ddb8736c42641bceb5a3e849b95d,
+      type: 3}
+    variantNE: {fileID: 2546726598660114426, guid: 874844bf5289a8f4e936cc45d0bc4487,
+      type: 3}
+    variantNS: {fileID: 1612846161622680990, guid: 1353f61dce256d442b3728f26cac112e,
+      type: 3}
+  prefabsCorridorStraight:
+  - {fileID: 3479597394611083003, guid: c0436e8de33c19a40846ca3d71a106db, type: 3}
+  - {fileID: 833155999859562363, guid: 5372124ed61da4a42b9b31cdfb0e46b9, type: 3}
+  - {fileID: 3178349818039851786, guid: e9f0915f23c669d44ab3bc9ed0f9634a, type: 3}
+  prefabCorridorTurn: {fileID: 850743061720746441, guid: 0fb6e39fe2aeee146a22c32986598807,
     type: 3}
-  prefabRepairComms: {fileID: 7349885136687983361, guid: 6783c5ec87aeb42498277cdb0d72997b,
-    type: 3}
-  prefabRepairGravity: {fileID: 1834238983003463374, guid: 631d40d38defa6540afbc1682b6ffd0f,
-    type: 3}
-  prefabRepairHull: {fileID: 8898410738537091160, guid: 1a61c61069c8dd245992e72661750149,
-    type: 3}
-  prefabCrewBunks: {fileID: 50796717183806602, guid: e698a4b2a549a5c459672dbc359c0bdf,
-    type: 3}
-  prefabGunStation: {fileID: 5771590454832209734, guid: 766aa664a302df24e82f95f4ab669b79,
-    type: 3}
-  prefabStorage: {fileID: 5064092884146666899, guid: 3623acf1a5a3dd24abe1f6a35729db52,
-    type: 3}
-  prefabCorridorStraight: {fileID: 3479597394611083003, guid: b13a4327d1537db49925911a104e6de9,
-    type: 3}
-  prefabCorridorStraight_v2: {fileID: 833155999859562363, guid: d2db9f914793ccb4283c2eaddd1d6fd6,
-    type: 3}
-  prefabCorridorStraight_v3: {fileID: 641275811868224904, guid: 505a2d98ecdddab4ba84f3ca4de9309c,
-    type: 3}
-  prefabCorridorTurn: {fileID: 850743061720746441, guid: 0e7fe03cbc41f424eb74e8a57439c6c7,
-    type: 3}
-  prefabCorridorT: {fileID: 3178349818039851786, guid: 0004635dfb30bc4469032e4eb449918b,
+  prefabCorridorT: {fileID: 3178349818039851786, guid: e9f0915f23c669d44ab3bc9ed0f9634a,
     type: 3}
   seed: 0
-  corridorGap: 4
   shipInteriorParent: {fileID: 0}
   logValidation: 1
+  maxGenerationAttempts: 8
+  overlapTolerance: 0.05
+  passageHalfWidth: 0.75
 --- !u!4 &633995999
 Transform:
   m_ObjectHideFlags: 0
