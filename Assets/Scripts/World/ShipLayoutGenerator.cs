@@ -312,6 +312,8 @@ public class ShipLayoutGenerator : MonoBehaviour
     readonly List<PlacedModule> placedModules = new List<PlacedModule>();
     readonly List<PlacedConnection> placedConnections = new List<PlacedConnection>();
     readonly Dictionary<GameObject, PrefabLayoutInfo> layoutCache = new Dictionary<GameObject, PrefabLayoutInfo>();
+    readonly Dictionary<GameObject, string> invalidStraightCorridorCache = new Dictionary<GameObject, string>();
+    readonly HashSet<GameObject> warnedInvalidStraightCorridors = new HashSet<GameObject>();
 
     internal IReadOnlyList<PlacedModule> DebugPlacedModules => placedModules;
     internal IReadOnlyList<PlacedConnection> DebugPlacedConnections => placedConnections;
@@ -397,6 +399,7 @@ public class ShipLayoutGenerator : MonoBehaviour
             Log($"Attempt {attempt + 1}/{maxGenerationAttempts} failed | Seed={attemptSeed} | {failureReason}");
         }
 
+        ResetGeneratedState();
         return false;
     }
 
@@ -430,26 +433,33 @@ public class ShipLayoutGenerator : MonoBehaviour
         for (int i = 0; i < repairDefs.Length; i++)
             dirToRepair[dirs[i]] = (repairDefs[i].set, repairDefs[i].type);
 
-        var extraModuleSets = new List<ModuleSet>();
-        if (setCrewBunks?.variantN != null) extraModuleSets.Add(setCrewBunks);
-        if (setGunStation?.variantN != null) extraModuleSets.Add(setGunStation);
-        if (setStorage?.variantN != null) extraModuleSets.Add(setStorage);
+        var extraModuleSets = new List<(string name, ModuleSet set)>();
+        if (HasAnyVariant(setCrewBunks)) extraModuleSets.Add(("CrewBunks", setCrewBunks));
+        if (HasAnyVariant(setGunStation)) extraModuleSets.Add(("GunStation", setGunStation));
+        if (HasAnyVariant(setStorage)) extraModuleSets.Add(("Storage", setStorage));
 
-        var dirsWithExtra = new HashSet<Dir>();
+        if (extraModuleSets.Count > AllDirs.Length)
+        {
+            failureReason = $"too many extra room sets configured ({extraModuleSets.Count}) for {AllDirs.Length} repair directions";
+            return false;
+        }
+
+        Shuffle(extraModuleSets);
+
+        var extraByDir = new Dictionary<Dir, (string name, ModuleSet set)>();
         if (extraModuleSets.Count > 0)
         {
-            int extraCount = Mathf.Min(2 + rng.Next(3), AllDirs.Length);
             var shuffledDirs = new List<Dir>(dirs);
             Shuffle(shuffledDirs);
-            for (int i = 0; i < extraCount; i++)
-                dirsWithExtra.Add(shuffledDirs[i]);
+            for (int i = 0; i < extraModuleSets.Count; i++)
+                extraByDir[shuffledDirs[i]] = extraModuleSets[i];
         }
 
         var repairOpenings = new Dictionary<Dir, HashSet<Dir>>();
         foreach (var dir in AllDirs)
         {
             var openings = new HashSet<Dir> { Opposite(dir) };
-            if (dirsWithExtra.Contains(dir)) openings.Add(dir);
+            if (extraByDir.ContainsKey(dir)) openings.Add(dir);
             repairOpenings[dir] = openings;
         }
 
@@ -487,15 +497,14 @@ public class ShipLayoutGenerator : MonoBehaviour
 
             repairInstances[stationType] = repairPlaced.Instance;
 
-            if (!dirsWithExtra.Contains(dir))
+            if (!extraByDir.TryGetValue(dir, out var extraDef))
                 continue;
 
-            ModuleSet extraSet = extraModuleSets[rng.Next(extraModuleSets.Count)];
             var extraOpenings = new HashSet<Dir> { Opposite(dir) };
 
-            if (!TrySelectVariant(extraSet, extraOpenings, out GameObject extraPrefab, out float extraRotY, out variantFailure))
+            if (!TrySelectVariant(extraDef.set, extraOpenings, out GameObject extraPrefab, out float extraRotY, out variantFailure))
             {
-                failureReason = $"extra room on {dir} variant selection failed: {variantFailure}";
+                failureReason = $"extra room {extraDef.name} on {dir} variant selection failed: {variantFailure}";
                 return false;
             }
 
@@ -503,15 +512,23 @@ public class ShipLayoutGenerator : MonoBehaviour
                     parent: repairPlaced,
                     outwardDir: dir,
                     modulePrefab: extraPrefab,
-                    moduleName: $"Extra_{dir}",
+                    moduleName: $"Extra_{extraDef.name}",
                     openings: extraOpenings,
                     rotationY: extraRotY,
-                    out _,
+                    out PlacedModule extraPlaced,
                     out placementFailure))
             {
-                failureReason = $"extra room on {dir} placement failed: {placementFailure}";
+                failureReason = $"extra room {extraDef.name} on {dir} placement failed: {placementFailure}";
                 return false;
             }
+
+        }
+
+        int expectedModuleCount = 1 + repairDefs.Length + extraModuleSets.Count;
+        if (placedModules.Count != expectedModuleCount)
+        {
+            failureReason = $"required rooms missing | expected {expectedModuleCount} modules, got {placedModules.Count}";
+            return false;
         }
 
         Physics.SyncTransforms();
@@ -874,28 +891,39 @@ public class ShipLayoutGenerator : MonoBehaviour
             if (!repairInstances.TryGetValue(station.Type, out GameObject moduleInst))
                 continue;
 
-            string anchorName = station.Type switch
+            if (!TryResolveStationTargets(moduleInst, station.Type, out Transform[] targets, out string targetDescription))
             {
-                RepairStation.StationType.Energy         => "Battery_medium",
-                RepairStation.StationType.Communications => "console",
-                RepairStation.StationType.Gravity        => "projector",
-                RepairStation.StationType.Hull           => "generator",
-                _ => null,
-            };
+                station.transform.position = moduleInst.transform.position + Vector3.up;
+                station.SetGeneratedLocationLabel(moduleInst.name);
+                Log($"RepairStation {station.Type} → {moduleInst.name} (fallback center)");
+                continue;
+            }
 
-            Transform anchor = anchorName != null
-                ? moduleInst.GetComponentsInChildren<Transform>(true)
-                    .FirstOrDefault(t => t.name.Equals(anchorName, StringComparison.OrdinalIgnoreCase))
-                : null;
+            Renderer[] renderers = targets
+                .SelectMany(target => target != null ? target.GetComponentsInChildren<Renderer>(true) : Array.Empty<Renderer>())
+                .Where(renderer => renderer != null)
+                .Distinct()
+                .ToArray();
 
-            Vector3 pos = anchor != null
-                ? anchor.position + Vector3.up * 0.5f
-                : moduleInst.transform.position + Vector3.up;
+            if (!TryComputeCombinedWorldBounds(renderers, out Bounds worldBounds))
+            {
+                station.transform.position = targets[0].position + Vector3.up * 0.5f;
+                station.SetGeneratedLocationLabel(moduleInst.name);
+                Log($"RepairStation {station.Type} → {moduleInst.name} (fallback target)");
+                continue;
+            }
 
-            station.transform.position = pos;
-            station.SetGeneratedLocationLabel(moduleInst.name);
-            Log($"RepairStation {station.Type} → {moduleInst.name}" +
-                (anchor != null ? $" (anchor: {anchorName})" : " (fallback center)"));
+            Quaternion stationRotation = moduleInst.transform.rotation;
+            Bounds localBounds = ComputeLocalBounds(worldBounds, worldBounds.center, stationRotation);
+            station.ConfigureRuntimeBinding(
+                moduleInst.transform,
+                worldBounds.center,
+                stationRotation,
+                localBounds,
+                renderers,
+                moduleInst.name);
+
+            Log($"RepairStation {station.Type} → {moduleInst.name} ({targetDescription})");
         }
     }
 
@@ -1048,7 +1076,43 @@ public class ShipLayoutGenerator : MonoBehaviour
             return false;
         }
 
-        prefab = options[rng.Next(options.Length)];
+        var validOptions = new List<(GameObject prefab, PrefabLayoutInfo info)>();
+        string firstInvalidReason = null;
+
+        foreach (GameObject candidate in options.Distinct())
+        {
+            if (!TryGetUsableStraightCorridor(candidate, out PrefabLayoutInfo candidateInfo, out string invalidReason))
+            {
+                firstInvalidReason ??= invalidReason;
+                continue;
+            }
+
+            validOptions.Add((candidate, candidateInfo));
+        }
+
+        if (validOptions.Count == 0)
+        {
+            failureReason = firstInvalidReason ?? "no valid straight corridor prefabs assigned";
+            return false;
+        }
+
+        (prefab, info) = validOptions[rng.Next(validOptions.Count)];
+        return true;
+    }
+
+    bool TryGetUsableStraightCorridor(GameObject prefab, out PrefabLayoutInfo info, out string failureReason)
+    {
+        info = null;
+        failureReason = null;
+
+        if (prefab == null)
+        {
+            failureReason = "corridor prefab is null";
+            return false;
+        }
+
+        if (invalidStraightCorridorCache.TryGetValue(prefab, out failureReason))
+            return false;
 
         try
         {
@@ -1057,16 +1121,28 @@ public class ShipLayoutGenerator : MonoBehaviour
         catch (Exception e)
         {
             failureReason = $"corridor analysis failed: {e.Message}";
+            CacheInvalidStraightCorridor(prefab, failureReason);
+            info = null;
             return false;
         }
 
         if (info.StraightLength <= overlapTolerance)
         {
             failureReason = $"corridor {prefab.name} has invalid straight length {info.StraightLength:F3}";
+            CacheInvalidStraightCorridor(prefab, failureReason);
+            info = null;
             return false;
         }
 
         return true;
+    }
+
+    void CacheInvalidStraightCorridor(GameObject prefab, string failureReason)
+    {
+        invalidStraightCorridorCache[prefab] = failureReason;
+
+        if (prefab != null && warnedInvalidStraightCorridors.Add(prefab))
+            Debug.LogWarning($"[ShipLayout] Ignoring straight corridor candidate {prefab.name}: {failureReason}");
     }
 
     PrefabLayoutInfo GetPrefabLayout(GameObject prefab, bool treatAsCorridor)
@@ -1491,6 +1567,9 @@ public class ShipLayoutGenerator : MonoBehaviour
         }
     }
 
+    static bool HasAnyVariant(ModuleSet set) =>
+        set != null && (set.variantN != null || set.variantNE != null || set.variantNS != null);
+
     static IEnumerable<float> EnumerateQuarterTurns()
     {
         yield return 0f;
@@ -1679,6 +1758,53 @@ public class ShipLayoutGenerator : MonoBehaviour
         return combined;
     }
 
+    static bool TryComputeCombinedWorldBounds(IEnumerable<Renderer> renderers, out Bounds worldBounds)
+    {
+        bool initialized = false;
+        worldBounds = default;
+
+        foreach (Renderer renderer in renderers)
+        {
+            if (renderer == null)
+                continue;
+
+            if (!initialized)
+            {
+                worldBounds = renderer.bounds;
+                initialized = true;
+            }
+            else
+            {
+                worldBounds.Encapsulate(renderer.bounds);
+            }
+        }
+
+        return initialized;
+    }
+
+    static Bounds ComputeLocalBounds(Bounds worldBounds, Vector3 worldOrigin, Quaternion worldRotation)
+    {
+        bool initialized = false;
+        Bounds localBounds = default;
+        Quaternion inverseRotation = Quaternion.Inverse(worldRotation);
+
+        foreach (Vector3 corner in GetBoundsCorners(worldBounds))
+        {
+            Vector3 localPoint = inverseRotation * (corner - worldOrigin);
+            if (!initialized)
+            {
+                localBounds = new Bounds(localPoint, Vector3.zero);
+                initialized = true;
+            }
+            else
+            {
+                localBounds.Encapsulate(localPoint);
+            }
+        }
+
+        return localBounds;
+    }
+
     static IEnumerable<Vector3> GetBoundsCorners(Bounds bounds)
     {
         Vector3 min = bounds.min;
@@ -1692,6 +1818,47 @@ public class ShipLayoutGenerator : MonoBehaviour
         yield return new Vector3(max.x, min.y, max.z);
         yield return new Vector3(max.x, max.y, min.z);
         yield return new Vector3(max.x, max.y, max.z);
+    }
+
+    bool TryResolveStationTargets(
+        GameObject moduleInstance,
+        RepairStation.StationType stationType,
+        out Transform[] targets,
+        out string targetDescription)
+    {
+        targets = Array.Empty<Transform>();
+        targetDescription = "fallback";
+
+        if (moduleInstance == null)
+            return false;
+
+        string[] targetNames = stationType switch
+        {
+            RepairStation.StationType.Energy => new[] { "Battery_medium" },
+            RepairStation.StationType.Gravity => new[] { "projector" },
+            RepairStation.StationType.Hull => new[] { "generator" },
+            RepairStation.StationType.Communications => new[] { "CommsStation", "console" },
+            _ => Array.Empty<string>(),
+        };
+
+        if (targetNames.Length == 0)
+            return false;
+
+        var found = new List<Transform>();
+        foreach (string targetName in targetNames)
+        {
+            Transform target = moduleInstance.GetComponentsInChildren<Transform>(true)
+                .FirstOrDefault(transform => transform.name.Equals(targetName, StringComparison.OrdinalIgnoreCase));
+            if (target != null)
+                found.Add(target);
+        }
+
+        if (found.Count == 0)
+            return false;
+
+        targets = found.Distinct().ToArray();
+        targetDescription = string.Join(", ", targets.Select(target => target.name));
+        return true;
     }
 
     static WorldRect ComputeWorldRect(Bounds localBounds, Transform transform)

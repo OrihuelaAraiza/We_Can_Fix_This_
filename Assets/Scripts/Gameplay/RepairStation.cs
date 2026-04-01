@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 public class RepairStation : MonoBehaviour, IInteractable
@@ -26,8 +28,9 @@ public class RepairStation : MonoBehaviour, IInteractable
     public event Action<RepairStation> OnBroken;
     public event Action<RepairStation> OnRepaired;
 
-    private Renderer stationRenderer;
-    private Material stateMat;
+    [NonSerialized] private Renderer[] runtimeVisualRenderers;
+    private Renderer[] stationRenderers;
+    private readonly Dictionary<Renderer, Material[]> runtimeMaterials = new Dictionary<Renderer, Material[]>();
     private PlayerMovement repairingPlayer;
 
     public StationState State => state;
@@ -37,9 +40,7 @@ public class RepairStation : MonoBehaviour, IInteractable
 
     private void Awake()
     {
-        stationRenderer = GetComponentInChildren<Renderer>();
-        if (stationRenderer != null)
-            stateMat = new Material(stationRenderer.sharedMaterial);
+        RefreshVisualBindings();
         ApplyStateVisual();
     }
 
@@ -136,7 +137,6 @@ public class RepairStation : MonoBehaviour, IInteractable
     // ── Visuals ────────────────────────────────────────────────
     private void ApplyStateVisual()
     {
-        if (stateMat == null || stationRenderer == null) return;
         Color c = state switch
         {
             StationState.Functional => colorFunctional,
@@ -145,8 +145,23 @@ public class RepairStation : MonoBehaviour, IInteractable
             StationState.Fixed      => colorFixed,
             _                       => Color.white
         };
-        stateMat.color = c;
-        stationRenderer.material = stateMat;
+
+        EnsureRuntimeMaterials();
+        foreach (var pair in runtimeMaterials)
+        {
+            if (pair.Key == null)
+                continue;
+
+            foreach (Material material in pair.Value)
+            {
+                if (material == null || !material.HasProperty("_Color"))
+                    continue;
+
+                material.color = c;
+            }
+
+            pair.Key.materials = pair.Value;
+        }
     }
 
     // Para habilidad Hacker — avanza progreso de reparación
@@ -178,6 +193,83 @@ public class RepairStation : MonoBehaviour, IInteractable
     public void SetGeneratedLocationLabel(string locationLabel)
     {
         currentLocationLabel = string.IsNullOrWhiteSpace(locationLabel) ? "UNKNOWN" : locationLabel;
+    }
+
+    public void ConfigureRuntimeBinding(
+        Transform parent,
+        Vector3 worldPosition,
+        Quaternion worldRotation,
+        Bounds localInteractionBounds,
+        Renderer[] visualRenderers,
+        string locationLabel)
+    {
+        if (parent != null)
+            transform.SetParent(parent, true);
+
+        transform.SetPositionAndRotation(worldPosition, worldRotation);
+        gameObject.layer = LayerMask.NameToLayer("Interactable") >= 0 ? LayerMask.NameToLayer("Interactable") : 7;
+
+        var collider = GetComponent<BoxCollider>();
+        if (collider == null)
+            collider = gameObject.AddComponent<BoxCollider>();
+
+        collider.isTrigger = false;
+        collider.center = localInteractionBounds.center;
+        collider.size = new Vector3(
+            Mathf.Max(localInteractionBounds.size.x, 0.25f),
+            Mathf.Max(localInteractionBounds.size.y, 0.75f),
+            Mathf.Max(localInteractionBounds.size.z, 0.25f));
+
+        foreach (var renderer in GetComponentsInChildren<Renderer>(true))
+        {
+            if (renderer != null)
+                renderer.enabled = false;
+        }
+
+        runtimeVisualRenderers = visualRenderers?
+            .Where(renderer => renderer != null)
+            .Distinct()
+            .ToArray();
+
+        SetGeneratedLocationLabel(locationLabel);
+        RefreshVisualBindings();
+        ApplyStateVisual();
+    }
+
+    void RefreshVisualBindings()
+    {
+        stationRenderers = runtimeVisualRenderers != null && runtimeVisualRenderers.Length > 0
+            ? runtimeVisualRenderers
+            : GetComponentsInChildren<Renderer>(true)
+                .Where(renderer => renderer != null && renderer.enabled)
+                .ToArray();
+
+        runtimeMaterials.Clear();
+    }
+
+    void EnsureRuntimeMaterials()
+    {
+        if (stationRenderers == null || stationRenderers.Length == 0)
+            RefreshVisualBindings();
+
+        if (stationRenderers == null)
+            return;
+
+        foreach (Renderer renderer in stationRenderers)
+        {
+            if (renderer == null || runtimeMaterials.ContainsKey(renderer))
+                continue;
+
+            Material[] materials = renderer.sharedMaterials
+                .Where(material => material != null)
+                .Select(material => new Material(material))
+                .ToArray();
+
+            if (materials.Length == 0)
+                continue;
+
+            runtimeMaterials[renderer] = materials;
+        }
     }
 
     private void OnDrawGizmos()

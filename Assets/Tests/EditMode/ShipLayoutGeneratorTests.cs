@@ -11,6 +11,8 @@ public class ShipLayoutGeneratorTests
 {
     const string BridgePath = "Assets/Art/Modules/Bridge/Module_Bridge_OOOO.prefab";
     const string CorridorPath = "Assets/Art/Modules/Corridors_Straight/Module_Corridor_Straight.prefab";
+    const string CorridorV2Path = "Assets/Art/Modules/Corridors_Straight/Module_Corridor_Straight_v2.prefab";
+    const string CorridorTPath = "Assets/Art/Modules/Corridors_T/Module_Corridor_T.prefab";
     const string CommsNPath = "Assets/Art/Modules/Comms/Module_RepairStation_COMMS_N.prefab";
 
     static readonly int[] SampleSeeds = { 101, 202, 303 };
@@ -173,6 +175,26 @@ public class ShipLayoutGeneratorTests
     }
 
     [Test]
+    public void GenerateLayout_SampleSeeds_AlwaysIncludeAllConfiguredRooms()
+    {
+        foreach (int seed in SampleSeeds)
+        {
+            Component generator = CreateConfiguredGenerator();
+            Assert.That(GenerateLayout(generator, seed, out string failureReason), Is.True, $"Seed {seed}: {failureReason}");
+
+            List<object> modules = GetObjects(generator, "DebugPlacedModules");
+            string[] names = modules.Select(module => Get<string>(module, "Name")).ToArray();
+
+            Assert.That(modules.Count, Is.EqualTo(8), $"Seed {seed}");
+            Assert.That(names.Count(name => name.StartsWith("Repair_", StringComparison.Ordinal)), Is.EqualTo(4), $"Seed {seed}");
+            Assert.That(names.Count(name => name.StartsWith("Extra_", StringComparison.Ordinal)), Is.EqualTo(3), $"Seed {seed}");
+            Assert.That(names, Does.Contain("Extra_CrewBunks"), $"Seed {seed}");
+            Assert.That(names, Does.Contain("Extra_GunStation"), $"Seed {seed}");
+            Assert.That(names, Does.Contain("Extra_Storage"), $"Seed {seed}");
+        }
+    }
+
+    [Test]
     public void GenerateLayout_SampleSeeds_HaveAlignedConnectionsWithoutGaps()
     {
         foreach (int seed in SampleSeeds)
@@ -199,6 +221,24 @@ public class ShipLayoutGeneratorTests
                 Assert.That(lateralDistance, Is.LessThanOrEqualTo(0.05f), $"{Get<string>(connection, "Name")} lateral");
                 Assert.That(axialDistance, Is.EqualTo(expectedLength).Within(0.05f), $"{Get<string>(connection, "Name")} length");
             }
+        }
+    }
+
+    [Test]
+    public void GenerateLayout_IgnoresMisassignedTCorridorInStraightPool()
+    {
+        Component generator = CreateConfiguredGenerator();
+        SetField(generator, "prefabsCorridorStraight", new[]
+        {
+            LoadPrefab(CorridorPath),
+            LoadPrefab(CorridorV2Path),
+            LoadPrefab(CorridorTPath),
+        });
+
+        foreach (int seed in Enumerable.Range(5000, 16))
+        {
+            Assert.That(GenerateLayout(generator, seed, out string failureReason), Is.True, $"Seed {seed}: {failureReason}");
+            Assert.That(GetObjects(generator, "DebugPlacedConnections").Count, Is.GreaterThanOrEqualTo(7), $"Seed {seed}");
         }
     }
 
@@ -321,8 +361,8 @@ public class ShipLayoutGeneratorTests
             "Assets/Art/Modules/Storage/Module_Storage_NS.prefab"));
         SetField(generator, "prefabsCorridorStraight", new[]
         {
-            LoadPrefab("Assets/Art/Modules/Corridors_Straight/Module_Corridor_Straight.prefab"),
-            LoadPrefab("Assets/Art/Modules/Corridors_Straight/Module_Corridor_Straight_v2.prefab"),
+            LoadPrefab(CorridorPath),
+            LoadPrefab(CorridorV2Path),
             LoadPrefab("Assets/Art/Modules/Corridors_Straight/Module_Corridor_Straight_v3.prefab"),
         });
         SetField(generator, "shipInteriorParent", shipInterior.transform);

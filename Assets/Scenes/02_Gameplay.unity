@@ -3556,7 +3556,7 @@ MonoBehaviour:
   prefabsCorridorStraight:
   - {fileID: 3479597394611083003, guid: c0436e8de33c19a40846ca3d71a106db, type: 3}
   - {fileID: 833155999859562363, guid: 5372124ed61da4a42b9b31cdfb0e46b9, type: 3}
-  - {fileID: 3178349818039851786, guid: e9f0915f23c669d44ab3bc9ed0f9634a, type: 3}
+  - {fileID: 641275811868224904, guid: 10c44ab49214d4040927e36d1efdbaa6, type: 3}
   prefabCorridorTurn: {fileID: 850743061720746441, guid: 0fb6e39fe2aeee146a22c32986598807,
     type: 3}
   prefabCorridorT: {fileID: 3178349818039851786, guid: e9f0915f23c669d44ab3bc9ed0f9634a,
