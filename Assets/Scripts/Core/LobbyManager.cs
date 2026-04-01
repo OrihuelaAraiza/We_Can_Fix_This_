@@ -26,6 +26,8 @@ public class LobbyManager : MonoBehaviour
     {
         if (Instance != null && Instance != this) { Destroy(gameObject); return; }
         Instance = this;
+        RoleSelectionData.Clear();
+        LobbyPlayerSessionData.Reset();
     }
 
     public List<RoleDefinition> GetAvailableRoles() => availableRoles;
@@ -38,13 +40,20 @@ public class LobbyManager : MonoBehaviour
         return availableRoles[roleIndex];
     }
 
-    public void RegisterPlayer(int playerIndex)
+    public bool RegisterPlayer(int playerIndex)
     {
+        if (playerIndex < 0 || playerIndex >= LobbyPlayerSessionData.MaxPlayers)
+            return false;
+
+        if (selectedRoles.ContainsKey(playerIndex))
+            return false;
+
         connectedPlayers++;
         selectedRoles[playerIndex] = availableRoles.Count > 0
             ? availableRoles[0] : null;
         readyPlayers[playerIndex] = false;
         Debug.Log($"[Lobby] Player {playerIndex} registered. Total: {connectedPlayers}");
+        return true;
     }
 
     public void SelectRole(int playerIndex, RoleDefinition role)
@@ -94,6 +103,21 @@ public class LobbyManager : MonoBehaviour
         OnAllPlayersReady?.Invoke();
         Debug.Log("[Lobby] All players ready! Starting game...");
         Invoke(nameof(LoadGameplay), 1.5f);
+    }
+
+    public void StartGameFromUI()
+    {
+        if (connectedPlayers < minPlayersToStart)
+            return;
+
+        foreach (var kv in readyPlayers)
+        {
+            if (!kv.Value)
+                return;
+        }
+
+        CancelInvoke(nameof(LoadGameplay));
+        LoadGameplay();
     }
 
     void LoadGameplay()

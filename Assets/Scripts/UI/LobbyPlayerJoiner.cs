@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.Controls;
 using UnityEngine.InputSystem.LowLevel;
 
 public class LobbyPlayerJoiner : MonoBehaviour
@@ -9,16 +10,13 @@ public class LobbyPlayerJoiner : MonoBehaviour
     [SerializeField] int maxPlayers = 4;
 
     LobbyUI lobbyUI;
-    int joinedCount = 0;
-
-    Dictionary<int, int> deviceToPlayer = new();
-
-    // Para evitar detectar el mismo press múltiples veces
-    bool listeningForJoin = true;
+    readonly Dictionary<int, int> deviceToPlayer = new();
 
     void Awake()
     {
         lobbyUI = FindObjectOfType<LobbyUI>();
+        LobbyPlayerSessionData.Reset();
+        deviceToPlayer.Clear();
     }
 
     void OnEnable()
@@ -33,55 +31,62 @@ public class LobbyPlayerJoiner : MonoBehaviour
 
     unsafe void OnInputEvent(InputEventPtr eventPtr, InputDevice device)
     {
-        if (!listeningForJoin) return;
-        if (joinedCount >= maxPlayers) return;
+        if (LobbyPlayerSessionData.Count >= maxPlayers) return;
 
-        // Solo procesar StateEvents (botones presionados)
         if (!eventPtr.IsA<StateEvent>() && !eventPtr.IsA<DeltaStateEvent>()) return;
-
-        // Ignorar mouse para evitar joins accidentales
         if (device is Mouse) return;
 
-        // Verificar que haya algún botón presionado en este evento
-        bool anyButtonPressed = false;
-        foreach (var control in device.allControls)
+        LobbyPlayerSessionEntry entry = TryCreateEntry(device);
+        if (entry == null || LobbyManager.Instance == null) return;
+        if (!LobbyManager.Instance.RegisterPlayer(entry.PlayerIndex)) return;
+
+        if (!entry.IsKeyboard)
+            deviceToPlayer[entry.DeviceId] = entry.PlayerIndex;
+
+        var roles = LobbyManager.Instance.GetAvailableRoles();
+        if (roles != null)
+            lobbyUI?.ShowPanel(entry.PlayerIndex, roles);
+
+        var handler = gameObject.AddComponent<PlayerLobbyInputHandler>();
+        handler.Initialize(entry.PlayerIndex, device, entry.ControlScheme);
+
+        Debug.Log($"[LobbyJoiner] Player {entry.PlayerIndex} joined with {entry.DeviceDisplayName} ({entry.ControlScheme})");
+    }
+
+    LobbyPlayerSessionEntry TryCreateEntry(InputDevice device)
+    {
+        if (device is Gamepad gamepad)
         {
-            if (control is UnityEngine.InputSystem.Controls.ButtonControl button)
+            if (!WasPressedThisEvent(gamepad.buttonSouth)) return null;
+            if (deviceToPlayer.ContainsKey(device.deviceId)) return null;
+
+            return LobbyPlayerSessionData.TryRegisterGamepad(device, out LobbyPlayerSessionEntry gamepadEntry)
+                ? gamepadEntry
+                : null;
+        }
+
+        if (device is Keyboard keyboard)
+        {
+            if (WasPressedThisEvent(keyboard.spaceKey))
             {
-                if (button.IsPressed())
-                {
-                    anyButtonPressed = true;
-                    break;
-                }
+                return LobbyPlayerSessionData.TryRegisterKeyboardPlayer("KeyboardP1", out LobbyPlayerSessionEntry keyboardP1Entry)
+                    ? keyboardP1Entry
+                    : null;
+            }
+
+            if (WasPressedThisEvent(keyboard.enterKey) || WasPressedThisEvent(keyboard.numpadEnterKey))
+            {
+                return LobbyPlayerSessionData.TryRegisterKeyboardPlayer("KeyboardP2", out LobbyPlayerSessionEntry keyboardP2Entry)
+                    ? keyboardP2Entry
+                    : null;
             }
         }
 
-        if (!anyButtonPressed) return;
+        return null;
+    }
 
-        // Dispositivo ya registrado — ignorar
-        if (deviceToPlayer.ContainsKey(device.deviceId)) return;
-
-        // Registrar nuevo jugador
-        int playerIndex = joinedCount;
-        deviceToPlayer[device.deviceId] = playerIndex;
-        joinedCount++;
-
-        // Registrar en LobbyManager
-        LobbyManager.Instance?.RegisterPlayer(playerIndex);
-
-        // Mostrar panel en UI
-        var roles = LobbyManager.Instance?.GetAvailableRoles();
-        if (roles != null)
-            lobbyUI?.ShowPanel(playerIndex, roles);
-
-        Debug.Log($"[LobbyJoiner] Player {playerIndex} joined with {device.name}");
-
-        // Agregar handler de input para este jugador
-        var handler = gameObject.AddComponent<PlayerLobbyInputHandler>();
-        handler.Initialize(playerIndex, device);
-
-        // Si llegamos al máximo, dejar de escuchar joins
-        if (joinedCount >= maxPlayers)
-            listeningForJoin = false;
+    static bool WasPressedThisEvent(ButtonControl button)
+    {
+        return button != null && button.IsPressed();
     }
 }

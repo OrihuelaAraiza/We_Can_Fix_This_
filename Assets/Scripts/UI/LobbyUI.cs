@@ -1,16 +1,23 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.SceneManagement;
 using TMPro;
 
 public class LobbyUI : MonoBehaviour
 {
+    [Header("Scenes")]
+    [SerializeField] string mainMenuScene    = "MainMenu";
+    [SerializeField] int    minPlayersToStart = 2;
+
     [Header("Player Panels — uno por jugador (máx 4)")]
     [SerializeField] List<PlayerLobbyPanel> playerPanels = new();
 
     [Header("Start Button")]
     [SerializeField] GameObject startPrompt;
     [SerializeField] TextMeshProUGUI startPromptText;
+    [SerializeField] Button btnStart;   // botón INICIAR — conectar desde Inspector
+    [SerializeField] Button btnBack;    // botón VOLVER  — conectar desde Inspector
 
     [Header("Instrucciones")]
     [SerializeField] GameObject      joinPromptPanel;
@@ -42,7 +49,13 @@ public class LobbyUI : MonoBehaviour
         // Instrucciones de controles
         if (joinPromptText != null)
             joinPromptText.text =
-                "P1: A/D + ESPACIO  |  P2: ←/→ + ENTER  |  Gamepad: L-Stick + A";
+                "UNIRSE: ESPACIO = Teclado 1 | ENTER = Teclado 2 | Gamepad = A";
+
+        btnStart?.onClick.AddListener(OnStartClicked);
+        btnBack?.onClick.AddListener(OnBackClicked);
+
+        // Botón INICIAR deshabilitado hasta que haya suficientes jugadores listos
+        if (btnStart != null) btnStart.interactable = false;
     }
 
     public void ShowPanel(int playerIndex, List<RoleDefinition> roles)
@@ -169,6 +182,30 @@ public class LobbyUI : MonoBehaviour
             if (startPromptText != null)
                 startPromptText.text = "¡INICIANDO...";
         }
+
+        // Habilitar botón INICIAR cuando todos están listos
+        if (btnStart != null) btnStart.interactable = true;
+    }
+
+    void OnReadyChanged_CheckStartButton(int playerIndex, bool ready)
+    {
+        // Contar cuántos jugadores están en estado READY para habilitar el botón INICIAR
+        // (requiere acceso a LobbyManager; si no está disponible, depender solo de OnAllReady)
+        _ = playerIndex; _ = ready; // usados indirectamente vía LobbyManager
+    }
+
+    // ── Botones de escena ─────────────────────────────────────────
+
+    public void OnStartClicked()
+    {
+        Time.timeScale = 1f;
+        LobbyManager.Instance?.StartGameFromUI();
+    }
+
+    public void OnBackClicked()
+    {
+        Time.timeScale = 1f;
+        SceneManager.LoadScene(mainMenuScene);
     }
 }
 

@@ -7,16 +7,18 @@ public class PlayerLobbyInputHandler : MonoBehaviour
 {
     int playerIndex;
     InputDevice device;
+    string controlScheme;
 
     // Cooldown para evitar navegación demasiado rápida
     float navCooldown = 0f;
     const float NAV_DELAY = 0.25f;
 
-    public void Initialize(int index, InputDevice inputDevice)
+    public void Initialize(int index, InputDevice inputDevice, string assignedControlScheme)
     {
         playerIndex = index;
         device      = inputDevice;
-        Debug.Log($"[LobbyInputHandler] P{index} initialized with {inputDevice.name}");
+        controlScheme = assignedControlScheme;
+        Debug.Log($"[LobbyInputHandler] P{index} initialized with {inputDevice.name} ({controlScheme})");
     }
 
     void Update()
@@ -53,27 +55,18 @@ public class PlayerLobbyInputHandler : MonoBehaviour
         {
             if (navCooldown <= 0f)
             {
-                // P0: A/D    P1: ←/→    P2: F/H    P3: J/L
                 bool left  = false;
                 bool right = false;
 
-                switch (playerIndex)
+                switch (controlScheme)
                 {
-                    case 0:
+                    case "KeyboardP1":
                         left  = keyboard.aKey.wasPressedThisFrame;
                         right = keyboard.dKey.wasPressedThisFrame;
                         break;
-                    case 1:
+                    case "KeyboardP2":
                         left  = keyboard.leftArrowKey.wasPressedThisFrame;
                         right = keyboard.rightArrowKey.wasPressedThisFrame;
-                        break;
-                    case 2:
-                        left  = keyboard.fKey.wasPressedThisFrame;
-                        right = keyboard.hKey.wasPressedThisFrame;
-                        break;
-                    case 3:
-                        left  = keyboard.jKey.wasPressedThisFrame;
-                        right = keyboard.lKey.wasPressedThisFrame;
                         break;
                 }
 
@@ -81,14 +74,10 @@ public class PlayerLobbyInputHandler : MonoBehaviour
                 if (right) { NavigateRole(1);  navCooldown = NAV_DELAY; }
             }
 
-            // Ready por jugador
-            // P0: Espacio  P1: Enter  P2: R  P3: P
-            bool pressedReady = playerIndex switch
+            bool pressedReady = controlScheme switch
             {
-                0 => keyboard.spaceKey.wasPressedThisFrame,
-                1 => keyboard.enterKey.wasPressedThisFrame,
-                2 => keyboard.rKey.wasPressedThisFrame,
-                3 => keyboard.pKey.wasPressedThisFrame,
+                "KeyboardP1" => keyboard.spaceKey.wasPressedThisFrame,
+                "KeyboardP2" => keyboard.enterKey.wasPressedThisFrame || keyboard.numpadEnterKey.wasPressedThisFrame,
                 _ => false
             };
 
@@ -101,8 +90,10 @@ public class PlayerLobbyInputHandler : MonoBehaviour
         if (LobbyManager.Instance == null) return;
 
         var roles   = LobbyManager.Instance.GetAvailableRoles();
+        if (roles == null || roles.Count == 0) return;
         var current = LobbyManager.Instance.GetSelectedRole(playerIndex);
         int idx     = roles.IndexOf(current);
+        if (idx < 0) idx = 0;
         int next    = (idx + direction + roles.Count) % roles.Count;
         LobbyManager.Instance.SelectRole(playerIndex, roles[next]);
     }

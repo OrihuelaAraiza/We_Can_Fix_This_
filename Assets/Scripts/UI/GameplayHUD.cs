@@ -27,6 +27,9 @@ public class GameplayHUD : MonoBehaviour
     [SerializeField] TextMeshProUGUI   failureListText;
     [SerializeField] Image             failurePanelBg;
 
+    [Header("=== PAUSA ===")]
+    [SerializeField] PauseMenuUI pauseMenu;  // asignar desde el Inspector
+
     [Header("=== COLORES ===")]
     [SerializeField] Color colorHealthGood     = new Color(0.15f, 0.80f, 0.35f);
     [SerializeField] Color colorHealthWarning  = new Color(0.95f, 0.65f, 0.10f);
@@ -95,6 +98,9 @@ public class GameplayHUD : MonoBehaviour
 
     void Update()
     {
+        // Suspender actualizaciones mientras el juego está pausado
+        if (pauseMenu != null && pauseMenu.IsPaused) return;
+
         if (CoreXBrain.Instance == null) return;
 
         float aggression = CoreXBrain.Instance.AggressionLevel;
@@ -258,5 +264,49 @@ public class GameplayHUD : MonoBehaviour
         }
         if (bossWarningPanel != null)
             bossWarningPanel.SetActive(true);
+    }
+
+    // ════════════════════════════════════════════════════════════
+    // API PÚBLICA — llamada por sistemas externos
+    // ════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// Actualiza la barra de integridad de la nave con los colores del design system.
+    /// normalized: 0-1. Llama también a OnHealthChanged para mantener sincronía.
+    /// </summary>
+    public void UpdateCorexisIntegrity(float normalized)
+    {
+        OnHealthChanged(normalized);
+
+        // Override de colores exactos del design system (distintos a los serializados)
+        if (shipHealthFill != null)
+        {
+            Color c;
+            if      (normalized > 0.6f) c = new Color(0.722f, 0.431f, 0.031f); // #B86E08
+            else if (normalized > 0.3f) c = new Color(0.596f, 0.439f, 0.125f); // #987020
+            else                        c = new Color(0.596f, 0.125f, 0.125f); // #982020
+            shipHealthFill.color = c;
+        }
+
+        if (normalized <= 0.3f && !isCritical)
+            OnShipCritical();
+        else if (normalized > 0.3f && isCritical)
+            OnShipRecovered();
+    }
+
+    /// <summary>
+    /// Actualiza el panel Core-X con fase y nivel de agresión directamente.
+    /// </summary>
+    public void SetCoreXPhase(int phase, float aggression)
+    {
+        OnCoreXPhaseChanged(phase);
+
+        if (coreXAggressionFill != null)
+            coreXAggressionFill.fillAmount = Mathf.Clamp01(aggression);
+        if (coreXAggressionLabel != null)
+            coreXAggressionLabel.text = $"Agresion: {Mathf.RoundToInt(aggression * 100)}%";
+
+        if (coreXPhaseText != null)
+            coreXPhaseText.text = $"PHASE {phase + 1}";
     }
 }
