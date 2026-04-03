@@ -4717,6 +4717,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c8d7f0189b76641a99895e320cfca250, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  mainMenuScene: MainMenu
+  minPlayersToStart: 2
   playerPanels:
   - root: {fileID: 878418166}
     playerLabel: {fileID: 561464047}
@@ -4764,6 +4766,8 @@ MonoBehaviour:
     readyButton: {fileID: 472022937}
   startPrompt: {fileID: 1215674277}
   startPromptText: {fileID: 1870178219}
+  btnStart: {fileID: 0}
+  btnBack: {fileID: 0}
   joinPromptPanel: {fileID: 1497661068}
   joinPromptText: {fileID: 1691022546}
 --- !u!114 &945029853
@@ -6129,6 +6133,103 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1584938697}
   m_CullTransparentMesh: 1
+--- !u!1 &1589681044
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1589681046}
+  - component: {fileID: 1589681045}
+  m_Layer: 0
+  m_Name: LobbyUI
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1589681045
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1589681044}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c8d7f0189b76641a99895e320cfca250, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  mainMenuScene: MainMenu
+  minPlayersToStart: 1
+  playerPanels:
+  - root: {fileID: 878418166}
+    playerLabel: {fileID: 561464047}
+    roleNameText: {fileID: 556323650}
+    perkText: {fileID: 544654284}
+    penaltyText: {fileID: 555506174}
+    roleColorBar: {fileID: 1650926822}
+    readyIndicator: {fileID: 1701236963}
+    readyText: {fileID: 845355424}
+    prevRoleButton: {fileID: 2071400320}
+    nextRoleButton: {fileID: 37778786}
+    readyButton: {fileID: 961184928}
+  - root: {fileID: 75816030}
+    playerLabel: {fileID: 534077185}
+    roleNameText: {fileID: 345550223}
+    perkText: {fileID: 186580527}
+    penaltyText: {fileID: 390337327}
+    roleColorBar: {fileID: 675278256}
+    readyIndicator: {fileID: 1177369197}
+    readyText: {fileID: 2029179428}
+    prevRoleButton: {fileID: 479465963}
+    nextRoleButton: {fileID: 1573396931}
+    readyButton: {fileID: 1476130608}
+  - root: {fileID: 407513447}
+    playerLabel: {fileID: 717441578}
+    roleNameText: {fileID: 1871764872}
+    perkText: {fileID: 110604566}
+    penaltyText: {fileID: 1711088697}
+    roleColorBar: {fileID: 638787139}
+    readyIndicator: {fileID: 1626309786}
+    readyText: {fileID: 2053896058}
+    prevRoleButton: {fileID: 288037923}
+    nextRoleButton: {fileID: 671703070}
+    readyButton: {fileID: 980490593}
+  - root: {fileID: 1476775566}
+    playerLabel: {fileID: 857193142}
+    roleNameText: {fileID: 191053811}
+    perkText: {fileID: 428360754}
+    penaltyText: {fileID: 465196321}
+    roleColorBar: {fileID: 2060192353}
+    readyIndicator: {fileID: 359888913}
+    readyText: {fileID: 1584938699}
+    prevRoleButton: {fileID: 210741802}
+    nextRoleButton: {fileID: 497283708}
+    readyButton: {fileID: 472022937}
+  startPrompt: {fileID: 1215674277}
+  startPromptText: {fileID: 1870178219}
+  btnStart: {fileID: 0}
+  btnBack: {fileID: 0}
+  joinPromptPanel: {fileID: 1497661068}
+  joinPromptText: {fileID: 1691022546}
+--- !u!4 &1589681046
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1589681044}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 2, z: -1.9757192}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1626309784
 GameObject:
   m_ObjectHideFlags: 0
@@ -7860,3 +7961,4 @@ SceneRoots:
   - {fileID: 420421532}
   - {fileID: 945029856}
   - {fileID: 464625045}
+  - {fileID: 1589681046}
