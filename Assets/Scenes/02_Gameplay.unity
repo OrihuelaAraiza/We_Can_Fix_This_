@@ -2939,6 +2939,8 @@ MonoBehaviour:
   - {fileID: 605151549}
   - {fileID: 2085396268}
   cameraTransform: {fileID: 278711866}
+  spawnHeightOffset: 0.15
+  minSpawnSeparation: 1.1
   debugLog: 1
 --- !u!4 &506897553
 Transform:
@@ -7699,6 +7701,7 @@ MonoBehaviour:
   failureListPanel: {fileID: 0}
   failureListText: {fileID: 0}
   failurePanelBg: {fileID: 0}
+  pauseMenu: {fileID: 0}
   colorHealthGood: {r: 0.15, g: 0.8, b: 0.35, a: 1}
   colorHealthWarning: {r: 0.95, g: 0.65, b: 0.1, a: 1}
   colorHealthCritical: {r: 0.9, g: 0.15, b: 0.1, a: 1}
