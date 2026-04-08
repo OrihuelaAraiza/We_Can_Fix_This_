@@ -4,25 +4,27 @@ using System.Collections;
 [RequireComponent(typeof(Rigidbody))]
 public class PlayerMovement : MonoBehaviour
 {
+
     [Header("Runtime Info (debug)")]
     [SerializeField] private int playerIndex;
     [SerializeField] private bool initialized;
 
     public bool IsInitialized => initialized;
     public int PlayerIndex => playerIndex;
-
     private PlayerData data;
     private Rigidbody rb;
     private Transform cameraTransform;
 
+
     private float speedMultiplier = 1f;
     private float tempBoostMultiplier = 1f;
+
 
     private Vector2 moveInput;
     private bool jumpPressed;
     private bool isGrounded;
-
     private bool externalControlEnabled = true;
+
     private Coroutine boostCoroutine;
 
     public Rigidbody RB => rb;
@@ -32,7 +34,6 @@ public class PlayerMovement : MonoBehaviour
     {
         rb = GetComponent<Rigidbody>();
     }
-
     public void Initialize(int index, PlayerData playerData, Transform cam)
     {
         playerIndex = index;
@@ -45,6 +46,7 @@ public class PlayerMovement : MonoBehaviour
             return;
         }
 
+
         if (rb == null)
             rb = GetComponent<Rigidbody>();
 
@@ -53,6 +55,8 @@ public class PlayerMovement : MonoBehaviour
         rb.angularDrag = 0.05f;
         rb.interpolation = RigidbodyInterpolation.Interpolate;
         rb.collisionDetectionMode = CollisionDetectionMode.Continuous;
+
+    
         rb.constraints = RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationZ;
 
         ApplyColor(index);
@@ -61,29 +65,28 @@ public class PlayerMovement : MonoBehaviour
         Debug.Log($"[PlayerMovement] Player {index} initialized. Mass:{rb.mass} Cam:{(cam != null ? cam.name : "NULL")}");
     }
 
+
+    // NUEVO: aquí agregué validación de externalControlEnabled
+    // para que si el jugador está en fake fall ya no acepte movimiento
     public void OnMove(Vector2 input)
     {
         if (!externalControlEnabled) return;
         moveInput = input;
     }
-
     public void OnJump()
     {
         if (!initialized || !externalControlEnabled) return;
         jumpPressed = true;
     }
-
     public void SetExternalControlEnabled(bool enabled)
     {
         externalControlEnabled = enabled;
-
         if (!enabled)
         {
             moveInput = Vector2.zero;
             jumpPressed = false;
         }
     }
-
     private void Update()
     {
         if (!initialized) return;
@@ -95,7 +98,6 @@ public class PlayerMovement : MonoBehaviour
     private void FixedUpdate()
     {
         if (!initialized) return;
-
         if (externalControlEnabled)
         {
             Move();
@@ -109,6 +111,7 @@ public class PlayerMovement : MonoBehaviour
 
         LimitSpeed();
     }
+
 
     private void CheckGround()
     {
@@ -137,6 +140,7 @@ public class PlayerMovement : MonoBehaviour
         Vector3 dir = (forward * moveInput.y + right * moveInput.x).normalized;
 
         float control = isGrounded ? 1f : data.airControlMultiplier;
+
         float finalForce = data.moveForce * control * 2f * speedMultiplier * tempBoostMultiplier;
 
         rb.AddForce(dir * finalForce, ForceMode.Force);
@@ -155,7 +159,6 @@ public class PlayerMovement : MonoBehaviour
     private void LimitSpeed()
     {
         if (data == null) return;
-
         float currentMaxSpeed = data.maxSpeed * speedMultiplier * tempBoostMultiplier;
 
         Vector3 flatVel = new Vector3(rb.velocity.x, 0f, rb.velocity.z);
@@ -188,14 +191,16 @@ public class PlayerMovement : MonoBehaviour
         speedMultiplier = multiplier;
     }
 
+  
     public void ApplyTemporarySpeedBoost(float multiplier, float duration)
     {
         tempBoostMultiplier = multiplier;
 
-        if (boostCoroutine != null)
+        if (tempBoostMultiplier != 0f) 
             StopCoroutine(boostCoroutine);
 
         boostCoroutine = StartCoroutine(RemoveBoostAfter(duration));
+
     }
 
     private IEnumerator RemoveBoostAfter(float duration)
@@ -203,8 +208,10 @@ public class PlayerMovement : MonoBehaviour
         yield return new WaitForSeconds(duration);
         tempBoostMultiplier = 1f;
         boostCoroutine = null;
-        Debug.Log("[PlayerMovement] Speed boost expired");
+        Debug.Log("[PlayerMovement] Speedo Boost End");
     }
+
+
 
     private void ApplyColor(int index)
     {
@@ -229,6 +236,7 @@ public class PlayerMovement : MonoBehaviour
 
     private void OnDrawGizmosSelected()
     {
+
         float rayDistance = 0.65f;
 
         if (data != null)
