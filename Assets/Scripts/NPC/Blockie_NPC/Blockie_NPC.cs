@@ -1,7 +1,7 @@
 using UnityEngine;
 
 [RequireComponent(typeof(Rigidbody))]
-public class BlockieNPC : MonoBehaviour
+public class BlockieNPC : NPCBehaviourBase
 {
     [Header("Velocidad")]
     public float baseSpeed = 2f;
@@ -13,7 +13,7 @@ public class BlockieNPC : MonoBehaviour
     public float drag = 6f;
     public float angularDrag = 10f;
 
-    [Header("Detección")]
+    [Header("Detecciï¿½n")]
     public float forwardCheck = 2.5f;
     public float sideCheck = 2f;
     public float rayHeight = 1f;
@@ -39,6 +39,8 @@ public class BlockieNPC : MonoBehaviour
 
     void FixedUpdate()
     {
+        if (IsDisabled) return;
+
         float currentSpeed = baseSpeed + (playersPushing * extraSpeedPerPlayer);
         playersPushing = 0;
 

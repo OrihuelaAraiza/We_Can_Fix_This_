@@ -137,11 +137,23 @@ public class PlayerRole : MonoBehaviour
 
     void ExecuteElectricBomb()
     {
-        // Desactiva todos los NPCs cercanos por 5 segundos
-        // Compatible con sistema de NPCs cuando estén implementados
-        Debug.Log("[Saboteador] Electric bomb — NPCs disabled (pending NPC system)");
-        // Los NPCs deben escuchar: PlayerRole.OnAbilityUsed
-        // y verificar si ability == ElectricBomb
+        const float bombRadius   = 15f;
+        const float disableSecs  = 5f;
+
+        var npcs = FindObjectsOfType<NPCBehaviourBase>();
+        int affected = 0;
+
+        foreach (var npc in npcs)
+        {
+            float dist = Vector3.Distance(transform.position, npc.transform.position);
+            if (dist <= bombRadius)
+            {
+                npc.Disable(disableSecs);
+                affected++;
+            }
+        }
+
+        Debug.Log($"[Saboteador] Electric bomb — {affected} NPCs deshabilitados por {disableSecs}s");
     }
 
     void ExecuteResetStation()
