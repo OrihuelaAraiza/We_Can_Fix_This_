@@ -11,6 +11,9 @@ public class ShipAssembler : MonoBehaviour
     [Header("Settings")]
     [SerializeField] bool buildOnStart = true;
 
+    /// <summary>Spawn points de NPC generados al ensamblar la nave. Disponibles para CoreXBrain.</summary>
+    public static Transform[] NPCSpawnPoints { get; private set; }
+
     // Dimensiones fijas
     const float CX = 20f; // centro ancho
     const float CZ = 20f; // centro largo
@@ -35,6 +38,7 @@ public class ShipAssembler : MonoBehaviour
         BuildWest();
         BuildAccents();
         PositionStations();
+        RegisterNPCSpawnPoints();
 
         Debug.Log("[ShipAssembler] Nave ensamblada sin paredes bloqueantes.");
     }
@@ -112,6 +116,39 @@ public class ShipAssembler : MonoBehaviour
         g.transform.SetParent(transform);
         MakeCube("Acc_H", g.transform, 0, 0.43f, 0, CX, 0.05f, 0.3f, cAccent);
         MakeCube("Acc_V", g.transform, 0, 0.43f, 0, 0.3f, 0.05f, CZ, cAccent);
+    }
+
+    // ─── NPC Spawn Points ────────────────────────────────────────────
+
+    /// <summary>
+    /// Crea spawn points en el centro de cada zona de la nave y los registra
+    /// en NPCSpawnPoints para que CoreXBrain los use como fallback.
+    /// </summary>
+    void RegisterNPCSpawnPoints()
+    {
+        // Posiciones Y=1 (sobre el piso) en el centro de cada zona
+        var positions = new Vector3[]
+        {
+            new( 0f,   1f,   0f),  // Centro
+            new( 0f,   1f,  16f),  // Norte
+            new( 0f,   1f, -16f),  // Sur
+            new(16f,   1f,   0f),  // Este
+            new(-16f,  1f,   0f),  // Oeste
+        };
+
+        var container = new GameObject("NPC_SpawnPoints");
+        container.transform.SetParent(transform);
+
+        var points = new Transform[positions.Length];
+        for (int i = 0; i < positions.Length; i++)
+        {
+            var sp = new GameObject($"NPC_SP_{i}");
+            sp.transform.SetParent(container.transform);
+            sp.transform.position = positions[i];
+            points[i] = sp.transform;
+        }
+
+        NPCSpawnPoints = points;
     }
 
     // ─── Station Placement ────────────────────────────────────────────

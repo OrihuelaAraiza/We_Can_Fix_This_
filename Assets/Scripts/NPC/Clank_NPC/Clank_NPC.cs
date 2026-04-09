@@ -2,7 +2,7 @@ using System.Collections;
 using UnityEngine;
 using UnityEngine.AI;
 
-public class Clank_NPC : MonoBehaviour
+public class Clank_NPC : NPCBehaviourBase
 {
     [Header("Agent")]
     public NavMeshAgent agent;
@@ -48,8 +48,24 @@ public class Clank_NPC : MonoBehaviour
             agent = GetComponent<NavMeshAgent>();
     }
 
+    protected override void OnDisabled()
+    {
+        if (agent != null)
+        {
+            agent.isStopped = true;
+            agent.ResetPath();
+        }
+    }
+
+    protected override void OnEnabled()
+    {
+        if (agent != null)
+            agent.isStopped = false;
+    }
+
     void Update()
     {
+        if (IsDisabled) return;
         if (waiting) return;
 
         if (chaosTimer > 0)

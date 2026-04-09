@@ -1,6 +1,6 @@
 using UnityEngine;
 
-public class Smoggos_NPC : MonoBehaviour
+public class Smoggos_NPC : NPCBehaviourBase
 {
     public float speed = 3f;
     public float detectionDistance = 2f;
@@ -8,7 +8,7 @@ public class Smoggos_NPC : MonoBehaviour
     public float radius = 10f;
     private Vector3 startPoint;
 
-    public float zigzagAmount = 2f;     // qué tanto se mueve a los lados
+    public float zigzagAmount = 2f;     // quï¿½ tanto se mueve a los lados
     public float zigzagSpeed = 2f;      // velocidad del zigzag
 
     void Start()
@@ -18,6 +18,8 @@ public class Smoggos_NPC : MonoBehaviour
 
     void Update()
     {
+        if (IsDisabled) return;
+
         // Movimiento hacia adelante
         Vector3 forwardMove = transform.forward * speed;
 

@@ -50,6 +50,9 @@ public class CoreXBrain : MonoBehaviour
     private int   consecutiveRepairs  = 0;
     private float gameStartTime;
 
+    // NPCs spawneados por CoreX
+    private readonly List<GameObject> spawnedNPCs = new();
+
     // ── Properties públicas ───────────────────────────────────
     public float AggressionLevel => aggressionLevel;
     public int   CurrentPhase    => currentPhaseIndex;
@@ -140,8 +143,81 @@ public class CoreXBrain : MonoBehaviour
         if (FailureSystem.Instance != null)
             FailureSystem.Instance.SetFailureRate(phase.failureRate);
 
+        // Reemplazar NPCs de la fase anterior con los de la nueva fase
+        DespawnAllNPCs();
+        SpawnPhaseNPCs(phase);
+
         OnPhaseChanged?.Invoke(index);
         Debug.Log($"[CoreX] Fase {index} ({phase.phaseName}) activada | fallas/min={phase.failureRate}");
+    }
+
+    // ── Spawn de NPCs ─────────────────────────────────────────
+    private void SpawnPhaseNPCs(CoreXPhase phase)
+    {
+        if (!phase.canDeployNPCs) return;
+        if (phase.npcPrefabs == null || phase.npcPrefabs.Length == 0)
+        {
+            Debug.LogWarning("[CoreX] canDeployNPCs=true pero npcPrefabs está vacío.");
+            return;
+        }
+
+        // Usar los spawn points de la fase; si no hay, tomar los de ShipRoom
+        Transform[] spawnPoints = (phase.npcSpawnPoints != null && phase.npcSpawnPoints.Length > 0)
+            ? phase.npcSpawnPoints
+            : GatherShipSpawnPoints();
+
+        if (spawnPoints == null || spawnPoints.Length == 0)
+        {
+            Debug.LogWarning("[CoreX] No hay spawn points disponibles para NPCs.");
+            return;
+        }
+
+        for (int i = 0; i < spawnPoints.Length; i++)
+        {
+            if (spawnPoints[i] == null) continue;
+
+            var prefab = phase.npcPrefabs[i % phase.npcPrefabs.Length];
+            if (prefab == null) continue;
+
+            var npc = Instantiate(prefab, spawnPoints[i].position, spawnPoints[i].rotation);
+            spawnedNPCs.Add(npc);
+        }
+
+        Debug.Log($"[CoreX] {spawnedNPCs.Count} NPCs spawneados para fase {currentPhaseIndex}.");
+    }
+
+    private void DespawnAllNPCs()
+    {
+        foreach (var npc in spawnedNPCs)
+            if (npc != null) Destroy(npc);
+
+        spawnedNPCs.Clear();
+    }
+
+    /// <summary>
+    /// Recolecta spawn points como fallback:
+    /// primero de ShipRoom, luego de ShipAssembler.
+    /// </summary>
+    private Transform[] GatherShipSpawnPoints()
+    {
+        var points = new List<Transform>();
+
+        // Intentar desde ShipRoom
+        foreach (var room in FindObjectsOfType<ShipRoom>())
+        {
+            if (room.spawnPoints == null) continue;
+            foreach (var sp in room.spawnPoints)
+                if (sp != null) points.Add(sp);
+        }
+
+        // Si ShipRoom no tiene puntos, usar los generados por ShipAssembler
+        if (points.Count == 0 && ShipAssembler.NPCSpawnPoints != null)
+        {
+            foreach (var sp in ShipAssembler.NPCSpawnPoints)
+                if (sp != null) points.Add(sp);
+        }
+
+        return points.ToArray();
     }
 
     private CoreXPhase CurrentPhaseData =>
@@ -238,6 +314,7 @@ public class CoreXBrain : MonoBehaviour
         coreXDefeated = true;
         bossActivated = false;
         StopAllCoroutines();
+        DespawnAllNPCs();
         OnCoreXDefeated?.Invoke();
         GameManager.Instance?.TriggerVictory();
         Debug.Log("[CoreX] Desactivado — ¡jugadores ganaron!");
