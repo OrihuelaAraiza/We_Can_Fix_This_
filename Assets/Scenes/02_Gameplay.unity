@@ -4156,7 +4156,48 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 77753fdb193784af28f85db604518655, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  phases: []
+  phases:
+  - phaseName: 1
+    tickInterval: 3
+    phaseDuration: 180
+    sabotageInterval: 30
+    failureRate: 0.15
+    maxSimultaneousFails: 2
+    canDeployNPCs: 1
+    npcPrefabs:
+    - {fileID: 6837520980853510083, guid: 23528c85de4178c4c870a937839eb37c, type: 3}
+    - {fileID: 1697963494113195501, guid: 64a8239901a0c74459dd6dadde0c892d, type: 3}
+    npcSpawnPoints: []
+    repairRateThreshold: 0.6
+    consecutiveRepairsTrigger: 3
+  - phaseName: Phase_2_Aggressive
+    tickInterval: 2
+    phaseDuration: 180
+    sabotageInterval: 20
+    failureRate: 0.35
+    maxSimultaneousFails: 3
+    canDeployNPCs: 1
+    npcPrefabs:
+    - {fileID: 1697963494113195501, guid: 64a8239901a0c74459dd6dadde0c892d, type: 3}
+    - {fileID: 6837520980853510083, guid: 23528c85de4178c4c870a937839eb37c, type: 3}
+    - {fileID: 2209399255661027933, guid: f1f2464a21a054c43ba24752ea19c3dc, type: 3}
+    npcSpawnPoints: []
+    repairRateThreshold: 0.4
+    consecutiveRepairsTrigger: 2
+  - phaseName: Phase_3_Boss
+    tickInterval: 1
+    phaseDuration: 300
+    sabotageInterval: 10
+    failureRate: 0.6
+    maxSimultaneousFails: 5
+    canDeployNPCs: 1
+    npcPrefabs:
+    - {fileID: 2209399255661027933, guid: f1f2464a21a054c43ba24752ea19c3dc, type: 3}
+    - {fileID: 1697963494113195501, guid: 64a8239901a0c74459dd6dadde0c892d, type: 3}
+    - {fileID: 6837520980853510083, guid: 23528c85de4178c4c870a937839eb37c, type: 3}
+    npcSpawnPoints: []
+    repairRateThreshold: 0.2
+    consecutiveRepairsTrigger: 1
   analysisInterval: 10
   patternMemoryTime: 30
   bossHealthThreshold: 0.2
