@@ -296,6 +296,18 @@ public class ShipLayoutGenerator : MonoBehaviour
     public static bool IsReady { get; private set; }
     public static int CurrentSeed { get; private set; }
 
+    /// <summary>
+    /// Centros de cada habitación generada, indexados por nombre de módulo.
+    /// Claves típicas: "Bridge", "Repair_Energy", "Repair_Gravity", "Repair_Hull",
+    /// "Repair_Communications", "Extra_Storage", "Extra_CrewBunks", "Extra_GunStation".
+    /// Se publica solo cuando el layout está listo.
+    /// </summary>
+    public static IReadOnlyDictionary<string, Vector3> RoomCenters { get; private set; }
+        = new Dictionary<string, Vector3>();
+
+    /// <summary>Se dispara tras una generación exitosa, con el diccionario de centros.</summary>
+    public static event System.Action<IReadOnlyDictionary<string, Vector3>> OnRoomCentersReady;
+
     static readonly Dir[] AllDirs = { Dir.N, Dir.S, Dir.E, Dir.W };
     const float DoorwayBlockerMinHeight = 0.65f;
     const float DoorwayProbeHeight = 1.1f;
@@ -347,6 +359,7 @@ public class ShipLayoutGenerator : MonoBehaviour
                 CurrentSeed = successfulSeed;
                 WireRepairStations();
                 WireSpawnPoints();
+                PublishRoomCenters();
 
                 if (logValidation)
                     Debug.Log($"[ShipLayout] Done | Seed={CurrentSeed} | Objects={allPlaced.Count}");
@@ -967,6 +980,27 @@ public class ShipLayoutGenerator : MonoBehaviour
             PlayerManager.Instance.SetSpawnPoints(points.ToArray());
             Log($"Wired {points.Count} spawn points from Bridge");
         }
+    }
+
+    void PublishRoomCenters()
+    {
+        var centers = new Dictionary<string, Vector3>();
+
+        foreach (var module in placedModules)
+        {
+            if (module.Instance == null) continue;
+
+            var wr = module.WalkableRect;
+            float centerX = (wr.Min.x + wr.Max.x) * 0.5f;
+            float centerZ = (wr.Min.y + wr.Max.y) * 0.5f;
+            float y = module.Instance.transform.position.y + 1f;
+
+            centers[module.Name] = new Vector3(centerX, y, centerZ);
+        }
+
+        RoomCenters = centers;
+        OnRoomCentersReady?.Invoke(centers);
+        Log($"[ShipLayout] Room centers publicados: {centers.Count} habitaciones.");
     }
 
     Transform CreateSafeSpawnAnchor(Transform parent, string name, Vector3 desiredWorldPosition, PlacedModule bridgePlaced)

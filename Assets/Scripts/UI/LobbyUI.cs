@@ -139,12 +139,19 @@ public class LobbyUI : MonoBehaviour
         float[][] positions = new float[][]
         {
             new float[] { 0 },
-            new float[] { -220, 220 },
-            new float[] { -440, 0, 440 },
-            new float[] { -480, -160, 160, 480 }
+            new float[] { -320, 320 },
+            new float[] { -480, 0, 480 },
+            new float[] { -540, -180, 180, 540 }
         };
 
         float[] xPositions = positions[activePanelCount - 1];
+
+        // Usar el Y del panel 0 como referencia para que todos queden a la misma altura,
+        // independientemente de donde estén colocados en la escena.
+        float referenceY = 0f;
+        var panel0Rt = playerPanels[0].root?.GetComponent<RectTransform>();
+        if (panel0Rt != null)
+            referenceY = panel0Rt.anchoredPosition.y;
 
         for (int i = 0; i < activePanelCount; i++)
         {
@@ -154,11 +161,7 @@ public class LobbyUI : MonoBehaviour
 
             var rt = root.GetComponent<RectTransform>();
             if (rt != null)
-            {
-                Vector2 pos = rt.anchoredPosition;
-                pos.x = xPositions[i];
-                rt.anchoredPosition = pos;
-            }
+                rt.anchoredPosition = new Vector2(xPositions[i], referenceY);
         }
     }
 
