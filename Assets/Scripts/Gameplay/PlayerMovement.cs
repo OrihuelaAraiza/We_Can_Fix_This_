@@ -1,39 +1,27 @@
 using UnityEngine;
-using System.Collections;
 
 [RequireComponent(typeof(Rigidbody))]
 public class PlayerMovement : MonoBehaviour
 {
-
     [Header("Runtime Info (debug)")]
     [SerializeField] private int playerIndex;
     [SerializeField] private bool initialized;
+    [SerializeField] private bool isGrounded;
 
     public bool IsInitialized => initialized;
     public int PlayerIndex => playerIndex;
+
     private PlayerData data;
     private Rigidbody rb;
     private Transform cameraTransform;
 
-
     private float speedMultiplier = 1f;
     private float tempBoostMultiplier = 1f;
 
-
     private Vector2 moveInput;
     private bool jumpPressed;
-    private bool isGrounded;
-    private bool externalControlEnabled = true;
+    private bool controlLocked = false;
 
-    private Coroutine boostCoroutine;
-
-    public Rigidbody RB => rb;
-    public bool IsGrounded => isGrounded;
-
-    private void Awake()
-    {
-        rb = GetComponent<Rigidbody>();
-    }
     public void Initialize(int index, PlayerData playerData, Transform cam)
     {
         playerIndex = index;
@@ -46,17 +34,12 @@ public class PlayerMovement : MonoBehaviour
             return;
         }
 
-
-        if (rb == null)
-            rb = GetComponent<Rigidbody>();
-
+        rb = GetComponent<Rigidbody>();
         rb.mass = data.mass;
         rb.drag = data.groundDrag;
         rb.angularDrag = 0.05f;
         rb.interpolation = RigidbodyInterpolation.Interpolate;
         rb.collisionDetectionMode = CollisionDetectionMode.Continuous;
-
-    
         rb.constraints = RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationZ;
 
         ApplyColor(index);
@@ -65,68 +48,62 @@ public class PlayerMovement : MonoBehaviour
         Debug.Log($"[PlayerMovement] Player {index} initialized. Mass:{rb.mass} Cam:{(cam != null ? cam.name : "NULL")}");
     }
 
-
-    // NUEVO: aquí agregué validación de externalControlEnabled
-    // para que si el jugador está en fake fall ya no acepte movimiento
     public void OnMove(Vector2 input)
     {
-        if (!externalControlEnabled) return;
+        if (controlLocked) return;
         moveInput = input;
     }
+
     public void OnJump()
     {
-        if (!initialized || !externalControlEnabled) return;
-        jumpPressed = true;
+        if (initialized && !controlLocked)
+            jumpPressed = true;
     }
-    public void SetExternalControlEnabled(bool enabled)
+
+    public void SetControlLocked(bool locked)
     {
-        externalControlEnabled = enabled;
-        if (!enabled)
+        controlLocked = locked;
+
+        if (locked)
         {
             moveInput = Vector2.zero;
             jumpPressed = false;
         }
     }
+
+    public void AddImpactForce(Vector3 force, ForceMode mode = ForceMode.Impulse)
+    {
+        if (rb == null)
+            rb = GetComponent<Rigidbody>();
+
+        rb.AddForce(force, mode);
+    }
+
     private void Update()
     {
         if (!initialized) return;
-
-        CheckGround();
         rb.drag = isGrounded ? data.groundDrag : data.airDrag;
     }
 
     private void FixedUpdate()
     {
         if (!initialized) return;
-        if (externalControlEnabled)
-        {
-            Move();
 
-            if (jumpPressed)
-            {
-                TryJump();
-                jumpPressed = false;
-            }
+        Move();
+
+        if (jumpPressed)
+        {
+            TryJump();
+            jumpPressed = false;
         }
 
         LimitSpeed();
-    }
-
-
-    private void CheckGround()
-    {
-        if (data == null) return;
-
-        isGrounded = Physics.Raycast(
-            transform.position + Vector3.up * 0.1f,
-            Vector3.down,
-            data.groundCheckDistance + 0.6f,
-            data.groundLayer
-        );
+        ApplyWobble();
     }
 
     private void Move()
     {
+        if (controlLocked) return;
         if (moveInput.sqrMagnitude < 0.01f) return;
 
         Vector3 forward = cameraTransform != null
@@ -138,12 +115,12 @@ public class PlayerMovement : MonoBehaviour
             : Vector3.right;
 
         Vector3 dir = (forward * moveInput.y + right * moveInput.x).normalized;
-
         float control = isGrounded ? 1f : data.airControlMultiplier;
 
-        float finalForce = data.moveForce * control * 2f * speedMultiplier * tempBoostMultiplier;
-
-        rb.AddForce(dir * finalForce, ForceMode.Force);
+        rb.AddForce(
+            dir * (data.moveForce * control * 2f * speedMultiplier * tempBoostMultiplier),
+            ForceMode.Force
+        );
 
         if (dir.sqrMagnitude > 0.01f)
         {
@@ -158,64 +135,74 @@ public class PlayerMovement : MonoBehaviour
 
     private void LimitSpeed()
     {
-        if (data == null) return;
-        float currentMaxSpeed = data.maxSpeed * speedMultiplier * tempBoostMultiplier;
-
         Vector3 flatVel = new Vector3(rb.velocity.x, 0f, rb.velocity.z);
 
-        if (flatVel.magnitude > currentMaxSpeed)
+        if (flatVel.magnitude > data.maxSpeed)
         {
-            Vector3 capped = flatVel.normalized * currentMaxSpeed;
+            Vector3 capped = flatVel.normalized * data.maxSpeed;
             rb.velocity = new Vector3(capped.x, rb.velocity.y, capped.z);
         }
     }
 
     private void TryJump()
     {
+        if (controlLocked) return;
         if (!isGrounded) return;
 
         rb.velocity = new Vector3(rb.velocity.x, 0f, rb.velocity.z);
         rb.AddForce(Vector3.up * data.jumpForce, ForceMode.Impulse);
 
+        isGrounded = false;
+
         Debug.Log($"[PlayerMovement] Player {playerIndex} jumped!");
     }
 
-    public void AddImpactForce(Vector3 force, ForceMode mode = ForceMode.Impulse)
+    private void ApplyWobble()
     {
-        if (rb == null) return;
-        rb.AddForce(force, mode);
+        if (controlLocked) return;
+        if (!isGrounded || moveInput.sqrMagnitude < 0.1f) return;
+
+        Vector3 wobble = new Vector3(
+            Random.Range(-1f, 1f),
+            0f,
+            Random.Range(-1f, 1f)
+        ) * data.wobbleTorque * Time.fixedDeltaTime;
+
+        rb.AddTorque(wobble, ForceMode.Force);
     }
 
-    public void SetSpeedMultiplier(float multiplier)
+    private void OnCollisionStay(Collision collision)
     {
-        speedMultiplier = multiplier;
+        if (!initialized || data == null) return;
+
+        if (((1 << collision.gameObject.layer) & data.groundLayer) == 0)
+            return;
+
+        for (int i = 0; i < collision.contactCount; i++)
+        {
+            Vector3 normal = collision.GetContact(i).normal;
+
+            if (Vector3.Dot(normal, Vector3.up) > 0.4f)
+            {
+                isGrounded = true;
+                return;
+            }
+        }
     }
 
-  
-    public void ApplyTemporarySpeedBoost(float multiplier, float duration)
+    private void OnCollisionExit(Collision collision)
     {
-        tempBoostMultiplier = multiplier;
+        if (!initialized || data == null) return;
 
-        if (tempBoostMultiplier != 0f) 
-            StopCoroutine(boostCoroutine);
+        if (((1 << collision.gameObject.layer) & data.groundLayer) == 0)
+            return;
 
-        boostCoroutine = StartCoroutine(RemoveBoostAfter(duration));
-
+        isGrounded = false;
     }
-
-    private IEnumerator RemoveBoostAfter(float duration)
-    {
-        yield return new WaitForSeconds(duration);
-        tempBoostMultiplier = 1f;
-        boostCoroutine = null;
-        Debug.Log("[PlayerMovement] Speedo Boost End");
-    }
-
-
 
     private void ApplyColor(int index)
     {
-        if (data == null || data.playerColors == null || data.playerColors.Length == 0) return;
+        if (data.playerColors == null || data.playerColors.Length == 0) return;
 
         Color color = data.playerColors[index % data.playerColors.Length];
 
@@ -234,19 +221,28 @@ public class PlayerMovement : MonoBehaviour
         Debug.Log($"[PlayerMovement] Color applied: {color} to {renderers.Length} renderers");
     }
 
+    public void SetSpeedMultiplier(float multiplier)
+    {
+        speedMultiplier = multiplier;
+    }
+
+    public void ApplyTemporarySpeedBoost(float multiplier, float duration)
+    {
+        tempBoostMultiplier = multiplier;
+        StartCoroutine(RemoveBoostAfter(duration));
+    }
+
+    System.Collections.IEnumerator RemoveBoostAfter(float duration)
+    {
+        yield return new WaitForSeconds(duration);
+        tempBoostMultiplier = 1f;
+        Debug.Log("[PlayerMovement] Speed boost expired");
+    }
+
     private void OnDrawGizmosSelected()
     {
-
-        float rayDistance = 0.65f;
-
-        if (data != null)
-            rayDistance = data.groundCheckDistance + 0.6f;
-
         Gizmos.color = isGrounded ? Color.green : Color.red;
-        Gizmos.DrawLine(
-            transform.position + Vector3.up * 0.1f,
-            transform.position + Vector3.up * 0.1f + Vector3.down * rayDistance
-        );
+        Gizmos.DrawWireSphere(transform.position + Vector3.down * 0.9f, 0.2f);
 
         if (rb != null)
         {
