@@ -18,6 +18,7 @@ GameObject:
   - component: {fileID: 6026901369520913700}
   - component: {fileID: 4326680441929717812}
   - component: {fileID: -4772575905378689548}
+  - component: {fileID: 2364843796085134320}
   m_Layer: 0
   m_Name: Player
   m_TagString: Untagged
@@ -230,3 +231,26 @@ MonoBehaviour:
   currentRole: {fileID: 0}
   abilityCooldownTimer: 0
   abilityReady: 1
+--- !u!114 &2364843796085134320
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4108714465431096865}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f5e955fe087de1945a2dffb34d5cb26a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  rb: {fileID: 0}
+  playerMovement: {fileID: 0}
+  visualModel: {fileID: 0}
+  minImpactForce: 3
+  minHeavyBodyMass: 10
+  stunDuration: 0.35
+  recoverDuration: 0.25
+  pushForce: 2
+  upwardForce: 1
+  tiltAngle: 35
+  fallCooldown: 1.2

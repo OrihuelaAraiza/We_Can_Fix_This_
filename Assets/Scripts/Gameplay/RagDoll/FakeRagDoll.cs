@@ -1,98 +1,126 @@
-using UnityEngine;
 using System.Collections;
+using UnityEngine;
 
 [RequireComponent(typeof(Rigidbody))]
 [RequireComponent(typeof(PlayerMovement))]
-public class FakeRagdoll : MonoBehaviour
+public class PlayerFakeRagdoll : MonoBehaviour
 {
-    [Header("Only Big Objects")]
-    [SerializeField] private string bigObjectTag = "BigObstacle";
-    [SerializeField] private LayerMask bigObjectLayers;
+    [Header("References")]
+    public Rigidbody rb;
+    public PlayerMovement playerMovement;
+    public Transform visualModel;
 
-    [Header("Impact")]
-    [SerializeField] private float impactThreshold = 7f;
+    [Header("Impact Settings")]
+    public float minImpactForce = 7f;
+    public float minHeavyBodyMass = 80f;
 
-    [Header("Reaction")]
-    [SerializeField] private float pushForce = 4f;
-    [SerializeField] private float upwardForce = 1f;
-    [SerializeField] private float stumbleDuration = 0.6f;
+    [Header("Fake Fall")]
+    public float stunDuration = 0.35f;
+    public float recoverDuration = 0.25f;
+    public float pushForce = 3f;
+    public float upwardForce = 1f;
+    public float tiltAngle = 35f;
 
-    [Header("Rotation")]
-    [SerializeField] private float turnAmount = 55f;
-    [SerializeField] private float turnSpeed = 12f;
+    [Header("Protection")]
+    public float fallCooldown = 1.2f;
 
-    [Header("Cooldown")]
-    [SerializeField] private float cooldown = 0.6f;
-
-    private Rigidbody rb;
-    private PlayerMovement movement;
-    private bool isStumbling = false;
-    private float lastTriggerTime = -999f;
+    private bool isFalling = false;
+    private bool onCooldown = false;
+    private Quaternion initialVisualRotation;
 
     private void Awake()
     {
-        rb = GetComponent<Rigidbody>();
-        movement = GetComponent<PlayerMovement>();
+        if (rb == null) rb = GetComponent<Rigidbody>();
+        if (playerMovement == null) playerMovement = GetComponent<PlayerMovement>();
+
+        if (visualModel != null)
+            initialVisualRotation = visualModel.localRotation;
     }
 
     private void OnCollisionEnter(Collision collision)
     {
-        if (isStumbling) return;
-        if (Time.time - lastTriggerTime < cooldown) return;
-        if (movement == null || !movement.IsInitialized) return;
+        if (isFalling || onCooldown) return;
+        if (playerMovement == null || !playerMovement.IsInitialized) return;
 
-        bool validByTag = !string.IsNullOrEmpty(bigObjectTag) && collision.gameObject.CompareTag(bigObjectTag);
-        bool validByLayer = ((1 << collision.gameObject.layer) & bigObjectLayers) != 0;
+        float impactForce = collision.relativeVelocity.magnitude;
 
-        if (!validByTag && !validByLayer)
-            return;
+        Rigidbody otherRb = collision.rigidbody;
+        bool heavyBody = otherRb != null && otherRb.mass >= minHeavyBodyMass;
 
-        float impact = collision.relativeVelocity.magnitude;
-        if (impact < impactThreshold)
-            return;
+        // Solo caer si el impacto es fuerte Y el objeto es pesado
+        if (!heavyBody || impactForce < minImpactForce) return;
 
-        Vector3 hitDir = collision.contactCount > 0
-            ? -collision.GetContact(0).normal
-            : (transform.position - collision.transform.position).normalized;
+        Vector3 hitDir;
 
-        StartCoroutine(StumbleRoutine(hitDir));
-    }
-
-    private IEnumerator StumbleRoutine(Vector3 hitDir)
-    {
-        isStumbling = true;
-        lastTriggerTime = Time.time;
-
-        movement.SetControlLocked(true);
-
-        Vector3 push = (hitDir.normalized * pushForce) + (Vector3.up * upwardForce);
-        movement.AddImpactForce(push, ForceMode.Impulse);
-
-        float randomTurn = Random.Range(-turnAmount, turnAmount);
-        Quaternion startRot = transform.rotation;
-        Quaternion targetRot = Quaternion.Euler(
-            0f,
-            transform.eulerAngles.y + randomTurn,
-            0f
-        );
-
-        float timer = 0f;
-        while (timer < stumbleDuration)
+        if (collision.contactCount > 0)
         {
-            timer += Time.deltaTime;
-
-            transform.rotation = Quaternion.Slerp(
-                transform.rotation,
-                targetRot,
-                turnSpeed * Time.deltaTime
-            );
-
-            yield return null;
+            hitDir = transform.position - collision.GetContact(0).point;
+            hitDir.y = 0f;
+        }
+        else
+        {
+            hitDir = -transform.forward;
         }
 
-        transform.rotation = Quaternion.Euler(0f, transform.eulerAngles.y, 0f);
+        if (hitDir.sqrMagnitude < 0.01f)
+            hitDir = -transform.forward;
 
-        movement.SetControlLocked(false);
-        isStumbling = false;
+        hitDir.Normalize();
+
+        StartCoroutine(FakeFallRoutine(hitDir));
+    }
+
+    private IEnumerator FakeFallRoutine(Vector3 hitDir)
+    {
+        isFalling = true;
+        onCooldown = true;
+
+        playerMovement.enabled = false;
+
+        rb.velocity = new Vector3(rb.velocity.x * 0.35f, rb.velocity.y, rb.velocity.z * 0.35f);
+        rb.AddForce((hitDir * pushForce) + (Vector3.up * upwardForce), ForceMode.Impulse);
+
+        if (visualModel != null)
+        {
+            Vector3 tiltAxis = Vector3.Cross(Vector3.up, hitDir).normalized;
+            Quaternion targetFallRotation = Quaternion.AngleAxis(tiltAngle, tiltAxis) * initialVisualRotation;
+
+            float t = 0f;
+            while (t < stunDuration)
+            {
+                t += Time.deltaTime;
+                float lerp = Mathf.Clamp01(t / stunDuration);
+                visualModel.localRotation = Quaternion.Slerp(initialVisualRotation, targetFallRotation, lerp);
+                yield return null;
+            }
+
+            t = 0f;
+            Quaternion currentRot = visualModel.localRotation;
+
+            while (t < recoverDuration)
+            {
+                t += Time.deltaTime;
+                float lerp = Mathf.Clamp01(t / recoverDuration);
+                visualModel.localRotation = Quaternion.Slerp(currentRot, initialVisualRotation, lerp);
+                yield return null;
+            }
+
+            visualModel.localRotation = initialVisualRotation;
+        }
+        else
+        {
+            yield return new WaitForSeconds(stunDuration + recoverDuration);
+        }
+
+        playerMovement.enabled = true;
+        isFalling = false;
+
+        yield return new WaitForSeconds(fallCooldown);
+        onCooldown = false;
+    }
+
+    public bool IsFalling()
+    {
+        return isFalling;
     }
 }

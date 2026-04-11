@@ -1,27 +1,31 @@
-using UnityEngine;
+﻿using UnityEngine;
 
 [RequireComponent(typeof(Rigidbody))]
 public class PlayerMovement : MonoBehaviour
 {
+    // ── Inspector debug (readonly en runtime) ─────────────────
     [Header("Runtime Info (debug)")]
     [SerializeField] private int playerIndex;
     [SerializeField] private bool initialized;
-    [SerializeField] private bool isGrounded;
 
     public bool IsInitialized => initialized;
     public int PlayerIndex => playerIndex;
 
+    // ── Datos ─────────────────────────────────────────────────
     private PlayerData data;
     private Rigidbody rb;
     private Transform cameraTransform;
 
+    // ── Speed multipliers (rol system) ───────────────────────
     private float speedMultiplier = 1f;
     private float tempBoostMultiplier = 1f;
 
+    // ── Input state ───────────────────────────────────────────
     private Vector2 moveInput;
     private bool jumpPressed;
-    private bool controlLocked = false;
+    private bool isGrounded;
 
+    // ── Init ──────────────────────────────────────────────────
     public void Initialize(int index, PlayerData playerData, Transform cam)
     {
         playerIndex = index;
@@ -43,45 +47,26 @@ public class PlayerMovement : MonoBehaviour
         rb.constraints = RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationZ;
 
         ApplyColor(index);
-
         initialized = true;
-        Debug.Log($"[PlayerMovement] Player {index} initialized. Mass:{rb.mass} Cam:{(cam != null ? cam.name : "NULL")}");
+
+        Debug.Log($"[PlayerMovement] Player {index} initialized. " +
+                  $"Mass:{rb.mass} Cam:{(cam != null ? cam.name : "NULL")}");
     }
 
-    public void OnMove(Vector2 input)
-    {
-        if (controlLocked) return;
-        moveInput = input;
-    }
+    // ── Input callbacks ───────────────────────────────────────
+    public void OnMove(Vector2 input) => moveInput = input;
 
     public void OnJump()
     {
-        if (initialized && !controlLocked)
-            jumpPressed = true;
+        if (initialized) jumpPressed = true;
     }
 
-    public void SetControlLocked(bool locked)
-    {
-        controlLocked = locked;
-
-        if (locked)
-        {
-            moveInput = Vector2.zero;
-            jumpPressed = false;
-        }
-    }
-
-    public void AddImpactForce(Vector3 force, ForceMode mode = ForceMode.Impulse)
-    {
-        if (rb == null)
-            rb = GetComponent<Rigidbody>();
-
-        rb.AddForce(force, mode);
-    }
-
+    // ── Unity lifecycle ───────────────────────────────────────
     private void Update()
     {
         if (!initialized) return;
+
+        CheckGround();
         rb.drag = isGrounded ? data.groundDrag : data.airDrag;
     }
 
@@ -101,9 +86,20 @@ public class PlayerMovement : MonoBehaviour
         ApplyWobble();
     }
 
+    // ── Ground ────────────────────────────────────────────────
+    private void CheckGround()
+    {
+        isGrounded = Physics.Raycast(
+            transform.position + Vector3.up * 0.1f,
+            Vector3.down,
+            data.groundCheckDistance + 0.6f,
+            data.groundLayer
+        );
+    }
+
+    // ── Movement ──────────────────────────────────────────────
     private void Move()
     {
-        if (controlLocked) return;
         if (moveInput.sqrMagnitude < 0.01f) return;
 
         Vector3 forward = cameraTransform != null
@@ -115,6 +111,7 @@ public class PlayerMovement : MonoBehaviour
             : Vector3.right;
 
         Vector3 dir = (forward * moveInput.y + right * moveInput.x).normalized;
+
         float control = isGrounded ? 1f : data.airControlMultiplier;
 
         rb.AddForce(
@@ -125,11 +122,7 @@ public class PlayerMovement : MonoBehaviour
         if (dir.sqrMagnitude > 0.01f)
         {
             Quaternion targetRot = Quaternion.LookRotation(dir);
-            rb.rotation = Quaternion.Slerp(
-                rb.rotation,
-                targetRot,
-                data.rotationSpeed * Time.fixedDeltaTime
-            );
+            rb.rotation = Quaternion.Slerp(rb.rotation, targetRot, data.rotationSpeed * Time.fixedDeltaTime);
         }
     }
 
@@ -146,20 +139,16 @@ public class PlayerMovement : MonoBehaviour
 
     private void TryJump()
     {
-        if (controlLocked) return;
         if (!isGrounded) return;
 
         rb.velocity = new Vector3(rb.velocity.x, 0f, rb.velocity.z);
         rb.AddForce(Vector3.up * data.jumpForce, ForceMode.Impulse);
-
-        isGrounded = false;
 
         Debug.Log($"[PlayerMovement] Player {playerIndex} jumped!");
     }
 
     private void ApplyWobble()
     {
-        if (controlLocked) return;
         if (!isGrounded || moveInput.sqrMagnitude < 0.1f) return;
 
         Vector3 wobble = new Vector3(
@@ -171,42 +160,14 @@ public class PlayerMovement : MonoBehaviour
         rb.AddTorque(wobble, ForceMode.Force);
     }
 
-    private void OnCollisionStay(Collision collision)
-    {
-        if (!initialized || data == null) return;
-
-        if (((1 << collision.gameObject.layer) & data.groundLayer) == 0)
-            return;
-
-        for (int i = 0; i < collision.contactCount; i++)
-        {
-            Vector3 normal = collision.GetContact(i).normal;
-
-            if (Vector3.Dot(normal, Vector3.up) > 0.4f)
-            {
-                isGrounded = true;
-                return;
-            }
-        }
-    }
-
-    private void OnCollisionExit(Collision collision)
-    {
-        if (!initialized || data == null) return;
-
-        if (((1 << collision.gameObject.layer) & data.groundLayer) == 0)
-            return;
-
-        isGrounded = false;
-    }
-
+    // ── Color ─────────────────────────────────────────────────
     private void ApplyColor(int index)
     {
         if (data.playerColors == null || data.playerColors.Length == 0) return;
 
         Color color = data.playerColors[index % data.playerColors.Length];
-
         Renderer[] renderers = GetComponentsInChildren<Renderer>(true);
+
         if (renderers.Length == 0)
         {
             Debug.LogWarning($"[PlayerMovement] No renderers found on player {index}");
@@ -221,6 +182,7 @@ public class PlayerMovement : MonoBehaviour
         Debug.Log($"[PlayerMovement] Color applied: {color} to {renderers.Length} renderers");
     }
 
+    // ── Speed multiplier API (rol system) ────────────────────
     public void SetSpeedMultiplier(float multiplier)
     {
         speedMultiplier = multiplier;
@@ -239,10 +201,11 @@ public class PlayerMovement : MonoBehaviour
         Debug.Log("[PlayerMovement] Speed boost expired");
     }
 
+    // ── Gizmos ────────────────────────────────────────────────
     private void OnDrawGizmosSelected()
     {
         Gizmos.color = isGrounded ? Color.green : Color.red;
-        Gizmos.DrawWireSphere(transform.position + Vector3.down * 0.9f, 0.2f);
+        Gizmos.DrawLine(transform.position + Vector3.up * 0.1f, transform.position + Vector3.down * 0.65f);
 
         if (rb != null)
         {
