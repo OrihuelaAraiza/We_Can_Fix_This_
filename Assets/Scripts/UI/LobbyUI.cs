@@ -3,12 +3,12 @@ using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.SceneManagement;
 using TMPro;
+using Wcft.Core;
 
 public class LobbyUI : MonoBehaviour
 {
     [Header("Scenes")]
-    [SerializeField] string mainMenuScene    = "MainMenu";
-    [SerializeField] int    minPlayersToStart = 2;
+    [SerializeField] int minPlayersToStart = 2;
 
     [Header("Player Panels — uno por jugador (máx 4)")]
     [SerializeField] List<PlayerLobbyPanel> playerPanels = new();
@@ -208,7 +208,7 @@ public class LobbyUI : MonoBehaviour
     public void OnBackClicked()
     {
         Time.timeScale = 1f;
-        SceneManager.LoadScene(mainMenuScene);
+        SceneManager.LoadScene(GameConfig.SCENE_MAIN_MENU);
     }
 }
 

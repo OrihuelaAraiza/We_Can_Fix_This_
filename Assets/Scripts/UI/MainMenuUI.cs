@@ -2,6 +2,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.SceneManagement;
 using TMPro;
+using Wcft.Core;
 
 /// <summary>
 /// Controlador del menú principal.
@@ -36,10 +37,6 @@ using TMPro;
 /// </setup>
 public class MainMenuUI : MonoBehaviour
 {
-    [Header("Scenes")]
-    [SerializeField] string lobbyScene    = "Lobby";
-    [SerializeField] string gameplayScene = "Gameplay";
-
     [Header("Panels")]
     [SerializeField] GameObject creditsPanel;
 
@@ -64,11 +61,10 @@ public class MainMenuUI : MonoBehaviour
 
     public void OnPlayClicked()
     {
-        // Intentar cargar lobbyScene; si no está en BuildSettings, ir directo a gameplayScene
-        if (SceneExistsInBuild(lobbyScene))
-            SceneManager.LoadScene(lobbyScene);
+        if (SceneExistsInBuild(GameConfig.SCENE_LOBBY))
+            SceneManager.LoadScene(GameConfig.SCENE_LOBBY);
         else
-            SceneManager.LoadScene(gameplayScene);
+            SceneManager.LoadScene(GameConfig.SCENE_GAMEPLAY);
     }
 
     public void OnQuitClicked()

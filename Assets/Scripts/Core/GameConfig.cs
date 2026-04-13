@@ -10,8 +10,9 @@ namespace Wcft.Core
     {
         // Nombres exactos de escenas (deben coincidir con Build Settings)
         public const string SCENE_BOOTSTRAP = "00_Bootstrap";
-        public const string SCENE_LOBBY = "01_Lobby";
-        public const string SCENE_GAMEPLAY = "02_Gameplay";
+        public const string SCENE_MAIN_MENU = "01_MainMenu scene";
+        public const string SCENE_LOBBY = "02_Lobby";
+        public const string SCENE_GAMEPLAY = "03_Gameplay";
 
         // Settings globales recomendados
         public const int TARGET_FRAMERATE = 60;

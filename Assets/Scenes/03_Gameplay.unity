@@ -26,7 +26,7 @@ RenderSettings:
   m_AmbientIntensity: 1
   m_AmbientMode: 0
   m_SubtractiveShadowColor: {r: 0.42, g: 0.478, b: 0.627, a: 1}
-  m_SkyboxMaterial: {fileID: 10304, guid: 0000000000000000f000000000000000, type: 0}
+  m_SkyboxMaterial: {fileID: 2100000, guid: 81f714daf7144784b8a2f42f1cd30927, type: 2}
   m_HaloStrength: 0.5
   m_FlareStrength: 1
   m_FlareFadeSpeed: 3
@@ -3485,6 +3485,7 @@ GameObject:
   m_Component:
   - component: {fileID: 633995999}
   - component: {fileID: 633995998}
+  - component: {fileID: 633996000}
   m_Layer: 0
   m_Name: ShipLayoutGenerator
   m_TagString: Untagged
@@ -3584,6 +3585,30 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &633996000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 633995997}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6ed687991998c42c292fb894000c244b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  blockiePrefabs:
+  - {fileID: 6837520980853510083, guid: 23528c85de4178c4c870a937839eb37c, type: 3}
+  smoggosPrefabs:
+  - {fileID: 2209399255661027933, guid: f1f2464a21a054c43ba24752ea19c3dc, type: 3}
+  clankPrefab: {fileID: 1697963494113195501, guid: 64a8239901a0c74459dd6dadde0c892d,
+    type: 3}
+  boxPrefab: {fileID: 2910177788184889049, guid: 7b1afea2a4237854aac9a708c517274f,
+    type: 3}
+  boxSpawnInterval: 25
+  maxBoxes: 8
+  dropZoneRadius: 1.5
+  minSpacing: 3
 --- !u!1 &646166748
 GameObject:
   m_ObjectHideFlags: 0

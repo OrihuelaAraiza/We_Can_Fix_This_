@@ -2,6 +2,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.SceneManagement;
 using TMPro;
+using Wcft.Core;
 
 public class WinLoseScreen : MonoBehaviour
 {
@@ -66,6 +67,6 @@ public class WinLoseScreen : MonoBehaviour
     void GoToLobby()
     {
         Time.timeScale = 1f;
-        SceneManager.LoadScene("01_Lobby");
+        SceneManager.LoadScene(GameConfig.SCENE_LOBBY);
     }
 }

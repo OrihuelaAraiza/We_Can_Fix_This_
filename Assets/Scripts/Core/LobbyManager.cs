@@ -1,13 +1,13 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using Wcft.Core;
 
 public class LobbyManager : MonoBehaviour
 {
     public static LobbyManager Instance { get; private set; }
 
     [Header("Config")]
-    [SerializeField] string gameplaySceneName = "02_Gameplay";
     [SerializeField] int    minPlayersToStart = 1;
 
     [Header("Roles disponibles")]
@@ -124,6 +124,6 @@ public class LobbyManager : MonoBehaviour
     {
         // Guardar roles seleccionados para que GameManager los aplique
         RoleSelectionData.Save(selectedRoles);
-        SceneManager.LoadScene(gameplaySceneName);
+        SceneManager.LoadScene(GameConfig.SCENE_GAMEPLAY);
     }
 }

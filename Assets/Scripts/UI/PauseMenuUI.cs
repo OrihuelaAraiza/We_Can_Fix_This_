@@ -3,6 +3,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.SceneManagement;
 using TMPro;
+using Wcft.Core;
 
 /// <summary>
 /// Menú de pausa para la escena Gameplay.
@@ -45,9 +46,6 @@ public class PauseMenuUI : MonoBehaviour
     [SerializeField] Button btnContinue;
     [SerializeField] Button btnRestart;
     [SerializeField] Button btnMainMenu;
-
-    [Header("Scene Names")]
-    [SerializeField] string mainMenuScene = "MainMenu";
 
     public bool IsPaused { get; private set; }
 
@@ -110,6 +108,6 @@ public class PauseMenuUI : MonoBehaviour
     void GoToMainMenu()
     {
         Time.timeScale = 1f;
-        SceneManager.LoadScene(mainMenuScene);
+        SceneManager.LoadScene(GameConfig.SCENE_MAIN_MENU);
     }
 }
