@@ -6,8 +6,13 @@ using UnityEngine.InputSystem;
 public class PlayerManager : MonoBehaviour
 {
     const int MaxSupportedPlayers = LobbyPlayerSessionData.MaxPlayers;
+    const string AnimationDebugPrefix = "[FixieAnimation]";
 
     public static PlayerManager Instance { get; private set; }
+
+    private static ILogHandler originalLogHandler;
+    private static AnimationOnlyLogHandler animationOnlyLogHandler;
+    private static bool animationLogFilterInstalled;
 
     [Header("Player Setup")]
     [SerializeField] private PlayerData playerData;
@@ -23,7 +28,11 @@ public class PlayerManager : MonoBehaviour
     [SerializeField] private float minSpawnSeparation = 1.1f;
 
     [Header("Debug")]
-    [SerializeField] private bool debugLog = true;
+    [SerializeField] private bool debugLog = false;
+
+    [Header("Temporary Player Stabilization")]
+    [SerializeField] private bool disablePlayerImpactPhysics = true;
+    [SerializeField] private bool disableProceduralPlayerVisuals = true;
 
     private readonly List<PlayerMovement> players = new();
     private readonly Dictionary<PlayerInput, int> activePlayerSlots = new();
@@ -34,11 +43,32 @@ public class PlayerManager : MonoBehaviour
 
     public static event System.Action OnPlayerCountChanged;
 
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+    static void BootstrapAnimationDebugging()
+    {
+        ClearEditorConsoleForAnimationDebug();
+        InstallAnimationLogFilter();
+    }
+
     private void Awake()
     {
+        ClearEditorConsoleForAnimationDebug();
+        InstallAnimationLogFilter();
         Instance = this;
         playerInputManager = GetComponent<PlayerInputManager>();
-        Debug.Log("[PlayerManager] Awake - Instance set");
+    }
+
+    private void OnDestroy()
+    {
+        if (Instance == this)
+            Instance = null;
+
+        RestoreAnimationLogFilter();
+    }
+
+    private void OnApplicationQuit()
+    {
+        RestoreAnimationLogFilter();
     }
 
     IEnumerator Start()
@@ -87,7 +117,7 @@ public class PlayerManager : MonoBehaviour
             // Only block if a ShipLayoutGenerator actually exists in the scene.
             // Without one (e.g. in test scenes) IsReady is permanently false,
             // which would freeze the Rigidbody for 10 s and block initialization.
-            if (Object.FindObjectOfType<ShipLayoutGenerator>() != null)
+            if (UnityEngine.Object.FindObjectOfType<ShipLayoutGenerator>() != null)
             {
                 float elapsed = 0f;
                 while (elapsed < 10f)
@@ -109,7 +139,8 @@ public class PlayerManager : MonoBehaviour
         }
 
         string deviceName = GetDeviceDisplayName(playerInput);
-        Debug.Log($"[PlayerManager] OnPlayerJoined called - slot:{slotIndex} inputIndex:{playerInput.playerIndex} device:{deviceName} scheme:{playerInput.currentControlScheme}");
+        if (debugLog)
+            Debug.Log($"[PlayerManager] OnPlayerJoined called - slot:{slotIndex} inputIndex:{playerInput.playerIndex} device:{deviceName} scheme:{playerInput.currentControlScheme}");
 
         Vector3 requestedSpawnPos = GetRequestedSpawnPosition(slotIndex);
         Vector3 spawnPos = ResolveSupportedSpawnPosition(playerInput.transform, slotIndex, requestedSpawnPos);
@@ -158,7 +189,8 @@ public class PlayerManager : MonoBehaviour
         OnPlayerCountChanged?.Invoke();
         UpdateJoinAvailability();
 
-        Debug.Log($"[PlayerManager] Player {slotIndex + 1} fully initialized. Total players: {players.Count}");
+        if (debugLog)
+            Debug.Log($"[PlayerManager] Player {slotIndex + 1} fully initialized. Total players: {players.Count}");
     }
 
     public void OnPlayerLeft(PlayerInput playerInput)
@@ -170,7 +202,8 @@ public class PlayerManager : MonoBehaviour
                 players.Remove(movement);
 
             ReleasePlayerReservation(playerInput);
-            Debug.Log($"[PlayerManager] Player {playerInput.playerIndex + 1} left.");
+            if (debugLog)
+                Debug.Log($"[PlayerManager] Player {playerInput.playerIndex + 1} left.");
         }
 
         OnPlayerCountChanged?.Invoke();
@@ -635,16 +668,45 @@ public class PlayerManager : MonoBehaviour
         if (playerObject.GetComponent<PlayerInputHandler>() == null)
             playerObject.AddComponent<PlayerInputHandler>();
 
-        if (playerObject.GetComponent<FakeRagDoll>() == null)
-            playerObject.AddComponent<FakeRagDoll>();
-
-        if (playerObject.GetComponent<PlayerVisualWobble>() == null)
-            playerObject.AddComponent<PlayerVisualWobble>();
-
-        if (playerObject.GetComponent<FixieProceduralAnimator>() == null)
-            playerObject.AddComponent<FixieProceduralAnimator>();
+        RemovePlayerModelModifiers(playerObject);
 
         EnsurePlayerCollider(playerObject);
+    }
+
+    void RemovePlayerModelModifiers(GameObject playerObject)
+    {
+        if (playerObject == null)
+            return;
+
+        if (disablePlayerImpactPhysics)
+        {
+            DestroyComponentsInChildren<FakeRagDoll>(playerObject);
+            DestroyComponentsInChildren<PlayerImpactReaction>(playerObject);
+            DestroyComponentsInChildren<PlayerRagdoll>(playerObject);
+        }
+
+        if (disableProceduralPlayerVisuals)
+        {
+            DestroyComponentsInChildren<PlayerVisualWobble>(playerObject);
+            DestroyComponentsInChildren<FixieProceduralAnimator>(playerObject);
+        }
+    }
+
+    static void DestroyComponentsInChildren<T>(GameObject root) where T : Component
+    {
+        if (root == null)
+            return;
+
+        foreach (T component in root.GetComponentsInChildren<T>(true))
+        {
+            if (component == null)
+                continue;
+
+            if (component is Behaviour behaviour)
+                behaviour.enabled = false;
+
+            UnityEngine.Object.Destroy(component);
+        }
     }
 
     void EnsurePlayerCollider(GameObject playerObject)
@@ -671,10 +733,185 @@ public class PlayerManager : MonoBehaviour
         if (playerRoot == null)
             return;
 
-        if (TryUseExistingFixieVisual(playerRoot, movement, slotIndex))
+        RebuildPlayerVisual(playerRoot, movement, slotIndex);
+    }
+
+    void RebuildPlayerVisual(Transform playerRoot, PlayerMovement movement, int slotIndex)
+    {
+        movement?.BindAnimator(null);
+        RemoveAvatarRig(playerRoot != null ? playerRoot.gameObject : null);
+
+        Transform modelRoot = EnsureModelRoot(playerRoot);
+        ClearModelRoot(modelRoot);
+
+        GameObject modelPrefab = GetFixiePrefabForSlot(slotIndex);
+        if (modelPrefab == null)
+        {
+            if (debugLog)
+                Debug.LogWarning($"[PlayerManager] No Fixie model assigned for slot {slotIndex}. Assign Fixie prefabs in the Inspector.");
+            return;
+        }
+
+        MeshRenderer capsuleMesh = playerRoot.GetComponent<MeshRenderer>();
+        if (capsuleMesh != null)
+            capsuleMesh.enabled = false;
+
+        GameObject model = Instantiate(modelPrefab, modelRoot);
+        model.transform.localPosition = Vector3.zero;
+        model.transform.localRotation = Quaternion.identity;
+        model.transform.localScale = Vector3.one;
+
+        Animator modelAnimator = FindBestAnimator(model);
+
+        StripRuntimeComponents(model, preserveAnimator: modelAnimator != null);
+        SetLayerRecursively(model.transform, playerRoot.gameObject.layer);
+        NormalizeVisualScale(playerRoot, model.transform);
+        AlignVisualToPlayer(playerRoot, model.transform);
+        ForceRenderersVisible(model.transform);
+
+        AttachRuntimeFixieAnimation(playerRoot.gameObject, movement, modelPrefab, model.transform, modelAnimator, slotIndex);
+    }
+
+    void AttachRuntimeFixieAnimation(GameObject playerObject, PlayerMovement movement, GameObject modelPrefab, Transform visualRoot, Animator sourceAnimator, int slotIndex)
+    {
+        if (visualRoot == null)
             return;
 
-        AttachFixieModel(playerRoot, movement, slotIndex);
+        RemoveAvatarRig(playerObject);
+
+        FixieAnimationRuntime runtime = visualRoot.GetComponent<FixieAnimationRuntime>();
+        if (runtime == null)
+            runtime = visualRoot.gameObject.AddComponent<FixieAnimationRuntime>();
+
+        runtime.Bind(movement, visualRoot, modelPrefab, sourceAnimator, slotIndex);
+    }
+
+    Transform EnsureModelRoot(Transform playerRoot)
+    {
+        Transform modelRoot = playerRoot.Find("ModelRoot");
+        if (modelRoot != null)
+            return modelRoot;
+
+        var go = new GameObject("ModelRoot");
+        go.transform.SetParent(playerRoot);
+        go.transform.localPosition = Vector3.zero;
+        go.transform.localRotation = Quaternion.identity;
+        go.transform.localScale = Vector3.one;
+        return go.transform;
+    }
+
+    void ClearModelRoot(Transform modelRoot)
+    {
+        if (modelRoot == null)
+            return;
+
+        for (int i = modelRoot.childCount - 1; i >= 0; i--)
+        {
+            Transform child = modelRoot.GetChild(i);
+            child.gameObject.SetActive(false);
+            Destroy(child.gameObject);
+        }
+    }
+
+    void AttachAvatarRig(GameObject playerObject, PlayerMovement movement, Transform visualRoot)
+    {
+        if (playerObject == null || disableProceduralPlayerVisuals)
+            return;
+
+        PlayerAvatarRig rig = playerObject.GetComponent<PlayerAvatarRig>();
+        if (rig == null)
+            rig = playerObject.AddComponent<PlayerAvatarRig>();
+
+        rig.Bind(movement, visualRoot);
+    }
+
+    bool BindModelAnimator(GameObject playerObject, PlayerMovement movement, Transform visualRoot, Animator modelAnimator)
+    {
+        if (!HasWorkingAnimator(modelAnimator))
+        {
+            RemoveAvatarRig(playerObject);
+            return false;
+        }
+
+        RemoveAvatarRig(playerObject);
+
+        if (movement != null)
+            movement.BindAnimator(modelAnimator);
+
+        if (playerObject != null)
+            BindProceduralAnimator(playerObject.transform, modelAnimator);
+
+        PlayerAnimator playerAnimator = modelAnimator.GetComponent<PlayerAnimator>();
+        if (playerAnimator == null)
+            playerAnimator = modelAnimator.gameObject.AddComponent<PlayerAnimator>();
+
+        playerAnimator.BindMovement(movement);
+        return true;
+    }
+
+    static bool HasWorkingAnimator(Animator animator)
+    {
+        if (animator == null || animator.avatar == null)
+            return false;
+
+        RuntimeAnimatorController controller = animator.runtimeAnimatorController;
+        if (controller == null)
+            return false;
+
+        AnimationClip[] clips = controller.animationClips;
+        return clips != null && clips.Length > 0;
+    }
+
+    static Animator FindBestAnimator(GameObject root)
+    {
+        if (root == null)
+            return null;
+
+        Animator[] animators = root.GetComponentsInChildren<Animator>(true);
+        Animator bestAnimator = null;
+        int bestScore = int.MinValue;
+
+        foreach (Animator candidate in animators)
+        {
+            if (candidate == null)
+                continue;
+
+            int score = 0;
+
+            if (candidate.runtimeAnimatorController != null)
+                score += 100;
+
+            if (candidate.avatar != null)
+                score += 25;
+
+            AnimationClip[] clips = candidate.runtimeAnimatorController != null
+                ? candidate.runtimeAnimatorController.animationClips
+                : null;
+
+            if (clips != null)
+                score += clips.Length;
+
+            if (score > bestScore)
+            {
+                bestScore = score;
+                bestAnimator = candidate;
+            }
+        }
+
+        return bestAnimator;
+    }
+
+    void RemoveAvatarRig(GameObject playerObject)
+    {
+        if (playerObject == null)
+            return;
+
+        PlayerAvatarRig rig = playerObject.GetComponent<PlayerAvatarRig>();
+        if (rig == null)
+            return;
+
+        rig.enabled = false;
+        Destroy(rig);
     }
 
     bool TryUseExistingFixieVisual(Transform playerRoot, PlayerMovement movement, int slotIndex)
@@ -713,17 +950,20 @@ public class PlayerManager : MonoBehaviour
             NormalizeVisualScale(playerRoot, visualRoot);
             AlignVisualToPlayer(playerRoot, visualRoot);
             ForceRenderersVisible(visualRoot);
-            BindVisualWobble(playerRoot, visualRoot);
         }
 
-        Animator existingAnimator = playerRoot.GetComponentInChildren<Animator>(true);
+        Animator existingAnimator = FindBestAnimator(playerRoot.gameObject);
         if (movement != null)
             movement.BindAnimator(existingAnimator);
 
-        if (existingAnimator != null && existingAnimator.GetComponent<PlayerAnimator>() == null)
-            existingAnimator.gameObject.AddComponent<PlayerAnimator>();
+        if (existingAnimator != null)
+        {
+            PlayerAnimator playerAnimator = existingAnimator.GetComponent<PlayerAnimator>();
+            if (playerAnimator == null)
+                playerAnimator = existingAnimator.gameObject.AddComponent<PlayerAnimator>();
 
-        BindProceduralAnimator(playerRoot, existingAnimator);
+            playerAnimator.BindMovement(movement);
+        }
 
         if (debugLog)
             Debug.Log($"[PlayerManager] Using existing Fixie prefab as player visual for slot {slotIndex}.");
@@ -780,17 +1020,20 @@ public class PlayerManager : MonoBehaviour
         NormalizeVisualScale(playerRoot, model.transform);
         AlignVisualToPlayer(playerRoot, model.transform);
         ForceRenderersVisible(model.transform);
-        BindVisualWobble(playerRoot, model.transform);
 
-        Animator modelAnimator = model.GetComponentInChildren<Animator>(true);
+        Animator modelAnimator = FindBestAnimator(model);
         if (movement != null)
             movement.BindAnimator(modelAnimator);
 
         // Add PlayerAnimator to drive Animator from movement state
-        if (modelAnimator != null && modelAnimator.GetComponent<PlayerAnimator>() == null)
-            modelAnimator.gameObject.AddComponent<PlayerAnimator>();
+        if (modelAnimator != null)
+        {
+            PlayerAnimator playerAnimator = modelAnimator.GetComponent<PlayerAnimator>();
+            if (playerAnimator == null)
+                playerAnimator = modelAnimator.gameObject.AddComponent<PlayerAnimator>();
 
-        BindProceduralAnimator(playerRoot, modelAnimator);
+            playerAnimator.BindMovement(movement);
+        }
 
         Renderer[] modelRenderers = model.GetComponentsInChildren<Renderer>(true);
         bool hasVisibleRenderer = modelRenderers != null && modelRenderers.Length > 0;
@@ -801,7 +1044,7 @@ public class PlayerManager : MonoBehaviour
         // Fixie prefabs are visual-only children. Strip any physics or movement
         // components that Unity auto-added (e.g. Rigidbody via [RequireComponent])
         // — a second Rigidbody nested under the player's own causes chaotic physics.
-        StripRuntimeComponents(model);
+        StripRuntimeComponents(model, preserveAnimator: true);
 
         if (!hasVisibleRenderer)
         {
@@ -817,13 +1060,25 @@ public class PlayerManager : MonoBehaviour
             return null;
 
         // Random assignment — any player can get any model
-        return fixieMeshPrefabs[Random.Range(0, fixieMeshPrefabs.Length)];
+        return fixieMeshPrefabs[UnityEngine.Random.Range(0, fixieMeshPrefabs.Length)];
     }
 
-    void StripRuntimeComponents(GameObject model)
+    void StripRuntimeComponents(GameObject model, bool preserveAnimator = false)
     {
         if (model == null)
             return;
+
+        DestroyComponentsInChildren<FakeRagDoll>(model);
+        DestroyComponentsInChildren<PlayerImpactReaction>(model);
+        DestroyComponentsInChildren<PlayerRagdoll>(model);
+        DestroyComponentsInChildren<PlayerVisualWobble>(model);
+        DestroyComponentsInChildren<FixieProceduralAnimator>(model);
+        DestroyComponentsInChildren<FixieAnimationRuntime>(model);
+        DestroyComponentsInChildren<Joint>(model);
+        DestroyComponentsInChildren<PlayerAnimator>(model);
+
+        if (!preserveAnimator)
+            DestroyComponentsInChildren<Animator>(model);
 
         foreach (PlayerInput input in model.GetComponentsInChildren<PlayerInput>(true))
         {
@@ -931,6 +1186,102 @@ public class PlayerManager : MonoBehaviour
         FixieProceduralAnimator proceduralAnimator = playerRoot.GetComponent<FixieProceduralAnimator>();
         if (proceduralAnimator != null)
             proceduralAnimator.BindAnimator(targetAnimator);
+    }
+
+    [System.Diagnostics.Conditional("UNITY_EDITOR")]
+    static void ClearEditorConsoleForAnimationDebug()
+    {
+#if UNITY_EDITOR
+        System.Type logEntriesType = System.Type.GetType("UnityEditor.LogEntries, UnityEditor.dll");
+        System.Reflection.MethodInfo clearMethod = logEntriesType?.GetMethod(
+            "Clear",
+            System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public);
+
+        clearMethod?.Invoke(null, null);
+#endif
+    }
+
+    static void InstallAnimationLogFilter()
+    {
+        if (animationLogFilterInstalled)
+            return;
+
+        originalLogHandler = Debug.unityLogger.logHandler;
+        animationOnlyLogHandler = new AnimationOnlyLogHandler(originalLogHandler);
+        Debug.unityLogger.logHandler = animationOnlyLogHandler;
+        animationLogFilterInstalled = true;
+    }
+
+    static void RestoreAnimationLogFilter()
+    {
+        if (!animationLogFilterInstalled)
+            return;
+
+        if (ReferenceEquals(Debug.unityLogger.logHandler, animationOnlyLogHandler) && originalLogHandler != null)
+            Debug.unityLogger.logHandler = originalLogHandler;
+
+        animationOnlyLogHandler = null;
+        originalLogHandler = null;
+        animationLogFilterInstalled = false;
+    }
+
+    sealed class AnimationOnlyLogHandler : ILogHandler
+    {
+        private readonly ILogHandler innerHandler;
+
+        public AnimationOnlyLogHandler(ILogHandler targetHandler)
+        {
+            innerHandler = targetHandler;
+        }
+
+        public void LogFormat(LogType logType, UnityEngine.Object context, string format, params object[] args)
+        {
+            if (!ContainsAnimationDebugPrefix(format, args))
+                return;
+
+            innerHandler?.LogFormat(logType, context, format, args);
+        }
+
+        public void LogException(System.Exception exception, UnityEngine.Object context)
+        {
+            if (exception == null)
+                return;
+
+            if (!ContainsAnimationDebugPrefix(exception.Message, null) &&
+                !ContainsAnimationDebugPrefix(exception.StackTrace, null))
+            {
+                return;
+            }
+
+            innerHandler?.LogException(exception, context);
+        }
+
+        static bool ContainsAnimationDebugPrefix(string message, object[] args)
+        {
+            if (!string.IsNullOrEmpty(message) &&
+                message.IndexOf(AnimationDebugPrefix, System.StringComparison.Ordinal) >= 0)
+            {
+                return true;
+            }
+
+            if (args == null)
+                return false;
+
+            for (int i = 0; i < args.Length; i++)
+            {
+                if (args[i] == null)
+                    continue;
+
+                string value = args[i].ToString();
+                if (!string.IsNullOrEmpty(value) &&
+                    value.IndexOf(AnimationDebugPrefix, System.StringComparison.Ordinal) >= 0)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
     }
 
     void ForceRenderersVisible(Transform visualRoot)

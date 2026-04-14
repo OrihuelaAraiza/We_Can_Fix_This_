@@ -1,0 +1,24 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 90bf2714ccc67614d96e16d91b83c86d, type: 3}
+  m_Name: Fixie_P1
+  m_EditorClassIdentifier: 
+  setId: Fixie_P1
+  aliases:
+  - Fixie_P1
+  - Astronaut_FinnTheFrog
+  avatar: {fileID: 9000000, guid: d9244d1a61d0844aab4e3e4512d36e78, type: 3}
+  idleClip: {fileID: 110800006, guid: 5fc10614fb9f24f94b0c2f1ead07f5ba, type: 3}
+  walkClip: {fileID: 110800026, guid: 5fc10614fb9f24f94b0c2f1ead07f5ba, type: 3}
+  runClip: {fileID: 110800020, guid: 5fc10614fb9f24f94b0c2f1ead07f5ba, type: 3}
+  jumpClip: {fileID: 110800010, guid: 5fc10614fb9f24f94b0c2f1ead07f5ba, type: 3}
+  fallClip: {fileID: 110800012, guid: 5fc10614fb9f24f94b0c2f1ead07f5ba, type: 3}

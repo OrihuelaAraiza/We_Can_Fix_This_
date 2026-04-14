@@ -17,17 +17,30 @@ public class PlayerAnimator : MonoBehaviour
     private void Awake()
     {
         animator = GetComponent<Animator>();
-        movement = GetComponentInParent<PlayerMovement>();
-        if (movement == null)
-            movement = GetComponent<PlayerMovement>();
+        ResolveMovementReference();
     }
 
     private void Update()
     {
+        if (movement == null)
+            ResolveMovementReference();
+
         if (movement == null || animator == null)
             return;
 
         animator.SetFloat(SpeedHash, movement.PlanarSpeed, 0.1f, Time.deltaTime);
         animator.SetBool(IsGroundedHash, movement.IsGrounded);
+    }
+
+    public void BindMovement(PlayerMovement targetMovement)
+    {
+        movement = targetMovement;
+    }
+
+    private void ResolveMovementReference()
+    {
+        movement = GetComponentInParent<PlayerMovement>();
+        if (movement == null)
+            movement = GetComponent<PlayerMovement>();
     }
 }

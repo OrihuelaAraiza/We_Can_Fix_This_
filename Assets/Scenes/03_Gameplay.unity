@@ -2945,7 +2945,9 @@ MonoBehaviour:
   - {fileID: 4684386058763366323, guid: 9cba2cedafdb645ca8fbf0e0095a4ed3, type: 3}
   spawnHeightOffset: 0.15
   minSpawnSeparation: 1.1
-  debugLog: 1
+  debugLog: 0
+  disablePlayerImpactPhysics: 1
+  disableProceduralPlayerVisuals: 1
 --- !u!4 &506897553
 Transform:
   m_ObjectHideFlags: 0

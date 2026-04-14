@@ -56,5 +56,5 @@
         "temp/": true,
         "Temp/": true
     },
-    "dotnet.defaultSolution": "We_Can_Fix_This_.sln"
+    "dotnet.defaultSolution": "We Can Fix This!.sln"
 }

@@ -4,17 +4,17 @@ using UnityEngine;
 public class PlayerData : ScriptableObject
 {
     [Header("Movement")]
-    public float moveForce = 18f;
-    public float maxSpeed = 7f;
-    public float rotationSpeed = 12f;
+    public float moveForce = 30f;
+    public float maxSpeed = 9f;
+    public float rotationSpeed = 14f;
     public float jumpForce = 6f;
-    public float groundDrag = 6f;
-    public float airDrag = 0.5f;
-    public float airControlMultiplier = 0.4f;
+    public float groundDrag = 0f;
+    public float airDrag = 0f;
+    public float airControlMultiplier = 0.75f;
 
     [Header("Clumsy Physics")]
     public float wobbleTorque = 3f;
-    public float mass = 1.5f;
+    public float mass = 1.2f;
 
     [Header("Ground Check")]
     public float groundCheckDistance = 0.15f;

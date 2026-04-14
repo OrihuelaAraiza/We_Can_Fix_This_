@@ -12,15 +12,15 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5e8401822d9a94628b7355fdbdaacaa5, type: 3}
   m_Name: PlayerData_Default
   m_EditorClassIdentifier: 
-  moveForce: 22
-  maxSpeed: 7
-  rotationSpeed: 12
+  moveForce: 30
+  maxSpeed: 9
+  rotationSpeed: 14
   jumpForce: 6
-  groundDrag: 6
-  airDrag: 0.5
-  airControlMultiplier: 0.5
+  groundDrag: 0
+  airDrag: 0
+  airControlMultiplier: 0.75
   wobbleTorque: 3
-  mass: 1.5
+  mass: 1.2
   groundCheckDistance: 0.6
   groundLayer:
     serializedVersion: 2

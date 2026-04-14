@@ -4,6 +4,9 @@ using UnityEngine;
 [RequireComponent(typeof(Rigidbody))]
 public class PlayerMovement : MonoBehaviour
 {
+    private static readonly int SpeedHash = Animator.StringToHash("Speed");
+    private static readonly int IsGroundedHash = Animator.StringToHash("IsGrounded");
+
     [Header("Runtime Info (debug)")]
     [SerializeField] private int playerIndex;
     [SerializeField] private bool initialized;
@@ -14,6 +17,7 @@ public class PlayerMovement : MonoBehaviour
     [Header("Runtime Motion")]
     [SerializeField] private bool externalControlEnabled = true;
     [SerializeField] private bool isGrounded;
+    [SerializeField] private bool allowImpactReactions = false;
 
     public bool IsInitialized => initialized;
     public int PlayerIndex => playerIndex;
@@ -35,6 +39,7 @@ public class PlayerMovement : MonoBehaviour
     private Rigidbody rb;
     private CapsuleCollider capsule;
     private Transform cameraTransform;
+    private int playerLayer = -1;
 
     private float speedMultiplier = 1f;
     private float tempBoostMultiplier = 1f;
@@ -53,7 +58,7 @@ public class PlayerMovement : MonoBehaviour
     {
         rb = GetComponent<Rigidbody>();
         capsule = GetComponent<CapsuleCollider>();
-        ResolveAnimatorReference();
+        playerLayer = LayerMask.NameToLayer("Player");
     }
 
     public void Initialize(int index, PlayerData playerData, Transform cam)
@@ -75,22 +80,20 @@ public class PlayerMovement : MonoBehaviour
 
         // Wobbly astronaut: unconstrained rotations, let physics tumble
         rb.mass = Mathf.Max(0.01f, data.mass);
-        rb.drag = data.groundDrag;
-        rb.angularDrag = 0.5f;
+        rb.drag = 0f;
+        rb.angularDrag = 0.05f;
         rb.interpolation = RigidbodyInterpolation.Interpolate;
         rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
         // Keep character upright — visual wobble is handled by
         // PlayerVisualWobble and FixieProceduralAnimator.
         rb.constraints = RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationZ;
 
-        ResolveAnimatorReference();
         externalControlEnabled = true;
         moveInput = Vector2.zero;
         jumpQueued = false;
         CheckGround();
 
         initialized = true;
-        Debug.Log($"[PlayerMovement] Player {index} initialized. Mass:{rb.mass} Cam:{(cam != null ? cam.name : "NULL")}");
     }
 
     // ── Input (called by PlayerInputHandler) ────────────────────
@@ -142,6 +145,8 @@ public class PlayerMovement : MonoBehaviour
             ApplyFacing();
         }
 
+        rb.angularVelocity = Vector3.zero;
+
         if (jumpQueued)
         {
             DoJump();
@@ -154,16 +159,31 @@ public class PlayerMovement : MonoBehaviour
     // ── Movement via AddForce ───────────────────────────────────
     private void ApplyMovementForce()
     {
-        if (moveInput.sqrMagnitude < 0.01f)
-            return;
+        Vector3 planarVelocity = new Vector3(rb.velocity.x, 0f, rb.velocity.z);
+        Vector3 targetVelocity = Vector3.zero;
+        bool hasInput = moveInput.sqrMagnitude >= 0.01f;
 
-        Vector3 dir = GetMoveDirection();
-        if (dir.sqrMagnitude < 0.001f)
-            return;
+        if (hasInput)
+        {
+            Vector3 dir = GetMoveDirection();
+            if (dir.sqrMagnitude > 0.001f)
+            {
+                float targetSpeed = data.maxSpeed * speedMultiplier * tempBoostMultiplier;
+                targetVelocity = dir * targetSpeed;
+            }
+        }
 
-        float control = isGrounded ? 1f : Mathf.Clamp(data.airControlMultiplier, 0.1f, 1f);
-        float force = data.moveForce * speedMultiplier * tempBoostMultiplier * control;
-        rb.AddForce(dir * force, ForceMode.Force);
+        float baseAcceleration = Mathf.Max(1f, data.moveForce);
+        float acceleration = isGrounded
+            ? baseAcceleration * 2.4f
+            : baseAcceleration * Mathf.Clamp(data.airControlMultiplier, 0.35f, 1f) * 1.8f;
+        float deceleration = isGrounded
+            ? baseAcceleration * 3f
+            : baseAcceleration * 1.5f;
+        float step = (hasInput ? acceleration : deceleration) * Time.fixedDeltaTime;
+
+        Vector3 nextPlanarVelocity = Vector3.MoveTowards(planarVelocity, targetVelocity, step);
+        rb.velocity = new Vector3(nextPlanarVelocity.x, rb.velocity.y, nextPlanarVelocity.z);
     }
 
     private void LimitPlanarSpeed()
@@ -204,6 +224,9 @@ public class PlayerMovement : MonoBehaviour
     // ── Collision bump (ragdoll-style) ──────────────────────────
     private void OnCollisionEnter(Collision collision)
     {
+        if (!allowImpactReactions)
+            return;
+
         if (!initialized || rb == null)
             return;
 
@@ -229,7 +252,7 @@ public class PlayerMovement : MonoBehaviour
     // ── Drag ────────────────────────────────────────────────────
     private void ApplyDrag()
     {
-        rb.drag = isGrounded ? data.groundDrag : data.airDrag;
+        rb.drag = 0f;
     }
 
     // ── Ground check ────────────────────────────────────────────
@@ -255,8 +278,18 @@ public class PlayerMovement : MonoBehaviour
             distance = data.groundCheckDistance + GroundProbePadding * 2f;
         }
 
+        bool foundGround = HasGroundHit(origin, radius, distance, mask);
+        if (!foundGround && data.groundLayer.value != 0)
+            foundGround = HasGroundHit(origin, radius, distance, ~0);
+
+        isGrounded = foundGround;
+        if (foundGround)
+            lastGroundedTime = Time.time;
+    }
+
+    private bool HasGroundHit(Vector3 origin, float radius, float distance, LayerMask mask)
+    {
         RaycastHit[] hits = Physics.SphereCastAll(origin, radius, Vector3.down, distance, mask, QueryTriggerInteraction.Ignore);
-        bool foundGround = false;
 
         for (int i = 0; i < hits.Length; i++)
         {
@@ -268,16 +301,16 @@ public class PlayerMovement : MonoBehaviour
             if (hitTransform == transform || hitTransform.IsChildOf(transform))
                 continue;
 
+            if (playerLayer >= 0 && hit.collider.gameObject.layer == playerLayer)
+                continue;
+
             if (Vector3.Angle(hit.normal, Vector3.up) > GroundMaxSlope)
                 continue;
 
-            foundGround = true;
-            break;
+            return true;
         }
 
-        isGrounded = foundGround;
-        if (foundGround)
-            lastGroundedTime = Time.time;
+        return false;
     }
 
     // ── Camera-relative direction ───────────────────────────────
@@ -301,10 +334,11 @@ public class PlayerMovement : MonoBehaviour
     // ── Animator ─────────────────────────────────────────────────
     private void UpdateAnimator()
     {
-        if (animator == null || rb == null)
+        if (animator == null || rb == null || animator.runtimeAnimatorController == null)
             return;
 
-        animator.SetFloat("Speed", PlanarSpeed);
+        animator.SetFloat(SpeedHash, PlanarSpeed, 0.1f, Time.deltaTime);
+        animator.SetBool(IsGroundedHash, isGrounded);
     }
 
     public void BindAnimator(Animator targetAnimator)
@@ -316,9 +350,12 @@ public class PlayerMovement : MonoBehaviour
             animator.enabled = true;
             animator.applyRootMotion = false;
             animator.cullingMode = AnimatorCullingMode.AlwaysAnimate;
-            animator.SetFloat("Speed", 0f);
-            animator.Rebind();
-            animator.Update(0f);
+            if (animator.runtimeAnimatorController != null)
+            {
+                animator.SetFloat("Speed", 0f);
+                animator.Rebind();
+                animator.Update(0f);
+            }
         }
     }
 
@@ -341,7 +378,7 @@ public class PlayerMovement : MonoBehaviour
     // ── Public API (used by PlayerRole, FakeRagDoll, etc.) ──────
     public void AddImpactForce(Vector3 force, ForceMode mode = ForceMode.Impulse)
     {
-        if (rb == null)
+        if (!allowImpactReactions || rb == null)
             return;
 
         rb.AddForce(force, mode);
