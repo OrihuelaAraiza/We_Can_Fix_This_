@@ -2939,12 +2939,10 @@ MonoBehaviour:
   - {fileID: 605151549}
   - {fileID: 2085396268}
   cameraTransform: {fileID: 278711866}
-  fixieP1Prefab: {fileID: 4085432536944772313, guid: 891e50ae3d48543e58d8c685f03ea703,
-    type: 3}
-  fixieP2Prefab: {fileID: 8874579203571786221, guid: c9d59fcfd6a2141f0880bd5190f93365,
-    type: 3}
-  fixieP3Prefab: {fileID: 4684386058763366323, guid: 9cba2cedafdb645ca8fbf0e0095a4ed3,
-    type: 3}
+  fixieMeshPrefabs:
+  - {fileID: 4085432536944772313, guid: 891e50ae3d48543e58d8c685f03ea703, type: 3}
+  - {fileID: 8874579203571786221, guid: c9d59fcfd6a2141f0880bd5190f93365, type: 3}
+  - {fileID: 4684386058763366323, guid: 9cba2cedafdb645ca8fbf0e0095a4ed3, type: 3}
   spawnHeightOffset: 0.15
   minSpawnSeparation: 1.1
   debugLog: 1

@@ -45,6 +45,18 @@ public class GameplayHUD : MonoBehaviour
     System.Collections.Generic.List<string> activeFailureNames =
         new System.Collections.Generic.List<string>();
 
+    void Awake()
+    {
+        if (pauseMenu != null && pauseMenu.gameObject.activeSelf)
+            return;
+
+        Canvas canvas = GetComponent<Canvas>();
+        if (canvas == null)
+            canvas = GetComponentInParent<Canvas>();
+
+        pauseMenu = PauseMenuUI.EnsureOnCanvas(canvas);
+    }
+
     // Mapa de nombres amigables por tipo de estación
     static readonly System.Collections.Generic.Dictionary<string, string> RoomNames =
         new System.Collections.Generic.Dictionary<string, string>

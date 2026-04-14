@@ -1,5 +1,5 @@
-using UnityEngine;
 using System.Collections;
+using UnityEngine;
 
 [RequireComponent(typeof(Rigidbody))]
 [RequireComponent(typeof(PlayerMovement))]
@@ -7,98 +7,105 @@ public class FakeRagDoll : MonoBehaviour
 {
     [Header("Impact")]
     [SerializeField] private float hardHitThreshold = 8f;
-    [SerializeField] private float pushForce = 4f;
-    [SerializeField] private float spinForce = 7f;
+    [SerializeField] private float pushForce = 5.5f;
+    [SerializeField] private float upwardForce = 1.1f;
+    [SerializeField] private float impactCooldown = 0.35f;
 
-    [Header("Fake Fall")]
-    [SerializeField] private float fallDuration = 0.8f;
-    [SerializeField] private float recoverSpeed = 8f;
+    [Header("Recovery")]
+    [SerializeField] private float fallDuration = 0.55f;
+    [SerializeField] private float planarRecoveryDamping = 7f;
+
+    [Header("Visual Reaction")]
+    [SerializeField] private float heavyTiltAmount = 18f;
 
     [Header("Ignore Layers")]
     [SerializeField] private LayerMask ignoreLayers;
 
     private Rigidbody rb;
     private PlayerMovement movement;
+    private PlayerVisualWobble wobble;
 
-    private bool isFalling = false;
+    private bool isRecovering;
+    private float nextAllowedImpactTime;
 
     private void Awake()
     {
-        rb = GetComponent<Rigidbody>();
-        movement = GetComponent<PlayerMovement>();
+        ResolveReferences();
     }
 
     private void OnCollisionEnter(Collision collision)
     {
-        if (isFalling) return;
-        if (movement == null || !movement.IsInitialized) return;
+        ResolveReferences();
 
-        // Ignorar capas que no quieres que activen el fake fall
-        if (((1 << collision.gameObject.layer) & ignoreLayers) != 0)
+        if (isRecovering)
+            return;
+
+        if (movement == null || !movement.IsInitialized)
+            return;
+
+        if (Time.time < nextAllowedImpactTime)
+            return;
+
+        if (((1 << collision.gameObject.layer) & ignoreLayers.value) != 0)
             return;
 
         float impact = collision.relativeVelocity.magnitude;
-
         if (impact < hardHitThreshold)
             return;
 
-        Vector3 hitDir = Vector3.zero;
+        Vector3 hitDirection = collision.contactCount > 0
+            ? -collision.GetContact(0).normal
+            : (transform.position - collision.transform.position).normalized;
 
-        if (collision.contactCount > 0)
-            hitDir = -collision.GetContact(0).normal;
-        else
-            hitDir = (transform.position - collision.transform.position).normalized;
-
-        StartCoroutine(FakeFallRoutine(hitDir));
+        StartCoroutine(KnockbackRoutine(hitDirection, impact));
     }
 
-    private IEnumerator FakeFallRoutine(Vector3 hitDir)
+    private IEnumerator KnockbackRoutine(Vector3 hitDirection, float impact)
     {
-        isFalling = true;
+        isRecovering = true;
+        nextAllowedImpactTime = Time.time + impactCooldown;
 
-        // Bloquear control del jugador
         movement.SetExternalControlEnabled(false);
 
-        // Quitar frenos de rotación para que se "tambalee/caiga"
-        RigidbodyConstraints oldConstraints = rb.constraints;
-        rb.constraints = RigidbodyConstraints.None;
+        Vector3 planarDirection = Vector3.ProjectOnPlane(hitDirection, Vector3.up);
+        if (planarDirection.sqrMagnitude < 0.001f)
+            planarDirection = transform.forward;
 
-        // Empujón
-        rb.AddForce((hitDir.normalized + Vector3.up * 0.2f) * pushForce, ForceMode.Impulse);
+        planarDirection.Normalize();
 
-        // Giro medio torpe
-        Vector3 randomTorque = new Vector3(
-            Random.Range(-1f, 1f),
-            Random.Range(-0.3f, 0.3f),
-            Random.Range(-1f, 1f)
-        ).normalized * spinForce;
+        if (wobble != null)
+            wobble.AddImpactTilt(planarDirection, heavyTiltAmount + impact * 0.4f);
 
-        rb.AddTorque(randomTorque, ForceMode.Impulse);
+        Vector3 knockback = planarDirection * Mathf.Max(pushForce, impact * 0.3f);
+        knockback += Vector3.up * upwardForce;
+        rb.AddForce(knockback, ForceMode.Impulse);
 
-        yield return new WaitForSeconds(fallDuration);
-
-        // Enderezar jugador
-        Vector3 euler = transform.eulerAngles;
-        Quaternion upright = Quaternion.Euler(0f, euler.y, 0f);
-
-        float t = 0f;
-        while (t < 1f)
+        float elapsed = 0f;
+        while (elapsed < fallDuration)
         {
-            t += Time.deltaTime * recoverSpeed;
-            transform.rotation = Quaternion.Slerp(transform.rotation, upright, t);
-            yield return null;
+            elapsed += Time.fixedDeltaTime;
+
+            Vector3 planarVelocity = Vector3.ProjectOnPlane(rb.velocity, Vector3.up);
+            Vector3 dampedPlanarVelocity = Vector3.Lerp(
+                planarVelocity,
+                Vector3.zero,
+                planarRecoveryDamping * Time.fixedDeltaTime);
+
+            rb.velocity = new Vector3(dampedPlanarVelocity.x, rb.velocity.y, dampedPlanarVelocity.z);
+            rb.angularVelocity = Vector3.zero;
+
+            yield return new WaitForFixedUpdate();
         }
 
-        // Restaurar velocidades para que no siga rodando raro
-        rb.velocity = new Vector3(rb.velocity.x * 0.4f, 0f, rb.velocity.z * 0.4f);
         rb.angularVelocity = Vector3.zero;
-
-        // Volver a congelar X y Z, dejando Y libre
-        rb.constraints = RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationZ;
-
-        // Reactivar control
         movement.SetExternalControlEnabled(true);
+        isRecovering = false;
+    }
 
-        isFalling = false;
+    private void ResolveReferences()
+    {
+        rb ??= GetComponent<Rigidbody>();
+        movement ??= GetComponent<PlayerMovement>();
+        wobble ??= GetComponent<PlayerVisualWobble>();
     }
 }

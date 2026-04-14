@@ -16,7 +16,7 @@ public class CoopCamera : MonoBehaviour
     // ── Lifecycle ──────────────────────────────
     private void Start()
     {
-        playerManager = PlayerManager.Instance;
+        playerManager = FindObjectOfType<PlayerManager>();
     }
 
     private void LateUpdate()

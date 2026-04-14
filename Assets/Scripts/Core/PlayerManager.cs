@@ -14,13 +14,9 @@ public class PlayerManager : MonoBehaviour
     [SerializeField] private Transform[] spawnPoints;
     [SerializeField] private Transform cameraTransform;
 
-    [Header("Fixie Models")]
-    [Tooltip("Visual model for Player 1 — Astronaut_FinnTheFrog")]
-    [SerializeField] private GameObject fixieP1Prefab;
-    [Tooltip("Visual model for Player 2 — Astronaut_FernandoTheFlamingo")]
-    [SerializeField] private GameObject fixieP2Prefab;
-    [Tooltip("Visual model for Player 3 — Astronaut_BarbaraTheBee")]
-    [SerializeField] private GameObject fixieP3Prefab;
+    [Header("Fixie Models (randomly assigned on join)")]
+    [Tooltip("All available Fixie mesh prefabs — one is picked randomly per player join")]
+    [SerializeField] private GameObject[] fixieMeshPrefabs;
 
     [Header("Spawn Tuning")]
     [SerializeField] private float spawnHeightOffset = 0.15f;
@@ -40,14 +36,8 @@ public class PlayerManager : MonoBehaviour
 
     private void Awake()
     {
-        if (Instance != null && Instance != this) { Destroy(gameObject); return; }
-
         Instance = this;
         playerInputManager = GetComponent<PlayerInputManager>();
-
-        // maxPlayerCount se configura en el Inspector del PlayerInputManager component;
-        // no es asignable en runtime (read-only property).
-
         Debug.Log("[PlayerManager] Awake - Instance set");
     }
 
@@ -730,6 +720,9 @@ public class PlayerManager : MonoBehaviour
         if (movement != null)
             movement.BindAnimator(existingAnimator);
 
+        if (existingAnimator != null && existingAnimator.GetComponent<PlayerAnimator>() == null)
+            existingAnimator.gameObject.AddComponent<PlayerAnimator>();
+
         BindProceduralAnimator(playerRoot, existingAnimator);
 
         if (debugLog)
@@ -793,6 +786,10 @@ public class PlayerManager : MonoBehaviour
         if (movement != null)
             movement.BindAnimator(modelAnimator);
 
+        // Add PlayerAnimator to drive Animator from movement state
+        if (modelAnimator != null && modelAnimator.GetComponent<PlayerAnimator>() == null)
+            modelAnimator.gameObject.AddComponent<PlayerAnimator>();
+
         BindProceduralAnimator(playerRoot, modelAnimator);
 
         Renderer[] modelRenderers = model.GetComponentsInChildren<Renderer>(true);
@@ -816,12 +813,11 @@ public class PlayerManager : MonoBehaviour
 
     GameObject GetFixiePrefabForSlot(int slotIndex)
     {
-        GameObject[] prefabs = { fixieP1Prefab, fixieP2Prefab, fixieP3Prefab };
+        if (fixieMeshPrefabs == null || fixieMeshPrefabs.Length == 0)
+            return null;
 
-        if (slotIndex == 3)
-            return prefabs[Random.Range(0, prefabs.Length)];
-
-        return slotIndex >= 0 && slotIndex < prefabs.Length ? prefabs[slotIndex] : null;
+        // Random assignment — any player can get any model
+        return fixieMeshPrefabs[Random.Range(0, fixieMeshPrefabs.Length)];
     }
 
     void StripRuntimeComponents(GameObject model)
