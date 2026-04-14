@@ -15,15 +15,15 @@ public class StationStatusUI : MonoBehaviour
 
     [SerializeField] StationRow[] rows;
 
-    static readonly Color COL_OK       = HexColor("#287040");
-    static readonly Color COL_OK_TEXT  = HexColor("#88a888");
-    static readonly Color COL_OK_SUB   = HexColor("#405040");
-    static readonly Color COL_WARN     = HexColor("#907818");
-    static readonly Color COL_WARN_TXT = HexColor("#b89840");
-    static readonly Color COL_WARN_SUB = HexColor("#604810");
-    static readonly Color COL_CRIT     = HexColor("#a02020");
-    static readonly Color COL_CRIT_TXT = HexColor("#c03030");
-    static readonly Color COL_CRIT_SUB = HexColor("#802020");
+    static readonly Color COL_OK       = HexColor("#33a45d");
+    static readonly Color COL_OK_TEXT  = HexColor("#bfd8bc");
+    static readonly Color COL_OK_SUB   = HexColor("#8fc29a");
+    static readonly Color COL_WARN     = HexColor("#d29a2f");
+    static readonly Color COL_WARN_TXT = HexColor("#f0d287");
+    static readonly Color COL_WARN_SUB = HexColor("#d9a84f");
+    static readonly Color COL_CRIT     = HexColor("#d94242");
+    static readonly Color COL_CRIT_TXT = HexColor("#ff9b9b");
+    static readonly Color COL_CRIT_SUB = HexColor("#f06b6b");
 
     Coroutine[] _blinks;
 

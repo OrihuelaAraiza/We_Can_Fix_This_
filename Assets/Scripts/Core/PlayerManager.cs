@@ -21,7 +21,6 @@ public class PlayerManager : MonoBehaviour
     [SerializeField] private GameObject fixieP2Prefab;
     [Tooltip("Visual model for Player 3 — Astronaut_BarbaraTheBee")]
     [SerializeField] private GameObject fixieP3Prefab;
-    // P4 picks a random model at runtime from the three above
 
     [Header("Spawn Tuning")]
     [SerializeField] private float spawnHeightOffset = 0.15f;
@@ -78,6 +77,8 @@ public class PlayerManager : MonoBehaviour
             yield break;
         }
 
+        PrepareSpawnedPlayer(playerInput.gameObject);
+
         Rigidbody rb = playerInput.GetComponent<Rigidbody>();
         bool hadRigidbody = rb != null;
         bool originalKinematic = hadRigidbody && rb.isKinematic;
@@ -91,24 +92,37 @@ public class PlayerManager : MonoBehaviour
             rb.angularVelocity = Vector3.zero;
         }
 
-        if (!ShipLayoutGenerator.IsReady)
+        if (!ShipLayoutGenerator.IsReady || ShipLayoutGenerator.PlayerSpawnPositions == null || ShipLayoutGenerator.PlayerSpawnPositions.Count == 0)
         {
-            float elapsed = 0f;
-            while (!ShipLayoutGenerator.IsReady && elapsed < 10f)
+            // Only block if a ShipLayoutGenerator actually exists in the scene.
+            // Without one (e.g. in test scenes) IsReady is permanently false,
+            // which would freeze the Rigidbody for 10 s and block initialization.
+            if (Object.FindObjectOfType<ShipLayoutGenerator>() != null)
             {
-                elapsed += Time.deltaTime;
-                yield return null;
-            }
+                float elapsed = 0f;
+                while (elapsed < 10f)
+                {
+                    bool layoutReady = ShipLayoutGenerator.IsReady;
+                    bool spawnPointsReady = ShipLayoutGenerator.PlayerSpawnPositions != null
+                        && ShipLayoutGenerator.PlayerSpawnPositions.Count > 0;
 
-            if (!ShipLayoutGenerator.IsReady)
-                Debug.LogWarning("[PlayerManager] ShipLayout timeout — spawning anyway.");
+                    if (layoutReady && spawnPointsReady)
+                        break;
+
+                    elapsed += Time.deltaTime;
+                    yield return null;
+                }
+
+                if (!ShipLayoutGenerator.IsReady || ShipLayoutGenerator.PlayerSpawnPositions == null || ShipLayoutGenerator.PlayerSpawnPositions.Count == 0)
+                    Debug.LogWarning("[PlayerManager] ShipLayout timeout — spawning with fallback positions.");
+            }
         }
 
         string deviceName = GetDeviceDisplayName(playerInput);
         Debug.Log($"[PlayerManager] OnPlayerJoined called - slot:{slotIndex} inputIndex:{playerInput.playerIndex} device:{deviceName} scheme:{playerInput.currentControlScheme}");
 
         Vector3 requestedSpawnPos = GetRequestedSpawnPosition(slotIndex);
-        Vector3 spawnPos = ResolveSupportedSpawnPosition(slotIndex, requestedSpawnPos);
+        Vector3 spawnPos = ResolveSupportedSpawnPosition(playerInput.transform, slotIndex, requestedSpawnPos);
         playerInput.transform.position = spawnPos;
 
         PlayerMovement movement = playerInput.GetComponent<PlayerMovement>();
@@ -128,13 +142,20 @@ public class PlayerManager : MonoBehaviour
             yield break;
         }
 
-        movement.Initialize(slotIndex, playerData, cameraTransform);
-        AttachFixieModel(playerInput.transform, slotIndex);
-
-        if (hadRigidbody)
+        try
         {
-            rb.isKinematic = false;
-            rb.useGravity = true;
+            SetupPlayerVisual(playerInput.transform, movement, slotIndex);
+            movement.Initialize(slotIndex, playerData, cameraTransform);
+        }
+        finally
+        {
+            // Restore Rigidbody unconditionally — if Initialize() throws,
+            // the player must not remain frozen/kinematic forever.
+            if (hadRigidbody)
+            {
+                rb.isKinematic = false;
+                rb.useGravity = true;
+            }
         }
 
         pendingPlayerSlots.Remove(playerInput);
@@ -237,8 +258,9 @@ public class PlayerManager : MonoBehaviour
         Debug.LogWarning($"[PlayerManager] Sin rol guardado para P{slotIndex} — sin restricciones");
     }
 
-    Vector3 ResolveSupportedSpawnPosition(int slotIndex, Vector3 requestedPosition)
+    Vector3 ResolveSupportedSpawnPosition(Transform playerRoot, int slotIndex, Vector3 requestedPosition)
     {
+        float spawnLift = GetRequiredSpawnLift(playerRoot);
         Vector3[] candidateOffsets =
         {
             Vector3.zero,
@@ -255,29 +277,30 @@ public class PlayerManager : MonoBehaviour
         for (int i = 0; i < candidateOffsets.Length; i++)
         {
             Vector3 candidate = requestedPosition + candidateOffsets[i];
-            if (!TryResolveGroundedSpawn(candidate, out Vector3 grounded))
+            if (!TryResolveGroundedSpawn(candidate, spawnLift, out Vector3 grounded))
                 continue;
 
             if (IsFarEnoughFromOtherPlayers(slotIndex, grounded))
                 return grounded;
         }
 
-        return requestedPosition + Vector3.up * spawnHeightOffset;
+        float fallbackLift = Mathf.Max(0f, spawnLift - spawnHeightOffset);
+        return requestedPosition + Vector3.up * fallbackLift;
     }
 
-    bool TryResolveGroundedSpawn(Vector3 requestedPosition, out Vector3 groundedPosition)
+    bool TryResolveGroundedSpawn(Vector3 requestedPosition, float spawnLift, out Vector3 groundedPosition)
     {
-        if (TryRaycastSupportedSpawn(requestedPosition, 1.5f, out groundedPosition))
+        if (TryRaycastSupportedSpawn(requestedPosition, 1.5f, spawnLift, out groundedPosition))
             return true;
 
-        if (TryRaycastSupportedSpawn(requestedPosition, 2.5f, out groundedPosition))
+        if (TryRaycastSupportedSpawn(requestedPosition, 2.5f, spawnLift, out groundedPosition))
             return true;
 
         groundedPosition = default;
         return false;
     }
 
-    bool TryRaycastSupportedSpawn(Vector3 requestedPosition, float rayHeight, out Vector3 groundedPosition)
+    bool TryRaycastSupportedSpawn(Vector3 requestedPosition, float rayHeight, float spawnLift, out Vector3 groundedPosition)
     {
         groundedPosition = default;
         float maxAcceptedY = requestedPosition.y + 0.75f;
@@ -294,19 +317,68 @@ public class PlayerManager : MonoBehaviour
             if (hit.collider == null || hit.normal.y < 0.5f || hit.point.y > maxAcceptedY)
                 continue;
 
+            if (!IsSpawnSurfaceValid(hit.collider))
+                continue;
+
             if (hit.distance >= bestDistance)
                 continue;
 
             bestDistance = hit.distance;
-            groundedPosition = hit.point + Vector3.up * spawnHeightOffset;
+            groundedPosition = hit.point + Vector3.up * spawnLift;
             found = true;
         }
 
         return found;
     }
 
+    bool IsSpawnSurfaceValid(Collider collider)
+    {
+        if (collider == null)
+            return false;
+
+        int playerLayer = LayerMask.NameToLayer("Player");
+        return playerLayer < 0 || collider.gameObject.layer != playerLayer;
+    }
+
+    float GetRequiredSpawnLift(Transform playerRoot)
+    {
+        if (playerRoot == null)
+            return spawnHeightOffset;
+
+        float lowestOffset = 0f;
+        bool foundCollider = false;
+        Collider[] colliders = playerRoot.GetComponents<Collider>();
+
+        foreach (Collider collider in colliders)
+        {
+            if (collider == null || !collider.enabled || collider.isTrigger)
+                continue;
+
+            float offsetFromPivot = playerRoot.position.y - collider.bounds.min.y;
+            if (!foundCollider || offsetFromPivot > lowestOffset)
+            {
+                lowestOffset = offsetFromPivot;
+                foundCollider = true;
+            }
+        }
+
+        if (!foundCollider)
+            return spawnHeightOffset;
+
+        return Mathf.Max(spawnHeightOffset, lowestOffset + 0.05f);
+    }
+
     Vector3 GetRequestedSpawnPosition(int slotIndex)
     {
+        if (ShipLayoutGenerator.PlayerSpawnPositions != null && ShipLayoutGenerator.PlayerSpawnPositions.Count > 0)
+        {
+            int runtimeIndex = Mathf.Clamp(slotIndex, 0, ShipLayoutGenerator.PlayerSpawnPositions.Count - 1);
+            return ShipLayoutGenerator.PlayerSpawnPositions[runtimeIndex];
+        }
+
+        if (TryGetBridgeCenterSpawnPosition(slotIndex, out Vector3 bridgeSpawn))
+            return bridgeSpawn;
+
         if (spawnPoints != null && slotIndex >= 0 && slotIndex < spawnPoints.Length && spawnPoints[slotIndex] != null)
             return spawnPoints[slotIndex].position;
 
@@ -332,6 +404,28 @@ public class PlayerManager : MonoBehaviour
         };
 
         return basePosition + fallbackOffsets[Mathf.Clamp(slotIndex, 0, fallbackOffsets.Length - 1)];
+    }
+
+    bool TryGetBridgeCenterSpawnPosition(int slotIndex, out Vector3 spawnPosition)
+    {
+        spawnPosition = default;
+
+        if (ShipLayoutGenerator.RoomCenters == null
+            || !ShipLayoutGenerator.RoomCenters.TryGetValue("Bridge", out Vector3 bridgeCenter))
+        {
+            return false;
+        }
+
+        Vector3[] bridgeOffsets =
+        {
+            new Vector3(-1.25f, 0f, -1.25f),
+            new Vector3(1.25f, 0f, -1.25f),
+            new Vector3(-1.25f, 0f, 1.25f),
+            new Vector3(1.25f, 0f, 1.25f)
+        };
+
+        spawnPosition = bridgeCenter + bridgeOffsets[Mathf.Clamp(slotIndex, 0, bridgeOffsets.Length - 1)];
+        return true;
     }
 
     bool IsFarEnoughFromOtherPlayers(int slotIndex, Vector3 candidatePosition)
@@ -530,14 +624,144 @@ public class PlayerManager : MonoBehaviour
             playerInputManager.DisableJoining();
     }
 
-    void AttachFixieModel(Transform playerRoot, int slotIndex)
+    void PrepareSpawnedPlayer(GameObject playerObject)
     {
-        GameObject[] fixiePrefabs = new GameObject[] { fixieP1Prefab, fixieP2Prefab, fixieP3Prefab };
+        if (playerObject == null)
+            return;
 
-        // P4 (slot index 3) gets a random Fixie model
-        GameObject modelPrefab = (slotIndex == 3)
-            ? fixiePrefabs[Random.Range(0, fixiePrefabs.Length)]
-            : (slotIndex < fixiePrefabs.Length ? fixiePrefabs[slotIndex] : null);
+        playerObject.tag = "Player";
+
+        int playerLayer = LayerMask.NameToLayer("Player");
+        if (playerLayer >= 0)
+            playerObject.layer = playerLayer;
+
+        EnsurePlayerCollider(playerObject);
+
+        if (playerObject.GetComponent<PlayerInputHandler>() == null)
+            playerObject.AddComponent<PlayerInputHandler>();
+
+        if (playerObject.GetComponent<PlayerInteract>() == null)
+            playerObject.AddComponent<PlayerInteract>();
+
+        if (playerObject.GetComponent<PlayerRole>() == null)
+            playerObject.AddComponent<PlayerRole>();
+
+        if (playerObject.GetComponent<FakeRagDoll>() == null)
+            playerObject.AddComponent<FakeRagDoll>();
+
+        if (playerObject.GetComponent<PlayerVisualWobble>() == null)
+            playerObject.AddComponent<PlayerVisualWobble>();
+    }
+
+    void EnsurePlayerCollider(GameObject playerObject)
+    {
+        if (playerObject == null)
+            return;
+
+        CapsuleCollider capsule = playerObject.GetComponent<CapsuleCollider>();
+        if (capsule == null)
+            capsule = playerObject.AddComponent<CapsuleCollider>();
+
+        capsule.direction = 1;
+
+        Renderer[] renderers = playerObject.GetComponentsInChildren<Renderer>(true);
+        if (!TryGetCombinedRendererBounds(renderers, out Bounds combinedBounds))
+        {
+            capsule.radius = 0.45f;
+            capsule.height = 1.8f;
+            capsule.center = new Vector3(0f, 0.9f, 0f);
+            return;
+        }
+
+        Vector3 localCenter = playerObject.transform.InverseTransformPoint(combinedBounds.center);
+        float height = Mathf.Max(1.2f, combinedBounds.size.y * 0.95f);
+        float radius = Mathf.Clamp(Mathf.Max(combinedBounds.extents.x, combinedBounds.extents.z) * 0.75f, 0.3f, height * 0.45f);
+
+        capsule.height = height;
+        capsule.radius = radius;
+        capsule.center = localCenter;
+    }
+
+    void SetupPlayerVisual(Transform playerRoot, PlayerMovement movement, int slotIndex)
+    {
+        if (playerRoot == null)
+            return;
+
+        if (TryUseExistingFixieVisual(playerRoot, movement, slotIndex))
+            return;
+
+        AttachFixieModel(playerRoot, movement, slotIndex);
+    }
+
+    bool TryUseExistingFixieVisual(Transform playerRoot, PlayerMovement movement, int slotIndex)
+    {
+        Renderer[] existingRenderers = playerRoot.GetComponentsInChildren<Renderer>(true);
+        bool hasVisibleAvatar = false;
+
+        foreach (Renderer renderer in existingRenderers)
+        {
+            if (renderer == null)
+                continue;
+
+            if (renderer.transform == playerRoot && renderer is MeshRenderer)
+                continue;
+
+            hasVisibleAvatar = true;
+            break;
+        }
+
+        if (!hasVisibleAvatar)
+            return false;
+
+        if (slotIndex != 0)
+        {
+            DisableExistingAvatarRenderers(playerRoot);
+            return false;
+        }
+
+        MeshRenderer rootCapsule = playerRoot.GetComponent<MeshRenderer>();
+        if (rootCapsule != null)
+            rootCapsule.enabled = false;
+
+        Transform visualRoot = FindPrimaryVisualRoot(playerRoot);
+        if (visualRoot != null)
+        {
+            NormalizeVisualScale(playerRoot, visualRoot);
+            AlignVisualToPlayer(playerRoot, visualRoot);
+            ForceRenderersVisible(visualRoot);
+            BindVisualWobble(playerRoot, visualRoot);
+        }
+
+        Animator existingAnimator = playerRoot.GetComponentInChildren<Animator>(true);
+        if (movement != null)
+            movement.BindAnimator(existingAnimator);
+
+        if (debugLog)
+            Debug.Log($"[PlayerManager] Using existing Fixie prefab as player visual for slot {slotIndex}.");
+
+        return true;
+    }
+
+    void DisableExistingAvatarRenderers(Transform playerRoot)
+    {
+        if (playerRoot == null)
+            return;
+
+        foreach (Renderer renderer in playerRoot.GetComponentsInChildren<Renderer>(true))
+        {
+            if (renderer == null)
+                continue;
+
+            if (renderer.transform == playerRoot && renderer is MeshRenderer)
+                continue;
+
+            renderer.enabled = false;
+        }
+    }
+
+    void AttachFixieModel(Transform playerRoot, PlayerMovement movement, int slotIndex)
+    {
+        GameObject modelPrefab = GetFixiePrefabForSlot(slotIndex);
 
         if (modelPrefab == null)
         {
@@ -546,11 +770,266 @@ public class PlayerManager : MonoBehaviour
             return;
         }
 
-        GameObject model = Instantiate(modelPrefab, playerRoot);
+        Transform modelRoot = playerRoot.Find("ModelRoot");
+        if (modelRoot == null)
+        {
+            var go = new GameObject("ModelRoot");
+            go.transform.SetParent(playerRoot);
+            go.transform.localPosition = Vector3.zero;
+            go.transform.localRotation = Quaternion.identity;
+            modelRoot = go.transform;
+        }
+
+        MeshRenderer capsuleMesh = playerRoot.GetComponent<MeshRenderer>();
+
+        GameObject model = Instantiate(modelPrefab, modelRoot);
         model.transform.localPosition = Vector3.zero;
         model.transform.localRotation = Quaternion.identity;
-        if (debugLog)
+        model.transform.localScale = Vector3.one;
+
+        SetLayerRecursively(model.transform, playerRoot.gameObject.layer);
+        NormalizeVisualScale(playerRoot, model.transform);
+        AlignVisualToPlayer(playerRoot, model.transform);
+        ForceRenderersVisible(model.transform);
+        BindVisualWobble(playerRoot, model.transform);
+
+        Animator modelAnimator = model.GetComponentInChildren<Animator>(true);
+        if (movement != null)
+            movement.BindAnimator(modelAnimator);
+
+        Renderer[] modelRenderers = model.GetComponentsInChildren<Renderer>(true);
+        bool hasVisibleRenderer = modelRenderers != null && modelRenderers.Length > 0;
+
+        if (capsuleMesh != null)
+            capsuleMesh.enabled = !hasVisibleRenderer;
+
+        // Fixie prefabs are visual-only children. Strip any physics or movement
+        // components that Unity auto-added (e.g. Rigidbody via [RequireComponent])
+        // — a second Rigidbody nested under the player's own causes chaotic physics.
+        StripRuntimeComponents(model);
+
+        if (!hasVisibleRenderer)
+        {
+            Debug.LogWarning($"[PlayerManager] Fixie '{modelPrefab.name}' se instanció sin renderers visibles. Se deja visible la cápsula fallback.");
+        }
+        else if (debugLog)
             Debug.Log($"[PlayerManager] Attached Fixie model '{modelPrefab.name}' to player slot {slotIndex}.");
+    }
+
+    GameObject GetFixiePrefabForSlot(int slotIndex)
+    {
+        GameObject[] prefabs = { fixieP1Prefab, fixieP2Prefab, fixieP3Prefab };
+
+        if (slotIndex == 3)
+            return prefabs[Random.Range(0, prefabs.Length)];
+
+        return slotIndex >= 0 && slotIndex < prefabs.Length ? prefabs[slotIndex] : null;
+    }
+
+    void StripRuntimeComponents(GameObject model)
+    {
+        if (model == null)
+            return;
+
+        foreach (PlayerInput input in model.GetComponentsInChildren<PlayerInput>(true))
+        {
+            input.enabled = false;
+            Destroy(input);
+        }
+
+        foreach (PlayerMovement movement in model.GetComponentsInChildren<PlayerMovement>(true))
+        {
+            movement.enabled = false;
+            Destroy(movement);
+        }
+
+        foreach (Rigidbody body in model.GetComponentsInChildren<Rigidbody>(true))
+        {
+            body.isKinematic = true;
+            body.useGravity = false;
+            body.detectCollisions = false;
+            Destroy(body);
+        }
+
+        foreach (Collider collider in model.GetComponentsInChildren<Collider>(true))
+        {
+            collider.enabled = false;
+            Destroy(collider);
+        }
+    }
+
+    void SetLayerRecursively(Transform root, int layer)
+    {
+        if (root == null)
+            return;
+
+        root.gameObject.layer = layer;
+
+        for (int i = 0; i < root.childCount; i++)
+            SetLayerRecursively(root.GetChild(i), layer);
+    }
+
+    void AlignVisualToPlayer(Transform playerRoot, Transform visualRoot)
+    {
+        if (playerRoot == null || visualRoot == null)
+            return;
+
+        Renderer[] renderers = visualRoot.GetComponentsInChildren<Renderer>(true);
+        if (renderers == null || renderers.Length == 0)
+            return;
+
+        if (!TryGetCombinedRendererBounds(renderers, out Bounds visualBounds))
+            return;
+
+        float playerBottomOffset = GetPlayerBottomOffset(playerRoot);
+        float visualBottomOffset = visualBounds.min.y - playerRoot.position.y;
+        float requiredOffsetY = playerBottomOffset - visualBottomOffset;
+
+        visualRoot.localPosition += Vector3.up * requiredOffsetY;
+    }
+
+    void NormalizeVisualScale(Transform playerRoot, Transform visualRoot)
+    {
+        if (playerRoot == null || visualRoot == null)
+            return;
+
+        Renderer[] renderers = visualRoot.GetComponentsInChildren<Renderer>(true);
+        if (renderers == null || renderers.Length == 0)
+            return;
+
+        if (!TryGetCombinedRendererBounds(renderers, out Bounds visualBounds))
+            return;
+
+        float visualHeight = visualBounds.size.y;
+        if (visualHeight <= 0.001f)
+            return;
+
+        float targetHeight = GetTargetVisualHeight(playerRoot);
+        if (targetHeight <= 0.001f)
+            return;
+
+        float scaleFactor = Mathf.Clamp(targetHeight / visualHeight, 0.05f, 100f);
+        visualRoot.localScale *= scaleFactor;
+
+        if (debugLog)
+            Debug.Log($"[PlayerManager] Normalized visual scale '{visualRoot.name}' x{scaleFactor:0.###} (height {visualHeight:0.###} -> {targetHeight:0.###}).");
+    }
+
+    void BindVisualWobble(Transform playerRoot, Transform visualRoot)
+    {
+        if (playerRoot == null || visualRoot == null)
+            return;
+
+        PlayerVisualWobble wobble = playerRoot.GetComponent<PlayerVisualWobble>();
+        if (wobble != null)
+            wobble.BindVisual(visualRoot);
+    }
+
+    void ForceRenderersVisible(Transform visualRoot)
+    {
+        if (visualRoot == null)
+            return;
+
+        foreach (Renderer renderer in visualRoot.GetComponentsInChildren<Renderer>(true))
+        {
+            if (renderer == null)
+                continue;
+
+            renderer.enabled = true;
+            renderer.forceRenderingOff = false;
+            renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
+            renderer.receiveShadows = true;
+
+            if (renderer is SkinnedMeshRenderer skinned)
+                skinned.updateWhenOffscreen = true;
+        }
+    }
+
+    Transform FindPrimaryVisualRoot(Transform playerRoot)
+    {
+        if (playerRoot == null)
+            return null;
+
+        foreach (Renderer renderer in playerRoot.GetComponentsInChildren<Renderer>(true))
+        {
+            if (renderer == null)
+                continue;
+
+            if (renderer.transform == playerRoot && renderer is MeshRenderer)
+                continue;
+
+            Transform current = renderer.transform;
+            while (current.parent != null && current.parent != playerRoot)
+                current = current.parent;
+
+            return current;
+        }
+
+        return playerRoot;
+    }
+
+    float GetPlayerBottomOffset(Transform playerRoot)
+    {
+        if (playerRoot == null)
+            return -spawnHeightOffset;
+
+        float bottomOffset = -spawnHeightOffset;
+        bool foundCollider = false;
+
+        foreach (Collider collider in playerRoot.GetComponents<Collider>())
+        {
+            if (collider == null || !collider.enabled || collider.isTrigger)
+                continue;
+
+            float candidate = collider.bounds.min.y - playerRoot.position.y;
+            if (!foundCollider || candidate < bottomOffset)
+            {
+                bottomOffset = candidate;
+                foundCollider = true;
+            }
+        }
+
+        return bottomOffset;
+    }
+
+    float GetTargetVisualHeight(Transform playerRoot)
+    {
+        if (playerRoot == null)
+            return 1.6f;
+
+        CapsuleCollider capsule = playerRoot.GetComponent<CapsuleCollider>();
+        if (capsule != null)
+            return Mathf.Max(1.2f, capsule.height * 0.9f);
+
+        Collider collider = playerRoot.GetComponent<Collider>();
+        if (collider != null)
+            return Mathf.Max(1.2f, collider.bounds.size.y * 0.9f);
+
+        return 1.6f;
+    }
+
+    bool TryGetCombinedRendererBounds(Renderer[] renderers, out Bounds bounds)
+    {
+        bounds = default;
+        bool initialized = false;
+
+        foreach (Renderer renderer in renderers)
+        {
+            if (renderer == null || !renderer.enabled)
+                continue;
+
+            if (!initialized)
+            {
+                bounds = renderer.bounds;
+                initialized = true;
+            }
+            else
+            {
+                bounds.Encapsulate(renderer.bounds);
+            }
+        }
+
+        return initialized;
     }
 
     private void OnDrawGizmos()

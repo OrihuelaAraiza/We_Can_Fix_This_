@@ -16,9 +16,12 @@ public class CoreXUI : MonoBehaviour
     [Header("Style")]
     [SerializeField] UIStyleConfig style;
 
-    static readonly Color ColorLow  = HexColor("#a82020");
-    static readonly Color ColorMid  = HexColor("#c04020");
-    static readonly Color ColorHigh = HexColor("#e03020");
+    static readonly Color ColorLow    = HexColor("#d34f45");
+    static readonly Color ColorMid    = HexColor("#ef8540");
+    static readonly Color ColorHigh   = HexColor("#ff6553");
+    static readonly Color StateCalm   = HexColor("#d6e6d2");
+    static readonly Color StateAlert  = HexColor("#f3c56d");
+    static readonly Color StateEnrage = HexColor("#ff8f7f");
 
     Coroutine blinkRoutine;
 
@@ -74,13 +77,18 @@ public class CoreXUI : MonoBehaviour
         else                      stateStr = "ENRAGED";
 
         if (reactiveLabel != null)
+        {
             reactiveLabel.text = $"{pct}% \u00b7 {stateStr}";
+            reactiveLabel.color = value01 < 0.3f ? StateCalm :
+                                  value01 < 0.6f ? StateAlert : StateEnrage;
+        }
 
         // Blink active label when aggression is high
         if (value01 >= 0.6f)
         {
             if (activeLabel != null && blinkRoutine == null)
             {
+                activeLabel.color = ColorHigh;
                 activeLabel.gameObject.SetActive(true);
                 blinkRoutine = StartCoroutine(HUDAnimations.BlinkCoroutine(activeLabel, 0.6f));
             }

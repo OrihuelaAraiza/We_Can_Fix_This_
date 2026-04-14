@@ -71,4 +71,24 @@ public class PlayerInputHandler : MonoBehaviour
         Debug.Log("[Handler] Ability PRESSED");
         if (_role != null) _role.UseAbility();
     }
+
+    // ── Send Messages / Broadcast Messages callbacks ──────────────────────────────
+    // Called automatically by PlayerInput when Behavior = SendMessages or
+    // BroadcastMessages. Safe to coexist with the C# subscriptions above —
+    // movement/jump assignments are idempotent on the same frame.
+    private void OnMove(InputValue value)
+        => _movement?.OnMove(value.Get<Vector2>());
+
+    private void OnJump(InputValue value)
+    {
+        if (value.isPressed) _movement?.OnJump();
+    }
+
+    private void OnInteract(InputValue value)
+        => _interact?.SetInteractHeld(value.isPressed);
+
+    private void OnAbility(InputValue value)
+    {
+        if (value.isPressed) _role?.UseAbility();
+    }
 }

@@ -32,6 +32,15 @@ public class PlayerVisualWobble : MonoBehaviour
         initialLocalPos = visual.localPosition;
     }
 
+    public void BindVisual(Transform targetVisual)
+    {
+        if (targetVisual == null)
+            return;
+
+        visual = targetVisual;
+        initialLocalPos = visual.localPosition;
+    }
+
     private void LateUpdate()
     {
         if (visual == null || rb == null) return;

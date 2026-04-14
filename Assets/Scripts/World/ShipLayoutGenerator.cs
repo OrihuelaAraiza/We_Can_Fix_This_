@@ -305,8 +305,16 @@ public class ShipLayoutGenerator : MonoBehaviour
     public static IReadOnlyDictionary<string, Vector3> RoomCenters { get; private set; }
         = new Dictionary<string, Vector3>();
 
+    /// <summary>
+    /// Spawn positions seguros ya proyectados sobre el piso del Bridge.
+    /// Se publican aunque PlayerManager todavía no exista.
+    /// </summary>
+    public static IReadOnlyList<Vector3> PlayerSpawnPositions { get; private set; }
+        = Array.Empty<Vector3>();
+
     /// <summary>Se dispara tras una generación exitosa, con el diccionario de centros.</summary>
     public static event System.Action<IReadOnlyDictionary<string, Vector3>> OnRoomCentersReady;
+    public static event System.Action<IReadOnlyList<Vector3>> OnPlayerSpawnPositionsReady;
 
     static readonly Dir[] AllDirs = { Dir.N, Dir.S, Dir.E, Dir.W };
     const float DoorwayBlockerMinHeight = 0.65f;
@@ -333,6 +341,7 @@ public class ShipLayoutGenerator : MonoBehaviour
     void Awake()
     {
         IsReady = false;
+        PlayerSpawnPositions = Array.Empty<Vector3>();
         EnsureRoot();
 
         var assembler = GetComponent<ShipAssembler>();
@@ -978,8 +987,12 @@ public class ShipLayoutGenerator : MonoBehaviour
         if (points.Count > 0 && PlayerManager.Instance != null)
         {
             PlayerManager.Instance.SetSpawnPoints(points.ToArray());
-            Log($"Wired {points.Count} spawn points from Bridge");
         }
+
+        PublishSpawnPositions(points);
+
+        if (points.Count > 0)
+            Log($"Wired {points.Count} spawn points from Bridge");
     }
 
     void PublishRoomCenters()
@@ -1009,6 +1022,23 @@ public class ShipLayoutGenerator : MonoBehaviour
         anchor.SetParent(parent, false);
         anchor.position = ResolveSupportedBridgeSpawn(desiredWorldPosition, bridgePlaced);
         return anchor;
+    }
+
+    void PublishSpawnPositions(List<Transform> points)
+    {
+        if (points == null || points.Count == 0)
+        {
+            PlayerSpawnPositions = Array.Empty<Vector3>();
+            return;
+        }
+
+        Vector3[] positions = points
+            .Where(point => point != null)
+            .Select(point => point.position)
+            .ToArray();
+
+        PlayerSpawnPositions = positions;
+        OnPlayerSpawnPositionsReady?.Invoke(PlayerSpawnPositions);
     }
 
     IEnumerable<Vector3> BuildFallbackBridgeSpawnPositions(PlacedModule bridgePlaced)

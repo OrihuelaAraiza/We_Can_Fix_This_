@@ -2,7 +2,10 @@
   "permissions": {
     "allow": [
       "Bash(git checkout:*)",
-      "Bash(grep -i \"\\\\.cs$\")"
+      "Bash(grep -i \"\\\\.cs$\")",
+      "Bash(find /Users/JP/Desktop/We_Can_Fix_This_ -type f \\\\\\( -name \"*.cs\" -o -name \"*.prefab\" \\\\\\) -exec grep -l \"PlayerController\" {} \\\\;)",
+      "Bash(grep -r \"clipAnimations\" /Users/JP/Desktop/We_Can_Fix_This_/Assets/Art/Models/Temp/Players/*.meta)",
+      "Bash(grep \"guid:\" /Users/JP/Desktop/We_Can_Fix_This_/Assets/Art/Models/Temp/Players/*.fbx.meta)"
     ]
   }
 }

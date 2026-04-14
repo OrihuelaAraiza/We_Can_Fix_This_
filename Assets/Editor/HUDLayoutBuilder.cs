@@ -16,9 +16,9 @@ public static class HUDLayoutBuilder
     static readonly Color BG          = Hex("#161a1e");
     static readonly Color Border      = Hex("#2a3040");
     static readonly Color BarBG       = Hex("#0e1218");
-    static readonly Color TextPrimary = Hex("#c8d8c0");
-    static readonly Color TextDim     = Hex("#607060");
-    static readonly Color TextLabel   = Hex("#485848");
+    static readonly Color TextPrimary = Hex("#d6e6d2");
+    static readonly Color TextDim     = Hex("#91a694");
+    static readonly Color TextLabel   = Hex("#74877d");
     static readonly Color Screw       = Hex("#1e2830");
     static readonly Color Transparent = new Color(0, 0, 0, 0);
 
@@ -71,6 +71,8 @@ public static class HUDLayoutBuilder
         Undo.SetCurrentGroupName("Build HUD Layout");
 
         var canvasTr = canvasGO.transform;
+        ConfigureCanvasScaler(canvasGO);
+
         for (int i = canvasTr.childCount - 1; i >= 0; i--)
             Undo.DestroyObjectImmediate(canvasTr.GetChild(i).gameObject);
 
@@ -521,6 +523,17 @@ public static class HUDLayoutBuilder
         if (prefab != null)
             SetProp(so, "alertPrefab", prefab);
         so.ApplyModifiedProperties();
+    }
+
+    static void ConfigureCanvasScaler(GameObject canvasGO)
+    {
+        var scaler = canvasGO.GetComponent<CanvasScaler>();
+        if (scaler == null) return;
+
+        scaler.uiScaleMode         = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+        scaler.referenceResolution = new Vector2(1280f, 720f);
+        scaler.screenMatchMode     = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
+        scaler.matchWidthOrHeight  = 0.5f;
     }
 
     static GameObject EnsureDirectionalAlertPrefab()

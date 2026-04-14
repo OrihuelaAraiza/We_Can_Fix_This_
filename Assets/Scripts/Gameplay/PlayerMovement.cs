@@ -9,6 +9,9 @@ public class PlayerMovement : MonoBehaviour
     [SerializeField] private int playerIndex;
     [SerializeField] private bool initialized;
 
+    [Header("Animation")]
+    [SerializeField] private Animator animator;
+
     public bool IsInitialized => initialized;
     public int PlayerIndex => playerIndex;
     private PlayerData data;
@@ -33,7 +36,9 @@ public class PlayerMovement : MonoBehaviour
     private void Awake()
     {
         rb = GetComponent<Rigidbody>();
+        ResolveAnimatorReference();
     }
+
     public void Initialize(int index, PlayerData playerData, Transform cam)
     {
         playerIndex = index;
@@ -59,6 +64,7 @@ public class PlayerMovement : MonoBehaviour
     
         rb.constraints = RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationZ;
 
+        ResolveAnimatorReference();
         ApplyColor(index);
 
         initialized = true;
@@ -110,6 +116,12 @@ public class PlayerMovement : MonoBehaviour
         }
 
         LimitSpeed();
+
+        if (animator != null)
+        {
+            Vector3 planarVelocity = new Vector3(rb.velocity.x, 0f, rb.velocity.z);
+            animator.SetFloat("Speed", planarVelocity.magnitude);
+        }
     }
 
 
@@ -117,11 +129,14 @@ public class PlayerMovement : MonoBehaviour
     {
         if (data == null) return;
 
+        // If groundLayer is 0 (unset in Inspector), fall back to all layers
+        // so ground detection works without manual configuration.
+        LayerMask mask = data.groundLayer.value == 0 ? ~0 : data.groundLayer;
         isGrounded = Physics.Raycast(
             transform.position + Vector3.up * 0.1f,
             Vector3.down,
             data.groundCheckDistance + 0.6f,
-            data.groundLayer
+            mask
         );
     }
 
@@ -191,6 +206,21 @@ public class PlayerMovement : MonoBehaviour
         speedMultiplier = multiplier;
     }
 
+    public void BindAnimator(Animator targetAnimator)
+    {
+        animator = targetAnimator;
+
+        if (animator != null)
+        {
+            animator.enabled = true;
+            animator.applyRootMotion = false;
+            animator.cullingMode = AnimatorCullingMode.AlwaysAnimate;
+            animator.SetFloat("Speed", 0f);
+            animator.Rebind();
+            animator.Update(0f);
+        }
+    }
+
   
     public void ApplyTemporarySpeedBoost(float multiplier, float duration)
     {
@@ -228,6 +258,7 @@ public class PlayerMovement : MonoBehaviour
 
         foreach (Renderer r in renderers)
         {
+            if (r.sharedMaterial == null) continue;
             r.material = new Material(r.sharedMaterial) { color = color };
         }
 
@@ -252,6 +283,22 @@ public class PlayerMovement : MonoBehaviour
         {
             Gizmos.color = Color.yellow;
             Gizmos.DrawRay(transform.position, rb.velocity);
+        }
+    }
+
+    private void ResolveAnimatorReference()
+    {
+        if (animator != null)
+            return;
+
+        animator = GetComponentInChildren<Animator>(true);
+
+        if (animator != null)
+        {
+            animator.enabled = true;
+            animator.applyRootMotion = false;
+            animator.cullingMode = AnimatorCullingMode.AlwaysAnimate;
+            animator.SetFloat("Speed", 0f);
         }
     }
 }
