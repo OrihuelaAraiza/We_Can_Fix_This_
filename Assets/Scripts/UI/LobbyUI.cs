@@ -42,6 +42,10 @@ public class LobbyUI : MonoBehaviour
         if (startPrompt != null)
             startPrompt.SetActive(false);
 
+        // Normaliza el layout base para que todos los paneles compartan la misma geometría.
+        for (int i = 0; i < playerPanels.Count; i++)
+            playerPanels[i].NormalizeLayout();
+
         // Ocultar paneles sin jugador
         for (int i = 0; i < playerPanels.Count; i++)
             playerPanels[i].SetVisible(false);
@@ -61,6 +65,7 @@ public class LobbyUI : MonoBehaviour
     public void ShowPanel(int playerIndex, List<RoleDefinition> roles)
     {
         if (playerIndex >= playerPanels.Count) return;
+        playerPanels[playerIndex].NormalizeLayout();
         playerPanels[playerIndex].Initialize(playerIndex, roles);
         playerPanels[playerIndex].SetVisible(true);
         RepositionPanels(playerIndex + 1);
@@ -235,6 +240,65 @@ public class PlayerLobbyPanel
     int playerIndex;
     int currentRoleIndex;
     List<RoleDefinition> roles;
+
+    static readonly Vector2 PanelSize          = new Vector2(320f, 500f);
+    static readonly Vector2 PlayerLabelPos     = new Vector2(0f, -20f);
+    static readonly Vector2 PlayerLabelSize    = new Vector2(280f, 40f);
+    static readonly Vector2 RoleColorBarPos    = new Vector2(0f, -68f);
+    static readonly Vector2 RoleColorBarSize   = new Vector2(280f, 6f);
+    static readonly Vector2 RoleNamePos        = new Vector2(0f, -90f);
+    static readonly Vector2 RoleNameSize       = new Vector2(280f, 50f);
+    static readonly Vector2 PerkTextPos        = new Vector2(0f, -155f);
+    static readonly Vector2 PerkTextSize       = new Vector2(260f, 70f);
+    static readonly Vector2 PenaltyTextPos     = new Vector2(0f, -240f);
+    static readonly Vector2 PenaltyTextSize    = new Vector2(260f, 50f);
+    static readonly Vector2 PrevRoleButtonPos  = new Vector2(-90f, -310f);
+    static readonly Vector2 PrevRoleButtonSize = new Vector2(80f, 50f);
+    static readonly Vector2 NextRoleButtonPos  = new Vector2(90f, -310f);
+    static readonly Vector2 NextRoleButtonSize = new Vector2(80f, 50f);
+    static readonly Vector2 ReadyIndicatorPos  = new Vector2(-70f, -385f);
+    static readonly Vector2 ReadyIndicatorSize = new Vector2(20f, 20f);
+    static readonly Vector2 ReadyTextPos       = new Vector2(30f, -380f);
+    static readonly Vector2 ReadyTextSize      = new Vector2(160f, 30f);
+    static readonly Vector2 ReadyButtonPos     = new Vector2(0f, -425f);
+    static readonly Vector2 ReadyButtonSize    = new Vector2(200f, 45f);
+
+    public void NormalizeLayout()
+    {
+        RectTransform rootRect = root != null ? root.GetComponent<RectTransform>() : null;
+        if (rootRect != null)
+        {
+            rootRect.anchorMin = new Vector2(0.5f, 0.5f);
+            rootRect.anchorMax = new Vector2(0.5f, 0.5f);
+            rootRect.pivot = new Vector2(0.5f, 0.5f);
+            rootRect.sizeDelta = PanelSize;
+        }
+
+        NormalizeRect(playerLabel, PlayerLabelPos, PlayerLabelSize);
+        NormalizeRect(roleColorBar, RoleColorBarPos, RoleColorBarSize);
+        NormalizeRect(roleNameText, RoleNamePos, RoleNameSize);
+        NormalizeRect(perkText, PerkTextPos, PerkTextSize);
+        NormalizeRect(penaltyText, PenaltyTextPos, PenaltyTextSize);
+        NormalizeRect(prevRoleButton, PrevRoleButtonPos, PrevRoleButtonSize);
+        NormalizeRect(nextRoleButton, NextRoleButtonPos, NextRoleButtonSize);
+        NormalizeRect(readyIndicator, ReadyIndicatorPos, ReadyIndicatorSize);
+        NormalizeRect(readyText, ReadyTextPos, ReadyTextSize);
+        NormalizeRect(readyButton, ReadyButtonPos, ReadyButtonSize);
+    }
+
+    void NormalizeRect(Component target, Vector2 anchoredPosition, Vector2 size)
+    {
+        if (target == null) return;
+
+        RectTransform rect = target.GetComponent<RectTransform>();
+        if (rect == null) return;
+
+        rect.anchorMin = new Vector2(0.5f, 1f);
+        rect.anchorMax = new Vector2(0.5f, 1f);
+        rect.pivot = new Vector2(0.5f, 1f);
+        rect.anchoredPosition = anchoredPosition;
+        rect.sizeDelta = size;
+    }
 
     public void Initialize(int index, List<RoleDefinition> availableRoles)
     {
