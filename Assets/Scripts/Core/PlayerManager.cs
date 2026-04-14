@@ -14,6 +14,15 @@ public class PlayerManager : MonoBehaviour
     [SerializeField] private Transform[] spawnPoints;
     [SerializeField] private Transform cameraTransform;
 
+    [Header("Fixie Models")]
+    [Tooltip("Visual model for Player 1 — Astronaut_FinnTheFrog")]
+    [SerializeField] private GameObject fixieP1Prefab;
+    [Tooltip("Visual model for Player 2 — Astronaut_FernandoTheFlamingo")]
+    [SerializeField] private GameObject fixieP2Prefab;
+    [Tooltip("Visual model for Player 3 — Astronaut_BarbaraTheBee")]
+    [SerializeField] private GameObject fixieP3Prefab;
+    // P4 picks a random model at runtime from the three above
+
     [Header("Spawn Tuning")]
     [SerializeField] private float spawnHeightOffset = 0.15f;
     [SerializeField] private float minSpawnSeparation = 1.1f;
@@ -120,6 +129,7 @@ public class PlayerManager : MonoBehaviour
         }
 
         movement.Initialize(slotIndex, playerData, cameraTransform);
+        AttachFixieModel(playerInput.transform, slotIndex);
 
         if (hadRigidbody)
         {
@@ -518,6 +528,29 @@ public class PlayerManager : MonoBehaviour
             playerInputManager.EnableJoining();
         else
             playerInputManager.DisableJoining();
+    }
+
+    void AttachFixieModel(Transform playerRoot, int slotIndex)
+    {
+        GameObject[] fixiePrefabs = new GameObject[] { fixieP1Prefab, fixieP2Prefab, fixieP3Prefab };
+
+        // P4 (slot index 3) gets a random Fixie model
+        GameObject modelPrefab = (slotIndex == 3)
+            ? fixiePrefabs[Random.Range(0, fixiePrefabs.Length)]
+            : (slotIndex < fixiePrefabs.Length ? fixiePrefabs[slotIndex] : null);
+
+        if (modelPrefab == null)
+        {
+            if (debugLog)
+                Debug.LogWarning($"[PlayerManager] No Fixie model assigned for slot {slotIndex}. Assign Fixie prefabs in the Inspector.");
+            return;
+        }
+
+        GameObject model = Instantiate(modelPrefab, playerRoot);
+        model.transform.localPosition = Vector3.zero;
+        model.transform.localRotation = Quaternion.identity;
+        if (debugLog)
+            Debug.Log($"[PlayerManager] Attached Fixie model '{modelPrefab.name}' to player slot {slotIndex}.");
     }
 
     private void OnDrawGizmos()
