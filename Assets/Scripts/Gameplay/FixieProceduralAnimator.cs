@@ -49,8 +49,7 @@ public class FixieProceduralAnimator : MonoBehaviour
         if (rb == null)
             rb = GetComponentInParent<Rigidbody>();
 
-        if (animator == null)
-            animator = GetComponentInParent<Animator>();
+        ResolveAnimatorReference();
 
         if (visualRoot == null)
             visualRoot = transform;
@@ -64,7 +63,16 @@ public class FixieProceduralAnimator : MonoBehaviour
             return;
 
         visualRoot = targetVisual;
+        ResolveAnimatorReference();
         CacheRig();
+    }
+
+    public void BindAnimator(Animator targetAnimator)
+    {
+        animator = targetAnimator;
+
+        if (HasWorkingAnimator())
+            RestoreBasePose();
     }
 
     private void LateUpdate()
@@ -203,5 +211,30 @@ public class FixieProceduralAnimator : MonoBehaviour
 
         AnimationClip[] clips = controller.animationClips;
         return clips != null && clips.Distinct().Count() >= 2;
+    }
+
+    private void ResolveAnimatorReference()
+    {
+        if (animator != null)
+            return;
+
+        animator = GetComponentInChildren<Animator>(true);
+        if (animator == null && visualRoot != null)
+            animator = visualRoot.GetComponentInChildren<Animator>(true);
+    }
+
+    private void RestoreBasePose()
+    {
+        foreach (KeyValuePair<Transform, Quaternion> pair in baseRotations)
+        {
+            if (pair.Key != null)
+                pair.Key.localRotation = pair.Value;
+        }
+
+        foreach (KeyValuePair<Transform, Vector3> pair in basePositions)
+        {
+            if (pair.Key != null)
+                pair.Key.localPosition = pair.Value;
+        }
     }
 }

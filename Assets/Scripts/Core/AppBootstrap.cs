@@ -39,6 +39,7 @@ namespace Wcft.Core
         private void ApplyGlobalSettings()
         {
             Application.targetFrameRate = GameConfig.TARGET_FRAMERATE;
+            EnsureCharacterSkinningQuality();
 
             // Cursor: por ahora visible (cuando hagamos gameplay lo ajustamos)
             Cursor.visible = true;
@@ -46,6 +47,17 @@ namespace Wcft.Core
 
             if (GameConfig.VERBOSE_LOGS)
                 Debug.Log("[AppBootstrap] Global settings applied.");
+        }
+
+        private static void EnsureCharacterSkinningQuality()
+        {
+            if ((int)QualitySettings.skinWeights >= (int)SkinWeights.FourBones)
+                return;
+
+            QualitySettings.skinWeights = SkinWeights.FourBones;
+
+            if (GameConfig.VERBOSE_LOGS)
+                Debug.Log("[AppBootstrap] Elevated skin weights to FourBones to keep character rigs stable in builds.");
         }
     }
 }

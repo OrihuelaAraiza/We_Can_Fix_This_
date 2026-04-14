@@ -730,6 +730,8 @@ public class PlayerManager : MonoBehaviour
         if (movement != null)
             movement.BindAnimator(existingAnimator);
 
+        BindProceduralAnimator(playerRoot, existingAnimator);
+
         if (debugLog)
             Debug.Log($"[PlayerManager] Using existing Fixie prefab as player visual for slot {slotIndex}.");
 
@@ -790,6 +792,8 @@ public class PlayerManager : MonoBehaviour
         Animator modelAnimator = model.GetComponentInChildren<Animator>(true);
         if (movement != null)
             movement.BindAnimator(modelAnimator);
+
+        BindProceduralAnimator(playerRoot, modelAnimator);
 
         Renderer[] modelRenderers = model.GetComponentsInChildren<Renderer>(true);
         bool hasVisibleRenderer = modelRenderers != null && modelRenderers.Length > 0;
@@ -923,6 +927,16 @@ public class PlayerManager : MonoBehaviour
             proceduralAnimator.BindVisual(visualRoot);
     }
 
+    void BindProceduralAnimator(Transform playerRoot, Animator targetAnimator)
+    {
+        if (playerRoot == null)
+            return;
+
+        FixieProceduralAnimator proceduralAnimator = playerRoot.GetComponent<FixieProceduralAnimator>();
+        if (proceduralAnimator != null)
+            proceduralAnimator.BindAnimator(targetAnimator);
+    }
+
     void ForceRenderersVisible(Transform visualRoot)
     {
         if (visualRoot == null)
@@ -939,7 +953,10 @@ public class PlayerManager : MonoBehaviour
             renderer.receiveShadows = true;
 
             if (renderer is SkinnedMeshRenderer skinned)
+            {
+                skinned.quality = SkinQuality.Bone4;
                 skinned.updateWhenOffscreen = true;
+            }
         }
     }
 

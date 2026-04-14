@@ -65,7 +65,6 @@ public class PlayerMovement : MonoBehaviour
         rb.constraints = RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationZ;
 
         ResolveAnimatorReference();
-        ApplyColor(index);
 
         initialized = true;
         Debug.Log($"[PlayerMovement] Player {index} initialized. Mass:{rb.mass} Cam:{(cam != null ? cam.name : "NULL")}");
@@ -239,30 +238,6 @@ public class PlayerMovement : MonoBehaviour
         tempBoostMultiplier = 1f;
         boostCoroutine = null;
         Debug.Log("[PlayerMovement] Speedo Boost End");
-    }
-
-
-
-    private void ApplyColor(int index)
-    {
-        if (data == null || data.playerColors == null || data.playerColors.Length == 0) return;
-
-        Color color = data.playerColors[index % data.playerColors.Length];
-
-        Renderer[] renderers = GetComponentsInChildren<Renderer>(true);
-        if (renderers.Length == 0)
-        {
-            Debug.LogWarning($"[PlayerMovement] No renderers found on player {index}");
-            return;
-        }
-
-        foreach (Renderer r in renderers)
-        {
-            if (r.sharedMaterial == null) continue;
-            r.material = new Material(r.sharedMaterial) { color = color };
-        }
-
-        Debug.Log($"[PlayerMovement] Color applied: {color} to {renderers.Length} renderers");
     }
 
     private void OnDrawGizmosSelected()

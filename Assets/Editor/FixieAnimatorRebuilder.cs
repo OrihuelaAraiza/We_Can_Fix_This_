@@ -6,8 +6,12 @@ using UnityEngine;
 public static class FixieAnimatorRebuilder
 {
     private const string ControllerPath = "Assets/Art/Characters/Fixies/Fixie_AnimatorController.controller";
+    private const string PreferredHumanoidModelPath = "Assets/Art/Models/Temp/Players/Astronaut_FinnTheFrog.fbx";
     private static readonly string[] CandidateModelPaths =
     {
+        "Assets/Art/Models/Temp/Players/Astronaut_FinnTheFrog.fbx",
+        "Assets/Art/Models/Temp/Players/Astronaut_FernandoTheFlamingo.fbx",
+        "Assets/Art/Models/Temp/Players/Astronaut_BarbaraTheBee.fbx",
         "Assets/Art/Models/Astronaut_FinnTheFrog.fbx",
         "Assets/Art/Models/Astronaut_FernandoTheFlamingo.fbx",
         "Assets/Art/Models/Astronaut_BarbaraTheBee.fbx",
@@ -60,7 +64,16 @@ public static class FixieAnimatorRebuilder
         if (clips == null || clips.Length < 2)
             return true;
 
-        return clips.All(clip => clip != null && clip.name.Contains("Ellen"));
+        if (clips.All(clip => clip != null && clip.name.Contains("Ellen")))
+            return true;
+
+        string[] clipPaths = clips
+            .Where(clip => clip != null)
+            .Select(AssetDatabase.GetAssetPath)
+            .Distinct()
+            .ToArray();
+
+        return clipPaths.Length == 0 || clipPaths.Any(path => path != PreferredHumanoidModelPath);
     }
 
     private static bool TryResolveClips(out AnimationClip idle, out AnimationClip walk, out AnimationClip run)
