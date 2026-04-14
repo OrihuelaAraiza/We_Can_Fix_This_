@@ -11,19 +11,15 @@ public class PlayerInputHandler : MonoBehaviour
 
     private void Awake()
     {
-        _movement    = GetComponent<PlayerMovement>();
-        _playerInput = GetComponent<PlayerInput>();
-        _interact    = GetComponent<PlayerInteract>();
-        _role        = GetComponent<PlayerRole>();
-
-        if (_movement    == null) Debug.LogError("[Handler] No PlayerMovement!");
-        if (_playerInput == null) Debug.LogError("[Handler] No PlayerInput!");
-        if (_interact    == null) Debug.LogWarning("[Handler] No PlayerInteract - interact disabled");
-        if (_role        == null) Debug.LogWarning("[Handler] No PlayerRole - ability disabled");
+        ResolveReferences();
     }
 
     private void OnEnable()
     {
+        ResolveReferences();
+        if (_playerInput == null)
+            return;
+
         _playerInput.actions["Move"].performed     += OnMovePerformed;
         _playerInput.actions["Move"].canceled      += OnMoveCanceled;
         _playerInput.actions["Jump"].performed     += OnJumpPerformed;
@@ -36,6 +32,9 @@ public class PlayerInputHandler : MonoBehaviour
 
     private void OnDisable()
     {
+        if (_playerInput == null)
+            return;
+
         _playerInput.actions["Move"].performed     -= OnMovePerformed;
         _playerInput.actions["Move"].canceled      -= OnMoveCanceled;
         _playerInput.actions["Jump"].performed     -= OnJumpPerformed;
@@ -46,28 +45,40 @@ public class PlayerInputHandler : MonoBehaviour
     }
 
     private void OnMovePerformed(InputAction.CallbackContext ctx)
-        => _movement?.OnMove(ctx.ReadValue<Vector2>());
+    {
+        ResolveReferences();
+        _movement?.OnMove(ctx.ReadValue<Vector2>());
+    }
 
     private void OnMoveCanceled(InputAction.CallbackContext ctx)
-        => _movement?.OnMove(Vector2.zero);
+    {
+        ResolveReferences();
+        _movement?.OnMove(Vector2.zero);
+    }
 
     private void OnJumpPerformed(InputAction.CallbackContext ctx)
-        => _movement?.OnJump();
+    {
+        ResolveReferences();
+        _movement?.OnJump();
+    }
 
     private void OnInteractPerformed(InputAction.CallbackContext ctx)
     {
+        ResolveReferences();
         Debug.Log("[Handler] Interact PRESSED");
         _interact?.SetInteractHeld(true);
     }
 
     private void OnInteractCanceled(InputAction.CallbackContext ctx)
     {
+        ResolveReferences();
         Debug.Log("[Handler] Interact RELEASED");
         _interact?.SetInteractHeld(false);
     }
 
     private void OnAbilityPerformed(InputAction.CallbackContext ctx)
     {
+        ResolveReferences();
         Debug.Log("[Handler] Ability PRESSED");
         if (_role != null) _role.UseAbility();
     }
@@ -77,18 +88,37 @@ public class PlayerInputHandler : MonoBehaviour
     // BroadcastMessages. Safe to coexist with the C# subscriptions above —
     // movement/jump assignments are idempotent on the same frame.
     private void OnMove(InputValue value)
-        => _movement?.OnMove(value.Get<Vector2>());
+    {
+        ResolveReferences();
+        _movement?.OnMove(value.Get<Vector2>());
+    }
 
     private void OnJump(InputValue value)
     {
+        ResolveReferences();
         if (value.isPressed) _movement?.OnJump();
     }
 
     private void OnInteract(InputValue value)
-        => _interact?.SetInteractHeld(value.isPressed);
+    {
+        ResolveReferences();
+        _interact?.SetInteractHeld(value.isPressed);
+    }
 
     private void OnAbility(InputValue value)
     {
+        ResolveReferences();
         if (value.isPressed) _role?.UseAbility();
+    }
+
+    private void ResolveReferences()
+    {
+        _movement ??= GetComponent<PlayerMovement>();
+        _playerInput ??= GetComponent<PlayerInput>();
+        _interact ??= GetComponent<PlayerInteract>();
+        _role ??= GetComponent<PlayerRole>();
+
+        if (_movement == null) Debug.LogError("[Handler] No PlayerMovement!");
+        if (_playerInput == null) Debug.LogError("[Handler] No PlayerInput!");
     }
 }

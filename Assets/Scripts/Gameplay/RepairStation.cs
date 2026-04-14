@@ -213,12 +213,12 @@ public class RepairStation : MonoBehaviour, IInteractable
         if (collider == null)
             collider = gameObject.AddComponent<BoxCollider>();
 
-        collider.isTrigger = false;
+        collider.isTrigger = true;
         collider.center = localInteractionBounds.center;
         collider.size = new Vector3(
-            Mathf.Max(localInteractionBounds.size.x, 0.25f),
-            Mathf.Max(localInteractionBounds.size.y, 0.75f),
-            Mathf.Max(localInteractionBounds.size.z, 0.25f));
+            Mathf.Max(localInteractionBounds.size.x, 0.6f),
+            Mathf.Max(localInteractionBounds.size.y, 1.1f),
+            Mathf.Max(localInteractionBounds.size.z, 0.6f));
 
         foreach (var renderer in GetComponentsInChildren<Renderer>(true))
         {

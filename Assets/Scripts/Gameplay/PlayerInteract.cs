@@ -4,7 +4,7 @@ using UnityEngine;
 public class PlayerInteract : MonoBehaviour
 {
     [Header("Config")]
-    [SerializeField] private float interactRadius = 2f;
+    [SerializeField] private float interactRadius = 2.35f;
     [SerializeField] private LayerMask interactLayer;
 
     [Header("Runtime")]
@@ -21,6 +21,12 @@ public class PlayerInteract : MonoBehaviour
     {
         movement   = GetComponent<PlayerMovement>();
         playerRole = GetComponent<PlayerRole>();
+
+        if (interactLayer.value == 0)
+        {
+            int interactableLayer = LayerMask.NameToLayer("Interactable");
+            interactLayer = interactableLayer >= 0 ? LayerMask.GetMask("Interactable") : ~0;
+        }
     }
 
     private void Update()
@@ -36,7 +42,10 @@ public class PlayerInteract : MonoBehaviour
         if (isInteracting) return;
 
         Collider[] hits = Physics.OverlapSphere(
-            transform.position, interactRadius, interactLayer);
+            transform.position + Vector3.up * 0.5f,
+            interactRadius,
+            interactLayer,
+            QueryTriggerInteraction.Collide);
 
         IInteractable best = null;
         float bestDist = float.MaxValue;
@@ -47,7 +56,8 @@ public class PlayerInteract : MonoBehaviour
             if (interactable == null) continue;
             if (!interactable.CanInteract(movement)) continue;
 
-            float dist = Vector3.Distance(transform.position, hit.transform.position);
+            Vector3 closestPoint = hit.ClosestPoint(transform.position + Vector3.up * 0.5f);
+            float dist = Vector3.Distance(transform.position, closestPoint);
             if (dist < bestDist) { bestDist = dist; best = interactable; }
         }
 

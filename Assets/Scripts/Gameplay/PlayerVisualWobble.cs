@@ -14,6 +14,17 @@ public class PlayerVisualWobble : MonoBehaviour
     [SerializeField] private float bounceAmount = 0.04f;
     [SerializeField] private float bounceSpeed = 10f;
 
+    [Header("Idle Motion")]
+    [SerializeField] private float idleBreathAmount = 0.02f;
+    [SerializeField] private float idleBreathSpeed = 2.2f;
+
+    [Header("Stride Motion")]
+    [SerializeField] private float strideBounceAmount = 0.06f;
+    [SerializeField] private float stridePitchAmount = 5f;
+    [SerializeField] private float strideRollAmount = 4f;
+    [SerializeField] private float strideYawAmount = 2f;
+    [SerializeField] private float strideFrequency = 11f;
+
     [Header("Impact Reaction")]
     [SerializeField] private float impactTiltMultiplier = 1.5f;
     [SerializeField] private float impactRecoverySpeed = 6f;
@@ -46,11 +57,17 @@ public class PlayerVisualWobble : MonoBehaviour
         if (visual == null || rb == null) return;
 
         Vector3 localVel = transform.InverseTransformDirection(rb.velocity);
+        float planarSpeed = new Vector3(rb.velocity.x, 0f, rb.velocity.z).magnitude;
+        float moveBlend = Mathf.Clamp01(planarSpeed / 4f);
+        float stridePhase = Time.time * Mathf.Lerp(idleBreathSpeed, strideFrequency, moveBlend);
 
         float tiltX = -localVel.z * tiltAmount * 0.1f;
         float tiltZ = localVel.x * tiltAmount * 0.1f;
+        float stridePitch = Mathf.Sin(stridePhase) * stridePitchAmount * moveBlend;
+        float strideRoll = Mathf.Cos(stridePhase) * strideRollAmount * moveBlend;
+        float strideYaw = Mathf.Sin(stridePhase * 0.5f) * strideYawAmount * moveBlend;
 
-        Quaternion moveTilt = Quaternion.Euler(tiltX, 0f, tiltZ);
+        Quaternion moveTilt = Quaternion.Euler(tiltX + stridePitch, strideYaw, tiltZ + strideRoll);
         Quaternion targetRot = moveTilt * extraImpactRotation;
 
         visual.localRotation = Quaternion.Slerp(
@@ -59,8 +76,11 @@ public class PlayerVisualWobble : MonoBehaviour
             tiltSmooth * Time.deltaTime
         );
 
-        float speedFactor = Mathf.Clamp01(new Vector3(rb.velocity.x, 0f, rb.velocity.z).magnitude * 0.12f);
-        float bounce = Mathf.Sin(Time.time * bounceSpeed) * speedFactor * bounceAmount;
+        float idleBounce = Mathf.Sin(Time.time * idleBreathSpeed) * idleBreathAmount;
+        float speedFactor = Mathf.Clamp01(planarSpeed * 0.12f);
+        float moveBounce = Mathf.Sin(Time.time * bounceSpeed) * speedFactor * bounceAmount;
+        float strideBounce = Mathf.Abs(Mathf.Sin(stridePhase)) * strideBounceAmount * moveBlend;
+        float bounce = idleBounce + moveBounce + strideBounce;
 
         Vector3 targetPos = initialLocalPos + new Vector3(0f, bounce, 0f);
         visual.localPosition = Vector3.Lerp(

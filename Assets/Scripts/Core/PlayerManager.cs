@@ -145,6 +145,7 @@ public class PlayerManager : MonoBehaviour
         try
         {
             SetupPlayerVisual(playerInput.transform, movement, slotIndex);
+            EnsurePlayerCollider(playerInput.gameObject);
             movement.Initialize(slotIndex, playerData, cameraTransform);
         }
         finally
@@ -635,22 +636,25 @@ public class PlayerManager : MonoBehaviour
         if (playerLayer >= 0)
             playerObject.layer = playerLayer;
 
-        EnsurePlayerCollider(playerObject);
-
-        if (playerObject.GetComponent<PlayerInputHandler>() == null)
-            playerObject.AddComponent<PlayerInputHandler>();
+        if (playerObject.GetComponent<PlayerRole>() == null)
+            playerObject.AddComponent<PlayerRole>();
 
         if (playerObject.GetComponent<PlayerInteract>() == null)
             playerObject.AddComponent<PlayerInteract>();
 
-        if (playerObject.GetComponent<PlayerRole>() == null)
-            playerObject.AddComponent<PlayerRole>();
+        if (playerObject.GetComponent<PlayerInputHandler>() == null)
+            playerObject.AddComponent<PlayerInputHandler>();
 
         if (playerObject.GetComponent<FakeRagDoll>() == null)
             playerObject.AddComponent<FakeRagDoll>();
 
         if (playerObject.GetComponent<PlayerVisualWobble>() == null)
             playerObject.AddComponent<PlayerVisualWobble>();
+
+        if (playerObject.GetComponent<FixieProceduralAnimator>() == null)
+            playerObject.AddComponent<FixieProceduralAnimator>();
+
+        EnsurePlayerCollider(playerObject);
     }
 
     void EnsurePlayerCollider(GameObject playerObject)
@@ -663,23 +667,13 @@ public class PlayerManager : MonoBehaviour
             capsule = playerObject.AddComponent<CapsuleCollider>();
 
         capsule.direction = 1;
-
-        Renderer[] renderers = playerObject.GetComponentsInChildren<Renderer>(true);
-        if (!TryGetCombinedRendererBounds(renderers, out Bounds combinedBounds))
-        {
-            capsule.radius = 0.45f;
-            capsule.height = 1.8f;
-            capsule.center = new Vector3(0f, 0.9f, 0f);
-            return;
-        }
-
-        Vector3 localCenter = playerObject.transform.InverseTransformPoint(combinedBounds.center);
-        float height = Mathf.Max(1.2f, combinedBounds.size.y * 0.95f);
-        float radius = Mathf.Clamp(Mathf.Max(combinedBounds.extents.x, combinedBounds.extents.z) * 0.75f, 0.3f, height * 0.45f);
-
-        capsule.height = height;
-        capsule.radius = radius;
-        capsule.center = localCenter;
+        // Keep physics stable with a fixed gameplay capsule.
+        // The Fixie renderers have noisy bounds that are good for visuals,
+        // but not reliable enough to size collision each spawn.
+        capsule.radius = 0.34f;
+        capsule.height = 1.6f;
+        capsule.center = new Vector3(0f, 0.8f, 0f);
+        capsule.contactOffset = 0.02f;
     }
 
     void SetupPlayerVisual(Transform playerRoot, PlayerMovement movement, int slotIndex)
@@ -923,6 +917,10 @@ public class PlayerManager : MonoBehaviour
         PlayerVisualWobble wobble = playerRoot.GetComponent<PlayerVisualWobble>();
         if (wobble != null)
             wobble.BindVisual(visualRoot);
+
+        FixieProceduralAnimator proceduralAnimator = playerRoot.GetComponent<FixieProceduralAnimator>();
+        if (proceduralAnimator != null)
+            proceduralAnimator.BindVisual(visualRoot);
     }
 
     void ForceRenderersVisible(Transform visualRoot)
@@ -995,17 +993,17 @@ public class PlayerManager : MonoBehaviour
     float GetTargetVisualHeight(Transform playerRoot)
     {
         if (playerRoot == null)
-            return 1.6f;
+            return 1.95f;
 
         CapsuleCollider capsule = playerRoot.GetComponent<CapsuleCollider>();
         if (capsule != null)
-            return Mathf.Max(1.2f, capsule.height * 0.9f);
+            return Mathf.Max(1.9f, capsule.height * 1.2f);
 
         Collider collider = playerRoot.GetComponent<Collider>();
         if (collider != null)
-            return Mathf.Max(1.2f, collider.bounds.size.y * 0.9f);
+            return Mathf.Max(1.9f, collider.bounds.size.y * 1.1f);
 
-        return 1.6f;
+        return 1.95f;
     }
 
     bool TryGetCombinedRendererBounds(Renderer[] renderers, out Bounds bounds)
