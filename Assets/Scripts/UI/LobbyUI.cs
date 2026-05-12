@@ -1,12 +1,20 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
-using UnityEngine.SceneManagement;
 using TMPro;
 using Wcft.Core;
 
 public class LobbyUI : MonoBehaviour
 {
+    static LobbyUI instance;
+
+    static readonly Color BgColor      = Hex("#090b14");
+    static readonly Color PanelAlt     = Hex("#10141a");
+    static readonly Color BorderColor  = Hex("#3a4048");
+    static readonly Color TextColor    = Hex("#e6dcc0");
+    static readonly Color GreenColor   = Hex("#2f8f50");
+    static readonly Color RedColor     = Hex("#8f2b2b");
+
     [Header("Scenes")]
     [SerializeField] int minPlayersToStart = 2;
 
@@ -23,8 +31,22 @@ public class LobbyUI : MonoBehaviour
     [SerializeField] GameObject      joinPromptPanel;
     [SerializeField] TextMeshProUGUI joinPromptText;
 
+    void Awake()
+    {
+        if (instance != null && instance != this)
+        {
+            enabled = false;
+            return;
+        }
+
+        instance = this;
+    }
+
     void OnEnable()
     {
+        if (instance != null && instance != this)
+            return;
+
         LobbyManager.OnPlayerRoleSelected += OnRoleSelected;
         LobbyManager.OnPlayerReadyChanged += OnReadyChanged;
         LobbyManager.OnAllPlayersReady    += OnAllReady;
@@ -32,6 +54,9 @@ public class LobbyUI : MonoBehaviour
 
     void OnDisable()
     {
+        if (instance != this)
+            return;
+
         LobbyManager.OnPlayerRoleSelected -= OnRoleSelected;
         LobbyManager.OnPlayerReadyChanged -= OnReadyChanged;
         LobbyManager.OnAllPlayersReady    -= OnAllReady;
@@ -39,6 +64,8 @@ public class LobbyUI : MonoBehaviour
 
     void Start()
     {
+        ApplyRuntimeStyle();
+
         if (startPrompt != null)
             startPrompt.SetActive(false);
 
@@ -53,13 +80,22 @@ public class LobbyUI : MonoBehaviour
         // Instrucciones de controles
         if (joinPromptText != null)
             joinPromptText.text =
-                "UNIRSE: ESPACIO = Teclado 1 | ENTER = Teclado 2 | Gamepad = A";
+                "UNIRSE  SPACE=P1  ENTER=P2  GAMEPAD=A";
 
         btnStart?.onClick.AddListener(OnStartClicked);
         btnBack?.onClick.AddListener(OnBackClicked);
 
         // Botón INICIAR deshabilitado hasta que haya suficientes jugadores listos
-        if (btnStart != null) btnStart.interactable = false;
+        RefreshStartAvailability();
+    }
+
+    void OnDestroy()
+    {
+        btnStart?.onClick.RemoveListener(OnStartClicked);
+        btnBack?.onClick.RemoveListener(OnBackClicked);
+
+        if (instance == this)
+            instance = null;
     }
 
     public void ShowPanel(int playerIndex, List<RoleDefinition> roles)
@@ -144,9 +180,9 @@ public class LobbyUI : MonoBehaviour
         float[][] positions = new float[][]
         {
             new float[] { 0 },
-            new float[] { -320, 320 },
-            new float[] { -480, 0, 480 },
-            new float[] { -540, -180, 180, 540 }
+            new float[] { -160, 160 },
+            new float[] { -310, 0, 310 },
+            new float[] { -465, -155, 155, 465 }
         };
 
         float[] xPositions = positions[activePanelCount - 1];
@@ -174,12 +210,14 @@ public class LobbyUI : MonoBehaviour
     {
         if (playerIndex >= playerPanels.Count) return;
         playerPanels[playerIndex].UpdateSelectedRole(role);
+        RefreshStartAvailability();
     }
 
     void OnReadyChanged(int playerIndex, bool ready)
     {
         if (playerIndex >= playerPanels.Count) return;
         playerPanels[playerIndex].SetReady(ready);
+        RefreshStartAvailability();
     }
 
     void OnAllReady()
@@ -192,7 +230,7 @@ public class LobbyUI : MonoBehaviour
         }
 
         // Habilitar botón INICIAR cuando todos están listos
-        if (btnStart != null) btnStart.interactable = true;
+        RefreshStartAvailability();
     }
 
     void OnReadyChanged_CheckStartButton(int playerIndex, bool ready)
@@ -213,7 +251,157 @@ public class LobbyUI : MonoBehaviour
     public void OnBackClicked()
     {
         Time.timeScale = 1f;
-        SceneManager.LoadScene(GameConfig.SCENE_MAIN_MENU);
+        SceneLoader.LoadScene(GameConfig.SCENE_MAIN_MENU);
+    }
+
+    void RefreshStartAvailability()
+    {
+        if (btnStart == null)
+            return;
+
+        bool canStart = false;
+        if (LobbyManager.Instance != null)
+        {
+            int connected = LobbyManager.Instance.GetConnectedPlayerCount();
+            canStart = connected >= minPlayersToStart;
+
+            for (int i = 0; i < connected && canStart; i++)
+                canStart = LobbyManager.Instance.IsPlayerReady(i);
+        }
+
+        btnStart.interactable = canStart;
+    }
+
+    void ApplyRuntimeStyle()
+    {
+        Canvas canvas = GetComponent<Canvas>() ?? GetComponentInParent<Canvas>();
+        if (canvas != null)
+        {
+            var scaler = canvas.GetComponent<CanvasScaler>();
+            if (scaler != null)
+            {
+                scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+                scaler.referenceResolution = new Vector2(1280f, 720f);
+                scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
+                scaler.matchWidthOrHeight = 0.5f;
+            }
+
+            Image background = FindChild<Image>(canvas.transform, "Background");
+            if (background != null)
+            {
+                background.color = BgColor;
+                background.raycastTarget = false;
+            }
+
+            TMP_Text title = FindChild<TMP_Text>(canvas.transform, "Title");
+            if (title != null)
+            {
+                title.text = "WE CAN FIX THIS!";
+                title.fontSize = 50f;
+                title.color = TextColor;
+                title.alignment = TextAlignmentOptions.Center;
+                title.enableWordWrapping = false;
+                SetRect(title.rectTransform, new Vector2(0.5f, 1f), new Vector2(0f, -42f), new Vector2(760f, 58f));
+            }
+        }
+
+        StylePrompt(joinPromptPanel, joinPromptText, "UNIRSE  SPACE=P1  ENTER=P2  GAMEPAD=A");
+        StylePrompt(startPrompt, startPromptText, "TRIPULACION LISTA");
+        StyleButton(btnStart, GreenColor, TextColor);
+        StyleButton(btnBack, RedColor, TextColor);
+
+        for (int i = 0; i < playerPanels.Count; i++)
+            playerPanels[i].ApplyStyle(i);
+    }
+
+    static T FindChild<T>(Transform root, string name) where T : Component
+    {
+        if (root == null)
+            return null;
+
+        foreach (Transform child in root.GetComponentsInChildren<Transform>(true))
+        {
+            if (child.name == name && child.TryGetComponent(out T component))
+                return component;
+        }
+
+        return null;
+    }
+
+    static void StylePrompt(GameObject panel, TMP_Text text, string value)
+    {
+        if (panel != null)
+        {
+            Image image = panel.GetComponent<Image>() ?? panel.AddComponent<Image>();
+            image.color = PanelAlt;
+            image.raycastTarget = false;
+            EnsureOutline(panel, Hex("#252b38"), new Vector2(1f, -1f));
+        }
+
+        if (text != null)
+        {
+            text.text = value;
+            text.fontSize = 20f;
+            text.color = TextColor;
+            text.alignment = TextAlignmentOptions.Center;
+            text.enableWordWrapping = false;
+        }
+    }
+
+    static void StyleButton(Button button, Color bg, Color text)
+    {
+        if (button == null)
+            return;
+
+        Image image = button.GetComponent<Image>() ?? button.gameObject.AddComponent<Image>();
+        image.color = bg;
+        image.raycastTarget = true;
+        EnsureOutline(button.gameObject, BorderColor, new Vector2(1f, -1f));
+
+        var colors = button.colors;
+        colors.normalColor = bg;
+        colors.highlightedColor = Color.Lerp(bg, Color.white, 0.18f);
+        colors.pressedColor = Color.Lerp(bg, Color.black, 0.22f);
+        colors.selectedColor = Color.Lerp(bg, Color.white, 0.12f);
+        colors.disabledColor = new Color(0.12f, 0.12f, 0.12f, 0.65f);
+        colors.fadeDuration = 0.08f;
+        button.colors = colors;
+
+        var label = button.GetComponentInChildren<TMP_Text>(true);
+        if (label != null)
+        {
+            label.color = text;
+            label.fontSize = Mathf.Max(label.fontSize, 18f);
+            label.alignment = TextAlignmentOptions.Center;
+        }
+    }
+
+    static void EnsureOutline(GameObject target, Color color, Vector2 distance)
+    {
+        if (target == null)
+            return;
+
+        Outline outline = target.GetComponent<Outline>() ?? target.AddComponent<Outline>();
+        outline.effectColor = color;
+        outline.effectDistance = distance;
+    }
+
+    static void SetRect(RectTransform rect, Vector2 anchor, Vector2 pos, Vector2 size)
+    {
+        if (rect == null)
+            return;
+
+        rect.anchorMin = anchor;
+        rect.anchorMax = anchor;
+        rect.pivot = anchor;
+        rect.anchoredPosition = pos;
+        rect.sizeDelta = size;
+    }
+
+    static Color Hex(string hex)
+    {
+        ColorUtility.TryParseHtmlString(hex, out Color c);
+        return c;
     }
 }
 
@@ -241,27 +429,27 @@ public class PlayerLobbyPanel
     int currentRoleIndex;
     List<RoleDefinition> roles;
 
-    static readonly Vector2 PanelSize          = new Vector2(320f, 500f);
-    static readonly Vector2 PlayerLabelPos     = new Vector2(0f, -20f);
-    static readonly Vector2 PlayerLabelSize    = new Vector2(280f, 40f);
-    static readonly Vector2 RoleColorBarPos    = new Vector2(0f, -68f);
-    static readonly Vector2 RoleColorBarSize   = new Vector2(280f, 6f);
-    static readonly Vector2 RoleNamePos        = new Vector2(0f, -90f);
-    static readonly Vector2 RoleNameSize       = new Vector2(280f, 50f);
-    static readonly Vector2 PerkTextPos        = new Vector2(0f, -155f);
-    static readonly Vector2 PerkTextSize       = new Vector2(260f, 70f);
-    static readonly Vector2 PenaltyTextPos     = new Vector2(0f, -240f);
-    static readonly Vector2 PenaltyTextSize    = new Vector2(260f, 50f);
-    static readonly Vector2 PrevRoleButtonPos  = new Vector2(-90f, -310f);
-    static readonly Vector2 PrevRoleButtonSize = new Vector2(80f, 50f);
-    static readonly Vector2 NextRoleButtonPos  = new Vector2(90f, -310f);
-    static readonly Vector2 NextRoleButtonSize = new Vector2(80f, 50f);
-    static readonly Vector2 ReadyIndicatorPos  = new Vector2(-70f, -385f);
-    static readonly Vector2 ReadyIndicatorSize = new Vector2(20f, 20f);
-    static readonly Vector2 ReadyTextPos       = new Vector2(30f, -380f);
-    static readonly Vector2 ReadyTextSize      = new Vector2(160f, 30f);
-    static readonly Vector2 ReadyButtonPos     = new Vector2(0f, -425f);
-    static readonly Vector2 ReadyButtonSize    = new Vector2(200f, 45f);
+    static readonly Vector2 PanelSize          = new Vector2(268f, 420f);
+    static readonly Vector2 PlayerLabelPos     = new Vector2(0f, -18f);
+    static readonly Vector2 PlayerLabelSize    = new Vector2(224f, 28f);
+    static readonly Vector2 RoleColorBarPos    = new Vector2(0f, -58f);
+    static readonly Vector2 RoleColorBarSize   = new Vector2(224f, 5f);
+    static readonly Vector2 RoleNamePos        = new Vector2(0f, -74f);
+    static readonly Vector2 RoleNameSize       = new Vector2(224f, 42f);
+    static readonly Vector2 PerkTextPos        = new Vector2(0f, -132f);
+    static readonly Vector2 PerkTextSize       = new Vector2(224f, 74f);
+    static readonly Vector2 PenaltyTextPos     = new Vector2(0f, -218f);
+    static readonly Vector2 PenaltyTextSize    = new Vector2(224f, 52f);
+    static readonly Vector2 PrevRoleButtonPos  = new Vector2(-68f, -292f);
+    static readonly Vector2 PrevRoleButtonSize = new Vector2(54f, 40f);
+    static readonly Vector2 NextRoleButtonPos  = new Vector2(68f, -292f);
+    static readonly Vector2 NextRoleButtonSize = new Vector2(54f, 40f);
+    static readonly Vector2 ReadyIndicatorPos  = new Vector2(-78f, -342f);
+    static readonly Vector2 ReadyIndicatorSize = new Vector2(16f, 16f);
+    static readonly Vector2 ReadyTextPos       = new Vector2(22f, -336f);
+    static readonly Vector2 ReadyTextSize      = new Vector2(168f, 24f);
+    static readonly Vector2 ReadyButtonPos     = new Vector2(0f, -372f);
+    static readonly Vector2 ReadyButtonSize    = new Vector2(176f, 36f);
 
     public void NormalizeLayout()
     {
@@ -284,6 +472,37 @@ public class PlayerLobbyPanel
         NormalizeRect(readyIndicator, ReadyIndicatorPos, ReadyIndicatorSize);
         NormalizeRect(readyText, ReadyTextPos, ReadyTextSize);
         NormalizeRect(readyButton, ReadyButtonPos, ReadyButtonSize);
+    }
+
+    public void ApplyStyle(int slotIndex)
+    {
+        if (root != null)
+        {
+            Image image = root.GetComponent<Image>() ?? root.AddComponent<Image>();
+            image.color = Hex("#161a1e");
+            image.raycastTarget = false;
+            EnsureOutline(root, Hex("#3a4048"), new Vector2(2f, -2f));
+        }
+
+        StyleText(playerLabel, 22f, Hex("#e6dcc0"), TextAlignmentOptions.Left, false);
+        StyleText(roleNameText, 32f, Hex("#e6dcc0"), TextAlignmentOptions.Left, false);
+        StyleText(perkText, 18f, Hex("#7ee06f"), TextAlignmentOptions.Left, true);
+        StyleText(penaltyText, 16f, Hex("#ff6565"), TextAlignmentOptions.Left, true);
+        StyleText(readyText, 17f, Hex("#e6dcc0"), TextAlignmentOptions.Left, false);
+
+        if (roleColorBar != null)
+            roleColorBar.raycastTarget = false;
+
+        StyleButton(prevRoleButton, Hex("#1a1e28"), Hex("#8090a8"));
+        StyleButton(nextRoleButton, Hex("#1a1e28"), Hex("#8090a8"));
+        StyleButton(readyButton, Hex("#183c20"), Hex("#70b888"));
+
+        if (readyIndicator != null)
+        {
+            readyIndicator.color = Hex("#4a4a44");
+            readyIndicator.raycastTarget = false;
+            EnsureOutline(readyIndicator.gameObject, Hex("#242822"), new Vector2(1f, -1f));
+        }
     }
 
     void NormalizeRect(Component target, Vector2 anchoredPosition, Vector2 size)
@@ -347,7 +566,11 @@ public class PlayerLobbyPanel
     {
         if (btn == null) return;
         var tmp = btn.GetComponentInChildren<TextMeshProUGUI>();
-        if (tmp != null) { tmp.text = text; tmp.color = Color.black; }
+        if (tmp != null)
+        {
+            tmp.text = text;
+            tmp.color = new Color(0.86f, 0.82f, 0.68f);
+        }
     }
 
     void PrevRole()
@@ -395,14 +618,67 @@ public class PlayerLobbyPanel
     {
         if (readyIndicator != null)
             readyIndicator.color = ready
-                ? new Color(0.2f, 0.8f, 0.3f)
-                : new Color(0.4f, 0.4f, 0.4f);
+                ? new Color(0.20f, 0.78f, 0.38f)
+                : new Color(0.30f, 0.30f, 0.28f);
         if (readyText != null)
-            readyText.text = ready ? "✓ LISTO" : "PRESIONA READY";
+            readyText.text = ready ? "LISTO" : "PRESIONA READY";
     }
 
     public void SetVisible(bool visible)
     {
         if (root != null) root.SetActive(visible);
+    }
+
+    static void StyleText(TMP_Text text, float size, Color color, TextAlignmentOptions alignment, bool wrap)
+    {
+        if (text == null)
+            return;
+
+        text.fontSize = size;
+        text.color = color;
+        text.alignment = alignment;
+        text.enableWordWrapping = wrap;
+        text.overflowMode = wrap ? TextOverflowModes.Ellipsis : TextOverflowModes.Overflow;
+    }
+
+    static void StyleButton(Button button, Color bg, Color text)
+    {
+        if (button == null)
+            return;
+
+        Image image = button.GetComponent<Image>() ?? button.gameObject.AddComponent<Image>();
+        image.color = bg;
+        image.raycastTarget = true;
+        EnsureOutline(button.gameObject, Hex("#384048"), new Vector2(1f, -1f));
+
+        var colors = button.colors;
+        colors.normalColor = bg;
+        colors.highlightedColor = Color.Lerp(bg, Color.white, 0.18f);
+        colors.pressedColor = Color.Lerp(bg, Color.black, 0.22f);
+        colors.selectedColor = Color.Lerp(bg, Color.white, 0.12f);
+        colors.disabledColor = new Color(0.12f, 0.12f, 0.12f, 0.65f);
+        colors.fadeDuration = 0.08f;
+        button.colors = colors;
+
+        var label = button.GetComponentInChildren<TMP_Text>(true);
+        if (label != null)
+        {
+            label.color = text;
+            label.fontSize = Mathf.Max(label.fontSize, 18f);
+            label.alignment = TextAlignmentOptions.Center;
+        }
+    }
+
+    static void EnsureOutline(GameObject target, Color color, Vector2 distance)
+    {
+        Outline outline = target.GetComponent<Outline>() ?? target.AddComponent<Outline>();
+        outline.effectColor = color;
+        outline.effectDistance = distance;
+    }
+
+    static Color Hex(string hex)
+    {
+        ColorUtility.TryParseHtmlString(hex, out Color c);
+        return c;
     }
 }

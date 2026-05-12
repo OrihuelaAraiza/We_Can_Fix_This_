@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace Wcft.Core
 {
@@ -11,7 +12,8 @@ namespace Wcft.Core
         private static AppBootstrap _instance;
 
         [Header("Boot Flow")]
-        [SerializeField] private bool loadLobbyOnStart = true;
+        [FormerlySerializedAs("loadLobbyOnStart")]
+        [SerializeField] private bool loadMainMenuOnStart = true;
 
         private void Awake()
         {
@@ -30,9 +32,9 @@ namespace Wcft.Core
 
         private void Start()
         {
-            if (loadLobbyOnStart)
+            if (loadMainMenuOnStart)
             {
-                SceneLoader.LoadScene(GameConfig.SCENE_LOBBY);
+                SceneLoader.LoadScene(GameConfig.SCENE_MAIN_MENU);
             }
         }
 

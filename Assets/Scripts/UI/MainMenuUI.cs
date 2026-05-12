@@ -2,6 +2,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.SceneManagement;
 using TMPro;
+using UnityEngine.EventSystems;
 using Wcft.Core;
 
 /// <summary>
@@ -49,12 +50,26 @@ public class MainMenuUI : MonoBehaviour
     // ─────────────────────────────────────────────────────────────
     void Start()
     {
+        Cursor.visible = true;
+        Cursor.lockState = CursorLockMode.None;
+
         if (creditsPanel != null) creditsPanel.SetActive(false);
 
         btnPlay?.onClick.AddListener(OnPlayClicked);
         btnCredits?.onClick.AddListener(OnCreditsClicked);
         btnQuit?.onClick.AddListener(OnQuitClicked);
         btnCreditsClose?.onClick.AddListener(OnCreditsClose);
+
+        if (EventSystem.current != null && btnPlay != null)
+            EventSystem.current.SetSelectedGameObject(btnPlay.gameObject);
+    }
+
+    void OnDestroy()
+    {
+        btnPlay?.onClick.RemoveListener(OnPlayClicked);
+        btnCredits?.onClick.RemoveListener(OnCreditsClicked);
+        btnQuit?.onClick.RemoveListener(OnQuitClicked);
+        btnCreditsClose?.onClick.RemoveListener(OnCreditsClose);
     }
 
     // ── Handlers ─────────────────────────────────────────────────
@@ -62,9 +77,9 @@ public class MainMenuUI : MonoBehaviour
     public void OnPlayClicked()
     {
         if (SceneExistsInBuild(GameConfig.SCENE_LOBBY))
-            SceneManager.LoadScene(GameConfig.SCENE_LOBBY);
+            SceneLoader.LoadScene(GameConfig.SCENE_LOBBY);
         else
-            SceneManager.LoadScene(GameConfig.SCENE_GAMEPLAY);
+            SceneLoader.LoadScene(GameConfig.SCENE_GAMEPLAY);
     }
 
     public void OnQuitClicked()
