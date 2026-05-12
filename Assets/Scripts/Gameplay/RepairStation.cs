@@ -25,6 +25,9 @@ public class RepairStation : MonoBehaviour, IInteractable
     [SerializeField] private Color colorRepairing  = Color.yellow;
     [SerializeField] private Color colorFixed      = Color.cyan;
 
+    [Header("UI")]
+    [SerializeField] private bool autoCreateWorldStatusUI = true;
+
     public event Action<RepairStation> OnBroken;
     public event Action<RepairStation> OnRepaired;
 
@@ -42,6 +45,7 @@ public class RepairStation : MonoBehaviour, IInteractable
     {
         RefreshVisualBindings();
         ApplyStateVisual();
+        EnsureWorldStatusUI();
     }
 
     private void Update()
@@ -270,6 +274,17 @@ public class RepairStation : MonoBehaviour, IInteractable
 
             runtimeMaterials[renderer] = materials;
         }
+    }
+
+    void EnsureWorldStatusUI()
+    {
+        if (!autoCreateWorldStatusUI)
+            return;
+
+        if (GetComponentInChildren<RepairProgressUI>(true) != null)
+            return;
+
+        gameObject.AddComponent<RepairProgressUI>();
     }
 
     private void OnDrawGizmos()
