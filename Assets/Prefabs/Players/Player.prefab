@@ -187,7 +187,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f5e955fe087de1945a2dffb34d5cb26a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  ragdollEnabled: 1
+  ragdollEnabled: 0
   hardHitThreshold: 5
   impactCooldown: 0.35
   tiltAmount: 18
