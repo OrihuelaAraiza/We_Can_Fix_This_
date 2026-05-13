@@ -1,5 +1,36 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
+--- !u!1 &1000000000000000001
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1000000000000000002}
+  m_Layer: 0
+  m_Name: ModelRoot
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1000000000000000002
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1000000000000000001}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 8322177807284062747}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &4108714465431096865
 GameObject:
   m_ObjectHideFlags: 0
@@ -150,16 +181,19 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 4108714465431096865}
-  m_Enabled: 0
+  m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f5e955fe087de1945a2dffb34d5cb26a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  ragdollEnabled: 1
   hardHitThreshold: 5
   pushForce: 5
-  spinForce: 5
+  upwardForce: 1.1
+  impactCooldown: 0.35
   fallDuration: 0.5
-  recoverSpeed: 5
+  planarRecoveryDamping: 7
+  heavyTiltAmount: 18
   ignoreLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -219,7 +253,11 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   playerIndex: 0
-  initialized: 0
+  initialized: 1
+  animator: {fileID: 0}
+  externalControlEnabled: 1
+  isGrounded: 0
+  allowImpactReactions: 0
 --- !u!114 &4326680441929717812
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -260,7 +298,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 4108714465431096865}
-  m_Enabled: 0
+  m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 000e976209e213e4ab9f5517872f5ede, type: 3}
   m_Name: 
@@ -271,36 +309,12 @@ MonoBehaviour:
   tiltSmooth: 8
   bounceAmount: 0.04
   bounceSpeed: 10
+  idleBreathAmount: 0.02
+  idleBreathSpeed: 2.2
+  strideBounceAmount: 0.06
+  stridePitchAmount: 5
+  strideRollAmount: 4
+  strideYawAmount: 2
+  strideFrequency: 11
   impactTiltMultiplier: 1.5
   impactRecoverySpeed: 6
---- !u!1 &1000000000000000001
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1000000000000000002}
-  m_Layer: 0
-  m_Name: ModelRoot
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &1000000000000000002
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1000000000000000001}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 8322177807284062747}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}

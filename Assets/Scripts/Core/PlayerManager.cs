@@ -31,8 +31,8 @@ public class PlayerManager : MonoBehaviour
     [SerializeField] private bool debugLog = false;
 
     [Header("Temporary Player Stabilization")]
-    [SerializeField] private bool disablePlayerImpactPhysics = true;
-    [SerializeField] private bool disableProceduralPlayerVisuals = true;
+    [SerializeField] private bool disablePlayerImpactPhysics = false;
+    [SerializeField] private bool disableProceduralPlayerVisuals = false;
 
     private readonly List<PlayerMovement> players = new();
     private readonly Dictionary<PlayerInput, int> activePlayerSlots = new();
@@ -668,6 +668,14 @@ public class PlayerManager : MonoBehaviour
         if (playerObject.GetComponent<PlayerInputHandler>() == null)
             playerObject.AddComponent<PlayerInputHandler>();
 
+        // Para que el jugador tenga tambaleo visual al chocar
+        if (playerObject.GetComponent<PlayerVisualWobble>() == null)
+            playerObject.AddComponent<PlayerVisualWobble>();
+
+        // Para detectar choques y mandar el wobble visual
+        if (playerObject.GetComponent<FakeRagDoll>() == null)
+            playerObject.AddComponent<FakeRagDoll>();
+
         RemovePlayerModelModifiers(playerObject);
 
         EnsurePlayerCollider(playerObject);
@@ -678,16 +686,17 @@ public class PlayerManager : MonoBehaviour
         if (playerObject == null)
             return;
 
+        // Ya NO borramos FakeRagDoll ni PlayerVisualWobble del player root.
+        // Solo quitamos ragdolls físicos viejos si existen.
         if (disablePlayerImpactPhysics)
         {
-            DestroyComponentsInChildren<FakeRagDoll>(playerObject);
             DestroyComponentsInChildren<PlayerImpactReaction>(playerObject);
             DestroyComponentsInChildren<PlayerRagdoll>(playerObject);
         }
 
+        // Ya NO borramos PlayerVisualWobble porque lo necesitamos para el tambaleo.
         if (disableProceduralPlayerVisuals)
         {
-            DestroyComponentsInChildren<PlayerVisualWobble>(playerObject);
             DestroyComponentsInChildren<FixieProceduralAnimator>(playerObject);
         }
     }
@@ -1067,11 +1076,10 @@ public class PlayerManager : MonoBehaviour
     {
         if (model == null)
             return;
-
         DestroyComponentsInChildren<FakeRagDoll>(model);
+        DestroyComponentsInChildren<PlayerVisualWobble>(model);
         DestroyComponentsInChildren<PlayerImpactReaction>(model);
         DestroyComponentsInChildren<PlayerRagdoll>(model);
-        DestroyComponentsInChildren<PlayerVisualWobble>(model);
         DestroyComponentsInChildren<FixieProceduralAnimator>(model);
         DestroyComponentsInChildren<FixieAnimationRuntime>(model);
         DestroyComponentsInChildren<Joint>(model);

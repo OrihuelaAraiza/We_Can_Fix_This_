@@ -24,17 +24,14 @@ public class PlayerMovement : MonoBehaviour
     public Rigidbody RB => rb;
     public bool IsGrounded => isGrounded;
 
-    /// <summary>Normalized speed 0..1 for animator blend trees.</summary>
     public float SpeedNormalized => rb != null && data != null
         ? Mathf.Clamp01(PlanarSpeed / data.maxSpeed)
         : 0f;
 
-    /// <summary>Raw planar speed in m/s.</summary>
     public float PlanarSpeed => rb != null
         ? new Vector3(rb.velocity.x, 0f, rb.velocity.z).magnitude
         : 0f;
 
-    // ── Internal state ──────────────────────────────────────────
     private PlayerData data;
     private Rigidbody rb;
     private CapsuleCollider capsule;
@@ -48,17 +45,18 @@ public class PlayerMovement : MonoBehaviour
     private float lastGroundedTime = -10f;
     private Coroutine boostCoroutine;
 
-    // ── Wobble constants ────────────────────────────────────────
     private const float CoyoteTime = 0.1f;
     private const float GroundProbePadding = 0.06f;
     private const float GroundMaxSlope = 55f;
 
-    // ── Init ────────────────────────────────────────────────────
     private void Awake()
     {
         rb = GetComponent<Rigidbody>();
         capsule = GetComponent<CapsuleCollider>();
         playerLayer = LayerMask.NameToLayer("Player");
+
+        // Corrección: busca automáticamente el Animator en los hijos
+        ResolveAnimatorReference();
     }
 
     public void Initialize(int index, PlayerData playerData, Transform cam)
@@ -78,14 +76,11 @@ public class PlayerMovement : MonoBehaviour
 
         capsule ??= GetComponent<CapsuleCollider>();
 
-        // Wobbly astronaut: unconstrained rotations, let physics tumble
         rb.mass = Mathf.Max(0.01f, data.mass);
         rb.drag = 0f;
         rb.angularDrag = 0.05f;
         rb.interpolation = RigidbodyInterpolation.Interpolate;
         rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
-        // Keep character upright — visual wobble is handled by
-        // PlayerVisualWobble and FixieProceduralAnimator.
         rb.constraints = RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationZ;
 
         externalControlEnabled = true;
@@ -93,10 +88,12 @@ public class PlayerMovement : MonoBehaviour
         jumpQueued = false;
         CheckGround();
 
+        // Corrección: asegura que el Animator se conecte aunque esté en un hijo
+        ResolveAnimatorReference();
+
         initialized = true;
     }
 
-    // ── Input (called by PlayerInputHandler) ────────────────────
     public void OnMove(Vector2 input)
     {
         moveInput = Vector2.ClampMagnitude(input, 1f);
@@ -114,6 +111,7 @@ public class PlayerMovement : MonoBehaviour
     public void SetExternalControlEnabled(bool enabled)
     {
         externalControlEnabled = enabled;
+
         if (!enabled)
         {
             jumpQueued = false;
@@ -121,7 +119,6 @@ public class PlayerMovement : MonoBehaviour
         }
     }
 
-    // ── Update loops ────────────────────────────────────────────
     private void Update()
     {
         if (!initialized || data == null)
@@ -156,7 +153,6 @@ public class PlayerMovement : MonoBehaviour
         LimitPlanarSpeed();
     }
 
-    // ── Movement via AddForce ───────────────────────────────────
     private void ApplyMovementForce()
     {
         Vector3 planarVelocity = new Vector3(rb.velocity.x, 0f, rb.velocity.z);
@@ -166,6 +162,7 @@ public class PlayerMovement : MonoBehaviour
         if (hasInput)
         {
             Vector3 dir = GetMoveDirection();
+
             if (dir.sqrMagnitude > 0.001f)
             {
                 float targetSpeed = data.maxSpeed * speedMultiplier * tempBoostMultiplier;
@@ -174,12 +171,15 @@ public class PlayerMovement : MonoBehaviour
         }
 
         float baseAcceleration = Mathf.Max(1f, data.moveForce);
+
         float acceleration = isGrounded
             ? baseAcceleration * 2.4f
             : baseAcceleration * Mathf.Clamp(data.airControlMultiplier, 0.35f, 1f) * 1.8f;
+
         float deceleration = isGrounded
             ? baseAcceleration * 3f
             : baseAcceleration * 1.5f;
+
         float step = (hasInput ? acceleration : deceleration) * Time.fixedDeltaTime;
 
         Vector3 nextPlanarVelocity = Vector3.MoveTowards(planarVelocity, targetVelocity, step);
@@ -190,6 +190,7 @@ public class PlayerMovement : MonoBehaviour
     {
         Vector3 flat = new Vector3(rb.velocity.x, 0f, rb.velocity.z);
         float limit = data.maxSpeed * speedMultiplier * tempBoostMultiplier;
+
         if (flat.magnitude > limit)
         {
             Vector3 clamped = flat.normalized * limit;
@@ -200,16 +201,17 @@ public class PlayerMovement : MonoBehaviour
     private void ApplyFacing()
     {
         Vector3 dir = GetMoveDirection();
+
         if (dir.sqrMagnitude < 0.01f)
             return;
 
         Quaternion target = Quaternion.LookRotation(dir, Vector3.up);
         float turnSpeed = Mathf.Max(540f, data.rotationSpeed * 60f);
         Quaternion next = Quaternion.RotateTowards(rb.rotation, target, turnSpeed * Time.fixedDeltaTime);
+
         rb.MoveRotation(next);
     }
 
-    // ── Jump ────────────────────────────────────────────────────
     private void DoJump()
     {
         isGrounded = false;
@@ -218,10 +220,10 @@ public class PlayerMovement : MonoBehaviour
         Vector3 v = rb.velocity;
         v.y = 0f;
         rb.velocity = v;
+
         rb.AddForce(Vector3.up * data.jumpForce, ForceMode.Impulse);
     }
 
-    // ── Collision bump (ragdoll-style) ──────────────────────────
     private void OnCollisionEnter(Collision collision)
     {
         if (!allowImpactReactions)
@@ -230,38 +232,39 @@ public class PlayerMovement : MonoBehaviour
         if (!initialized || rb == null)
             return;
 
-        // Don't bump on ground
         if (collision.contactCount == 0)
             return;
 
         Vector3 normal = collision.GetContact(0).normal;
+
         if (Vector3.Angle(normal, Vector3.up) < 45f)
             return;
 
         float impact = collision.relativeVelocity.magnitude;
+
         if (impact < 3f)
             return;
 
         Vector3 bumpDir = (transform.position - collision.GetContact(0).point).normalized;
         bumpDir.y = Mathf.Max(bumpDir.y, 0.15f);
         bumpDir.Normalize();
+
         float bumpForce = Mathf.Min(impact * 0.25f, 5f);
         rb.AddForce(bumpDir * bumpForce, ForceMode.Impulse);
     }
 
-    // ── Drag ────────────────────────────────────────────────────
     private void ApplyDrag()
     {
         rb.drag = 0f;
     }
 
-    // ── Ground check ────────────────────────────────────────────
     private void CheckGround()
     {
         if (data == null)
             return;
 
         LayerMask mask = data.groundLayer.value == 0 ? ~0 : data.groundLayer;
+
         Vector3 origin = transform.position + Vector3.up * 0.2f;
         float radius = 0.2f;
         float distance = data.groundCheckDistance + GroundProbePadding;
@@ -270,34 +273,47 @@ public class PlayerMovement : MonoBehaviour
         {
             float radiusScale = Mathf.Max(Mathf.Abs(transform.lossyScale.x), Mathf.Abs(transform.lossyScale.z));
             float heightScale = Mathf.Abs(transform.lossyScale.y);
+
             radius = Mathf.Max(0.05f, capsule.radius * radiusScale * 0.92f);
 
             float halfHeight = Mathf.Max(radius, capsule.height * heightScale * 0.5f);
             Vector3 worldCenter = transform.TransformPoint(capsule.center);
+
             origin = worldCenter - Vector3.up * Mathf.Max(0f, halfHeight - radius - GroundProbePadding);
             distance = data.groundCheckDistance + GroundProbePadding * 2f;
         }
 
         bool foundGround = HasGroundHit(origin, radius, distance, mask);
+
         if (!foundGround && data.groundLayer.value != 0)
             foundGround = HasGroundHit(origin, radius, distance, ~0);
 
         isGrounded = foundGround;
+
         if (foundGround)
             lastGroundedTime = Time.time;
     }
 
     private bool HasGroundHit(Vector3 origin, float radius, float distance, LayerMask mask)
     {
-        RaycastHit[] hits = Physics.SphereCastAll(origin, radius, Vector3.down, distance, mask, QueryTriggerInteraction.Ignore);
+        RaycastHit[] hits = Physics.SphereCastAll(
+            origin,
+            radius,
+            Vector3.down,
+            distance,
+            mask,
+            QueryTriggerInteraction.Ignore
+        );
 
         for (int i = 0; i < hits.Length; i++)
         {
             RaycastHit hit = hits[i];
+
             if (hit.collider == null)
                 continue;
 
             Transform hitTransform = hit.collider.transform;
+
             if (hitTransform == transform || hitTransform.IsChildOf(transform))
                 continue;
 
@@ -313,7 +329,6 @@ public class PlayerMovement : MonoBehaviour
         return false;
     }
 
-    // ── Camera-relative direction ───────────────────────────────
     private Vector3 GetMoveDirection()
     {
         if (moveInput.sqrMagnitude < 0.0001f)
@@ -328,10 +343,10 @@ public class PlayerMovement : MonoBehaviour
             : Vector3.right;
 
         Vector3 dir = forward * moveInput.y + right * moveInput.x;
+
         return dir.sqrMagnitude > 0.001f ? dir.normalized : Vector3.zero;
     }
 
-    // ── Animator ─────────────────────────────────────────────────
     private void UpdateAnimator()
     {
         if (animator == null || rb == null || animator.runtimeAnimatorController == null)
@@ -350,6 +365,7 @@ public class PlayerMovement : MonoBehaviour
             animator.enabled = true;
             animator.applyRootMotion = false;
             animator.cullingMode = AnimatorCullingMode.AlwaysAnimate;
+
             if (animator.runtimeAnimatorController != null)
             {
                 animator.SetFloat("Speed", 0f);
@@ -371,11 +387,12 @@ public class PlayerMovement : MonoBehaviour
             animator.enabled = true;
             animator.applyRootMotion = false;
             animator.cullingMode = AnimatorCullingMode.AlwaysAnimate;
-            animator.SetFloat("Speed", 0f);
+
+            if (animator.runtimeAnimatorController != null)
+                animator.SetFloat("Speed", 0f);
         }
     }
 
-    // ── Public API (used by PlayerRole, FakeRagDoll, etc.) ──────
     public void AddImpactForce(Vector3 force, ForceMode mode = ForceMode.Impulse)
     {
         if (!allowImpactReactions || rb == null)
@@ -402,18 +419,20 @@ public class PlayerMovement : MonoBehaviour
     private IEnumerator RemoveBoostAfter(float duration)
     {
         yield return new WaitForSeconds(duration);
+
         tempBoostMultiplier = 1f;
         boostCoroutine = null;
     }
 
-    // ── Gizmos ──────────────────────────────────────────────────
     private void OnDrawGizmosSelected()
     {
         float rayDistance = 0.65f;
+
         if (data != null)
             rayDistance = data.groundCheckDistance + GroundProbePadding * 2f;
 
         Gizmos.color = isGrounded ? Color.green : Color.red;
+
         Gizmos.DrawLine(
             transform.position + Vector3.up * 0.1f,
             transform.position + Vector3.up * 0.1f + Vector3.down * rayDistance
