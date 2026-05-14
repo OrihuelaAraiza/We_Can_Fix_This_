@@ -19,9 +19,9 @@ public class PlayerManager : MonoBehaviour
     [SerializeField] private Transform[] spawnPoints;
     [SerializeField] private Transform cameraTransform;
 
-    [Header("Fixie Models (randomly assigned on join)")]
-    [Tooltip("All available Fixie mesh prefabs — one is picked randomly per player join")]
-    [SerializeField] private GameObject[] fixieMeshPrefabs;
+    [Header("Player Prefabs por jugador")]
+    [Tooltip("Element 0 = Player 1, Element 1 = Player 2, Element 2 = Player 3")]
+    [SerializeField] private GameObject[] playerPrefabsBySlot;
 
     [Header("Spawn Tuning")]
     [SerializeField] private float spawnHeightOffset = 0.15f;
@@ -31,8 +31,8 @@ public class PlayerManager : MonoBehaviour
     [SerializeField] private bool debugLog = false;
 
     [Header("Temporary Player Stabilization")]
-    [SerializeField] private bool disablePlayerImpactPhysics = true;
-    [SerializeField] private bool disableProceduralPlayerVisuals = true;
+    [SerializeField] private bool disablePlayerImpactPhysics = false;
+    [SerializeField] private bool disableProceduralPlayerVisuals = false;
 
     private readonly List<PlayerMovement> players = new();
     private readonly Dictionary<PlayerInput, int> activePlayerSlots = new();
@@ -40,6 +40,7 @@ public class PlayerManager : MonoBehaviour
 
     private PlayerInputManager playerInputManager;
     private int expectedLobbyPlayers;
+    private int nextPrefabIndex = 0;
 
     public static event System.Action OnPlayerCountChanged;
 
@@ -56,6 +57,9 @@ public class PlayerManager : MonoBehaviour
         InstallAnimationLogFilter();
         Instance = this;
         playerInputManager = GetComponent<PlayerInputManager>();
+
+        nextPrefabIndex = 0;
+        SetPlayerInputManagerPrefab(nextPrefabIndex);
     }
 
     private void OnDestroy()
@@ -84,6 +88,9 @@ public class PlayerManager : MonoBehaviour
             return;
 
         StartCoroutine(InitializeJoinedPlayer(playerInput));
+
+        nextPrefabIndex++;
+        SetPlayerInputManagerPrefab(nextPrefabIndex);
     }
 
     IEnumerator InitializeJoinedPlayer(PlayerInput playerInput)
@@ -165,7 +172,6 @@ public class PlayerManager : MonoBehaviour
 
         try
         {
-            SetupPlayerVisual(playerInput.transform, movement, slotIndex);
             EnsurePlayerCollider(playerInput.gameObject);
             movement.Initialize(slotIndex, playerData, cameraTransform);
         }
@@ -246,8 +252,10 @@ public class PlayerManager : MonoBehaviour
                 continue;
             }
 
+            GameObject prefabToUse = GetPlayerPrefabForEntry(entry);
+
             PlayerInput restoredInput = PlayerInput.Instantiate(
-                playerInputManager.playerPrefab,
+                prefabToUse,
                 playerIndex: entry.PlayerIndex,
                 controlScheme: entry.ControlScheme,
                 splitScreenIndex: -1,
@@ -668,6 +676,14 @@ public class PlayerManager : MonoBehaviour
         if (playerObject.GetComponent<PlayerInputHandler>() == null)
             playerObject.AddComponent<PlayerInputHandler>();
 
+        // Para que el jugador tenga tambaleo visual al chocar
+        if (playerObject.GetComponent<PlayerVisualWobble>() == null)
+            playerObject.AddComponent<PlayerVisualWobble>();
+
+        // Para detectar choques y mandar el wobble visual
+        if (playerObject.GetComponent<FakeRagDoll>() == null)
+            playerObject.AddComponent<FakeRagDoll>();
+
         RemovePlayerModelModifiers(playerObject);
 
         EnsurePlayerCollider(playerObject);
@@ -678,16 +694,17 @@ public class PlayerManager : MonoBehaviour
         if (playerObject == null)
             return;
 
+        // Ya NO borramos FakeRagDoll ni PlayerVisualWobble del player root.
+        // Solo quitamos ragdolls físicos viejos si existen.
         if (disablePlayerImpactPhysics)
         {
-            DestroyComponentsInChildren<FakeRagDoll>(playerObject);
             DestroyComponentsInChildren<PlayerImpactReaction>(playerObject);
             DestroyComponentsInChildren<PlayerRagdoll>(playerObject);
         }
 
+        // Ya NO borramos PlayerVisualWobble porque lo necesitamos para el tambaleo.
         if (disableProceduralPlayerVisuals)
         {
-            DestroyComponentsInChildren<PlayerVisualWobble>(playerObject);
             DestroyComponentsInChildren<FixieProceduralAnimator>(playerObject);
         }
     }
@@ -1056,22 +1073,17 @@ public class PlayerManager : MonoBehaviour
 
     GameObject GetFixiePrefabForSlot(int slotIndex)
     {
-        if (fixieMeshPrefabs == null || fixieMeshPrefabs.Length == 0)
-            return null;
-
-        // Random assignment — any player can get any model
-        return fixieMeshPrefabs[UnityEngine.Random.Range(0, fixieMeshPrefabs.Length)];
+        return null;
     }
 
     void StripRuntimeComponents(GameObject model, bool preserveAnimator = false)
     {
         if (model == null)
             return;
-
         DestroyComponentsInChildren<FakeRagDoll>(model);
+        DestroyComponentsInChildren<PlayerVisualWobble>(model);
         DestroyComponentsInChildren<PlayerImpactReaction>(model);
         DestroyComponentsInChildren<PlayerRagdoll>(model);
-        DestroyComponentsInChildren<PlayerVisualWobble>(model);
         DestroyComponentsInChildren<FixieProceduralAnimator>(model);
         DestroyComponentsInChildren<FixieAnimationRuntime>(model);
         DestroyComponentsInChildren<Joint>(model);
@@ -1405,5 +1417,87 @@ public class PlayerManager : MonoBehaviour
             Gizmos.color = colors[i % colors.Length];
             Gizmos.DrawSphere(spawnPoints[i].position, 0.3f);
         }
+    }
+
+    GameObject GetPlayerPrefabForSlot(int slotIndex)
+    {
+        if (playerPrefabsBySlot == null || playerPrefabsBySlot.Length == 0)
+        {
+            Debug.LogWarning("[PlayerManager] No hay playerPrefabsBySlot asignados. Usando prefab del PlayerInputManager.");
+            return playerInputManager.playerPrefab;
+        }
+
+        if (slotIndex < 0 || slotIndex >= playerPrefabsBySlot.Length || playerPrefabsBySlot[slotIndex] == null)
+        {
+            Debug.LogWarning($"[PlayerManager] No hay prefab asignado para slot {slotIndex}. Usando prefab del PlayerInputManager.");
+            return playerInputManager.playerPrefab;
+        }
+
+        Debug.Log($"[PlayerManager] Slot {slotIndex} usará prefab completo: {playerPrefabsBySlot[slotIndex].name}");
+
+        return playerPrefabsBySlot[slotIndex];
+    }
+
+    GameObject GetPlayerPrefabForEntry(LobbyPlayerSessionEntry entry)
+    {
+        if (playerPrefabsBySlot == null || playerPrefabsBySlot.Length == 0)
+        {
+            Debug.LogWarning("[PlayerManager] No hay prefabs asignados. Usando prefab default.");
+            return playerInputManager.playerPrefab;
+        }
+
+        int prefabIndex = 0;
+
+        if (entry.ControlScheme == "KeyboardP1")
+        {
+            prefabIndex = 0; // Espacio -> Fixie_P1
+        }
+        else if (entry.ControlScheme == "KeyboardP2")
+        {
+            prefabIndex = 1; // Enter -> Fixie_P2
+        }
+        else
+        {
+            prefabIndex = 2; // Gamepad -> Fixie_P3
+        }
+
+        if (prefabIndex >= playerPrefabsBySlot.Length || playerPrefabsBySlot[prefabIndex] == null)
+        {
+            Debug.LogWarning($"[PlayerManager] No hay prefab en Element {prefabIndex}. Usando prefab default.");
+            return playerInputManager.playerPrefab;
+        }
+
+        Debug.Log($"[PlayerManager] {entry.ControlScheme} usará prefab: {playerPrefabsBySlot[prefabIndex].name}");
+
+        return playerPrefabsBySlot[prefabIndex];
+    }
+
+    void SetPlayerInputManagerPrefab(int index)
+    {
+        if (playerInputManager == null)
+            return;
+
+        if (playerPrefabsBySlot == null || playerPrefabsBySlot.Length == 0)
+        {
+            Debug.LogWarning("[PlayerManager] No hay prefabs asignados en playerPrefabsBySlot.");
+            return;
+        }
+
+        if (index < 0 || index >= playerPrefabsBySlot.Length)
+        {
+            Debug.Log("[PlayerManager] Ya no hay más prefabs diferentes para asignar.");
+            return;
+        }
+
+
+        if (playerPrefabsBySlot[index] == null)
+        {
+            Debug.LogWarning($"[PlayerManager] El Element {index} está vacío.");
+            return;
+        }
+
+        playerInputManager.playerPrefab = playerPrefabsBySlot[index];
+
+        Debug.Log($"[PlayerManager] PlayerInputManager ahora usará: {playerPrefabsBySlot[index].name}");
     }
 }

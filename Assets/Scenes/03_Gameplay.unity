@@ -2492,7 +2492,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   stationType: 3
-  repairDuration: 5
+  repairDuration: 6
   shipDrainOnBroken: 1
   state: 0
   repairProgress: 0
@@ -2501,6 +2501,7 @@ MonoBehaviour:
   colorBroken: {r: 1, g: 0, b: 0, a: 1}
   colorRepairing: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
   colorFixed: {r: 0, g: 1, b: 1, a: 1}
+  autoCreateWorldStatusUI: 1
 --- !u!65 &464011553
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -2889,7 +2890,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_NotificationBehavior: 0
   m_MaxPlayerCount: 4
-  m_AllowJoining: 1
+  m_AllowJoining: 0
   m_JoinBehavior: 0
   m_PlayerJoinedEvent:
     m_PersistentCalls:
@@ -2939,15 +2940,15 @@ MonoBehaviour:
   - {fileID: 605151549}
   - {fileID: 2085396268}
   cameraTransform: {fileID: 278711866}
-  fixieMeshPrefabs:
+  playerPrefabsBySlot:
   - {fileID: 4085432536944772313, guid: 891e50ae3d48543e58d8c685f03ea703, type: 3}
   - {fileID: 8874579203571786221, guid: c9d59fcfd6a2141f0880bd5190f93365, type: 3}
   - {fileID: 4684386058763366323, guid: 9cba2cedafdb645ca8fbf0e0095a4ed3, type: 3}
   spawnHeightOffset: 0.15
   minSpawnSeparation: 1.1
   debugLog: 0
-  disablePlayerImpactPhysics: 1
-  disableProceduralPlayerVisuals: 1
+  disablePlayerImpactPhysics: 0
+  disableProceduralPlayerVisuals: 0
 --- !u!4 &506897553
 Transform:
   m_ObjectHideFlags: 0
@@ -3388,18 +3389,26 @@ MonoBehaviour:
     statusDot: {fileID: 725930775}
     nameText: {fileID: 1713151434}
     statusLabel: {fileID: 1611956972}
+    progressTrack: {fileID: 0}
+    progressFill: {fileID: 0}
   - stationId: COMMS
     statusDot: {fileID: 376143834}
     nameText: {fileID: 505615796}
     statusLabel: {fileID: 1591838404}
+    progressTrack: {fileID: 0}
+    progressFill: {fileID: 0}
   - stationId: GRAVITY
     statusDot: {fileID: 1867309470}
     nameText: {fileID: 1498622521}
     statusLabel: {fileID: 969314455}
+    progressTrack: {fileID: 0}
+    progressFill: {fileID: 0}
   - stationId: HULL
     statusDot: {fileID: 653817313}
     nameText: {fileID: 2104538902}
     statusLabel: {fileID: 1639689391}
+    progressTrack: {fileID: 0}
+    progressFill: {fileID: 0}
 --- !u!224 &622705987
 RectTransform:
   m_ObjectHideFlags: 0
@@ -6643,6 +6652,7 @@ MonoBehaviour:
   colorBroken: {r: 1, g: 0, b: 0, a: 1}
   colorRepairing: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
   colorFixed: {r: 0, g: 1, b: 1, a: 1}
+  autoCreateWorldStatusUI: 1
 --- !u!65 &1179168842
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -6846,6 +6856,7 @@ MonoBehaviour:
   colorBroken: {r: 1, g: 0, b: 0, a: 1}
   colorRepairing: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
   colorFixed: {r: 0, g: 1, b: 1, a: 1}
+  autoCreateWorldStatusUI: 1
 --- !u!65 &1228927172
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -11378,6 +11389,7 @@ MonoBehaviour:
   colorBroken: {r: 1, g: 0, b: 0, a: 1}
   colorRepairing: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
   colorFixed: {r: 0, g: 1, b: 1, a: 1}
+  autoCreateWorldStatusUI: 1
 --- !u!65 &2012463298
 BoxCollider:
   m_ObjectHideFlags: 0

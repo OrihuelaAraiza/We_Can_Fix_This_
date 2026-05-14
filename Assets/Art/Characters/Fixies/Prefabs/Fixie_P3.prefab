@@ -162,6 +162,9 @@ MonoBehaviour:
   playerIndex: 0
   initialized: 0
   animator: {fileID: 0}
+  externalControlEnabled: 1
+  isGrounded: 0
+  allowImpactReactions: 0
 --- !u!1001 &4561914994999702751
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -225,6 +228,11 @@ PrefabInstance:
       propertyPath: m_Name
       value: Astronaut_BarbaraTheBee
       objectReference: {fileID: 0}
+    - target: {fileID: 5866666021909216657, guid: ed513c654e2a347d6bfda5bb291b4513,
+        type: 3}
+      propertyPath: m_Controller
+      value: 
+      objectReference: {fileID: 9100000, guid: 3ee7ddc6555f548aebb1061fd9f7ea89, type: 2}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []

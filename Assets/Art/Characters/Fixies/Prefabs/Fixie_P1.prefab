@@ -40,7 +40,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 7806482471852804252}
-  - component: {fileID: 3672816369290605005}
   - component: {fileID: 576232785833266546}
   - component: {fileID: -7242939814192916924}
   - component: {fileID: -4625054046694085590}
@@ -68,27 +67,6 @@ Transform:
   - {fileID: 8947471811149769631}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!95 &3672816369290605005
-Animator:
-  serializedVersion: 5
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4085432536944772313}
-  m_Enabled: 1
-  m_Avatar: {fileID: 9000000, guid: d9244d1a61d0844aab4e3e4512d36e78, type: 3}
-  m_Controller: {fileID: 9100000, guid: 3ee7ddc6555f548aebb1061fd9f7ea89, type: 2}
-  m_CullingMode: 0
-  m_UpdateMode: 0
-  m_ApplyRootMotion: 0
-  m_LinearVelocityBlending: 0
-  m_StabilizeFeet: 0
-  m_WarningMessage: 
-  m_HasTransformHierarchy: 1
-  m_AllowConstantClipSamplingOptimization: 1
-  m_KeepAnimatorStateOnDisable: 0
-  m_WriteDefaultValuesOnDisable: 0
 --- !u!114 &576232785833266546
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -160,8 +138,11 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   playerIndex: 0
-  initialized: 0
-  animator: {fileID: 0}
+  initialized: 1
+  animator: {fileID: 5829018250504061989}
+  externalControlEnabled: 1
+  isGrounded: 1
+  allowImpactReactions: 0
 --- !u!1001 &112098091725814196
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -225,6 +206,16 @@ PrefabInstance:
       propertyPath: m_Name
       value: Astronaut_FinnTheFrog
       objectReference: {fileID: 0}
+    - target: {fileID: 5866666021909216657, guid: d9244d1a61d0844aab4e3e4512d36e78,
+        type: 3}
+      propertyPath: m_Controller
+      value: 
+      objectReference: {fileID: 9100000, guid: 3ee7ddc6555f548aebb1061fd9f7ea89, type: 2}
+    - target: {fileID: 5866666021909216657, guid: d9244d1a61d0844aab4e3e4512d36e78,
+        type: 3}
+      propertyPath: m_ApplyRootMotion
+      value: 0
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -233,6 +224,12 @@ PrefabInstance:
 --- !u!4 &433746220304670303 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: d9244d1a61d0844aab4e3e4512d36e78,
+    type: 3}
+  m_PrefabInstance: {fileID: 112098091725814196}
+  m_PrefabAsset: {fileID: 0}
+--- !u!95 &5829018250504061989 stripped
+Animator:
+  m_CorrespondingSourceObject: {fileID: 5866666021909216657, guid: d9244d1a61d0844aab4e3e4512d36e78,
     type: 3}
   m_PrefabInstance: {fileID: 112098091725814196}
   m_PrefabAsset: {fileID: 0}

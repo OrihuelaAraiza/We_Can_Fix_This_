@@ -40,7 +40,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 7822216256052642113}
-  - component: {fileID: 1112036416674598771}
   - component: {fileID: 400522237592043581}
   - component: {fileID: -3901326045851317770}
   - component: {fileID: -1506238211532373672}
@@ -68,27 +67,6 @@ Transform:
   - {fileID: 527556560778314364}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!95 &1112036416674598771
-Animator:
-  serializedVersion: 5
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 8874579203571786221}
-  m_Enabled: 1
-  m_Avatar: {fileID: 9000000, guid: 234ddc44ff0c24fceb03f94f1c2c0b90, type: 3}
-  m_Controller: {fileID: 9100000, guid: 3ee7ddc6555f548aebb1061fd9f7ea89, type: 2}
-  m_CullingMode: 0
-  m_UpdateMode: 0
-  m_ApplyRootMotion: 0
-  m_LinearVelocityBlending: 0
-  m_StabilizeFeet: 0
-  m_WarningMessage: 
-  m_HasTransformHierarchy: 1
-  m_AllowConstantClipSamplingOptimization: 1
-  m_KeepAnimatorStateOnDisable: 0
-  m_WriteDefaultValuesOnDisable: 0
 --- !u!114 &400522237592043581
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -160,8 +138,11 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   playerIndex: 0
-  initialized: 0
+  initialized: 1
   animator: {fileID: 0}
+  externalControlEnabled: 1
+  isGrounded: 1
+  allowImpactReactions: 0
 --- !u!1001 &6462755347471431240
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -225,6 +206,11 @@ PrefabInstance:
       propertyPath: m_Name
       value: Astronaut_FernandoTheFlamingo
       objectReference: {fileID: 0}
+    - target: {fileID: 5866666021909216657, guid: 234ddc44ff0c24fceb03f94f1c2c0b90,
+        type: 3}
+      propertyPath: m_Controller
+      value: 
+      objectReference: {fileID: 9100000, guid: 3ee7ddc6555f548aebb1061fd9f7ea89, type: 2}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []

@@ -6,86 +6,87 @@ public class PlayerVisualWobble : MonoBehaviour
     [SerializeField] private Transform visual;
     [SerializeField] private Rigidbody rb;
 
-    [Header("Tilt")]
-    [SerializeField] private float tiltAmount = 10f;
-    [SerializeField] private float tiltSmooth = 8f;
-
-    [Header("Bounce")]
-    [SerializeField] private float bounceAmount = 0.04f;
-    [SerializeField] private float bounceSpeed = 10f;
+    [Header("Movement Wobble")]
+    [SerializeField] private float tiltAmount = 8f;
+    [SerializeField] private float tiltSmooth = 10f;
 
     [Header("Idle Motion")]
-    [SerializeField] private float idleBreathAmount = 0.02f;
-    [SerializeField] private float idleBreathSpeed = 2.2f;
+    [SerializeField] private float idleBreathAmount = 0.015f;
+    [SerializeField] private float idleBreathSpeed = 2f;
 
     [Header("Stride Motion")]
-    [SerializeField] private float strideBounceAmount = 0.06f;
-    [SerializeField] private float stridePitchAmount = 5f;
-    [SerializeField] private float strideRollAmount = 4f;
-    [SerializeField] private float strideYawAmount = 2f;
-    [SerializeField] private float strideFrequency = 11f;
+    [SerializeField] private float strideBounceAmount = 0.035f;
+    [SerializeField] private float stridePitchAmount = 3f;
+    [SerializeField] private float strideRollAmount = 2.5f;
+    [SerializeField] private float strideFrequency = 9f;
 
     [Header("Impact Reaction")]
-    [SerializeField] private float impactTiltMultiplier = 1.5f;
-    [SerializeField] private float impactRecoverySpeed = 6f;
+    [SerializeField] private float impactTiltMultiplier = 1f;
+    [SerializeField] private float impactRecoverySpeed = 7f;
+    [SerializeField] private float maxImpactTilt = 25f;
 
     private Vector3 initialLocalPos;
+    private Quaternion initialLocalRot;
     private Quaternion extraImpactRotation = Quaternion.identity;
+
+    private bool initialized;
 
     private void Awake()
     {
-        if (visual == null)
-            visual = transform;
-
         if (rb == null)
-            rb = GetComponentInParent<Rigidbody>();
+            rb = GetComponent<Rigidbody>();
 
-        initialLocalPos = visual.localPosition;
-    }
+        ResolveVisual();
 
-    public void BindVisual(Transform targetVisual)
-    {
-        if (targetVisual == null)
-            return;
-
-        visual = targetVisual;
-        initialLocalPos = visual.localPosition;
+        if (visual != null)
+        {
+            initialLocalPos = visual.localPosition;
+            initialLocalRot = visual.localRotation;
+            initialized = true;
+        }
     }
 
     private void LateUpdate()
     {
-        if (visual == null || rb == null) return;
+        if (!initialized || visual == null || rb == null)
+            return;
 
-        Vector3 localVel = transform.InverseTransformDirection(rb.velocity);
-        float planarSpeed = new Vector3(rb.velocity.x, 0f, rb.velocity.z).magnitude;
+        Vector3 planarVelocity = new Vector3(rb.velocity.x, 0f, rb.velocity.z);
+        float planarSpeed = planarVelocity.magnitude;
         float moveBlend = Mathf.Clamp01(planarSpeed / 4f);
+
+        Vector3 localVel = transform.InverseTransformDirection(planarVelocity);
+
         float stridePhase = Time.time * Mathf.Lerp(idleBreathSpeed, strideFrequency, moveBlend);
 
-        float tiltX = -localVel.z * tiltAmount * 0.1f;
-        float tiltZ = localVel.x * tiltAmount * 0.1f;
+        float movementTiltX = -localVel.z * tiltAmount * 0.08f;
+        float movementTiltZ = localVel.x * tiltAmount * 0.08f;
+
         float stridePitch = Mathf.Sin(stridePhase) * stridePitchAmount * moveBlend;
         float strideRoll = Mathf.Cos(stridePhase) * strideRollAmount * moveBlend;
-        float strideYaw = Mathf.Sin(stridePhase * 0.5f) * strideYawAmount * moveBlend;
 
-        Quaternion moveTilt = Quaternion.Euler(tiltX + stridePitch, strideYaw, tiltZ + strideRoll);
-        Quaternion targetRot = moveTilt * extraImpactRotation;
+        Quaternion movementRotation = Quaternion.Euler(
+            movementTiltX + stridePitch,
+            0f,
+            movementTiltZ + strideRoll
+        );
+
+        Quaternion targetRotation = initialLocalRot * movementRotation * extraImpactRotation;
 
         visual.localRotation = Quaternion.Slerp(
             visual.localRotation,
-            targetRot,
+            targetRotation,
             tiltSmooth * Time.deltaTime
         );
 
         float idleBounce = Mathf.Sin(Time.time * idleBreathSpeed) * idleBreathAmount;
-        float speedFactor = Mathf.Clamp01(planarSpeed * 0.12f);
-        float moveBounce = Mathf.Sin(Time.time * bounceSpeed) * speedFactor * bounceAmount;
         float strideBounce = Mathf.Abs(Mathf.Sin(stridePhase)) * strideBounceAmount * moveBlend;
-        float bounce = idleBounce + moveBounce + strideBounce;
 
-        Vector3 targetPos = initialLocalPos + new Vector3(0f, bounce, 0f);
+        Vector3 targetPosition = initialLocalPos + new Vector3(0f, idleBounce + strideBounce, 0f);
+
         visual.localPosition = Vector3.Lerp(
             visual.localPosition,
-            targetPos,
+            targetPosition,
             tiltSmooth * Time.deltaTime
         );
 
@@ -96,15 +97,66 @@ public class PlayerVisualWobble : MonoBehaviour
         );
     }
 
+    public void BindVisual(Transform targetVisual)
+    {
+        if (targetVisual == null)
+            return;
+
+        visual = targetVisual;
+        initialLocalPos = visual.localPosition;
+        initialLocalRot = visual.localRotation;
+        initialized = true;
+    }
+
     public void AddImpactTilt(Vector3 worldDirection, float amount)
     {
-        if (visual == null) return;
+        if (!initialized || visual == null)
+            return;
 
         Vector3 localDir = transform.InverseTransformDirection(worldDirection.normalized);
 
-        float tiltX = localDir.z * amount * impactTiltMultiplier;
-        float tiltZ = -localDir.x * amount * impactTiltMultiplier;
+        float clampedAmount = Mathf.Clamp(amount * impactTiltMultiplier, 0f, maxImpactTilt);
 
-        extraImpactRotation *= Quaternion.Euler(tiltX, 0f, tiltZ);
+        float tiltX = localDir.z * clampedAmount;
+        float tiltZ = -localDir.x * clampedAmount;
+
+        extraImpactRotation = Quaternion.Euler(tiltX, 0f, tiltZ);
+    }
+
+    private void ResolveVisual()
+    {
+        if (visual != null && visual != transform)
+            return;
+
+        Transform modelRoot = transform.Find("ModelRoot");
+
+        if (modelRoot != null && modelRoot.childCount > 0)
+        {
+            visual = modelRoot.GetChild(0);
+            return;
+        }
+
+        Animator animator = GetComponentInChildren<Animator>(true);
+
+        if (animator != null && animator.transform != transform)
+        {
+            visual = animator.transform;
+            return;
+        }
+
+        foreach (Renderer renderer in GetComponentsInChildren<Renderer>(true))
+        {
+            if (renderer == null)
+                continue;
+
+            if (renderer.transform == transform)
+                continue;
+
+            visual = renderer.transform;
+            return;
+        }
+
+        Debug.LogWarning("[PlayerVisualWobble] No se encontró un visual hijo. No se aplicará wobble.", this);
+        visual = null;
     }
 }
