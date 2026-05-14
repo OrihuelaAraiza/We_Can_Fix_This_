@@ -2492,7 +2492,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   stationType: 3
-  repairDuration: 5
+  repairDuration: 6
   shipDrainOnBroken: 1
   state: 0
   repairProgress: 0

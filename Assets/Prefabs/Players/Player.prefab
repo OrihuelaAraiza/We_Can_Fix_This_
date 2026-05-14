@@ -187,11 +187,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f5e955fe087de1945a2dffb34d5cb26a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  ragdollEnabled: 0
+  ragdollEnabled: 1
   hardHitThreshold: 5
-  impactCooldown: 0.35
+  impactCooldown: 0.3
   tiltAmount: 18
-  impactMultiplier: 0.6
+  impactMultiplier: 0.8
   ignoreLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -254,7 +254,7 @@ MonoBehaviour:
   initialized: 1
   animator: {fileID: 0}
   externalControlEnabled: 1
-  isGrounded: 0
+  isGrounded: 1
   allowImpactReactions: 0
 --- !u!114 &4326680441929717812
 MonoBehaviour:
@@ -296,7 +296,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 4108714465431096865}
-  m_Enabled: 0
+  m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 000e976209e213e4ab9f5517872f5ede, type: 3}
   m_Name: 
@@ -304,9 +304,9 @@ MonoBehaviour:
   visual: {fileID: 8322177807284062747}
   rb: {fileID: 3030904454574547433}
   tiltAmount: 10
-  tiltSmooth: 8
-  idleBreathAmount: 0.02
-  idleBreathSpeed: 2.2
+  tiltSmooth: 8.2
+  idleBreathAmount: 0.05
+  idleBreathSpeed: 2.4
   strideBounceAmount: 0.06
   stridePitchAmount: 5
   strideRollAmount: 4

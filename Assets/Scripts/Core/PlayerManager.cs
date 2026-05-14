@@ -1489,6 +1489,7 @@ public class PlayerManager : MonoBehaviour
             return;
         }
 
+
         if (playerPrefabsBySlot[index] == null)
         {
             Debug.LogWarning($"[PlayerManager] El Element {index} está vacío.");
