@@ -14,6 +14,31 @@ public class PlayerMovement : MonoBehaviour
     [Header("Animation")]
     [SerializeField] private Animator animator;
 
+    [SerializeField] private float minAnimMoveSpeed = 0.1f;
+
+    // Deben coincidir con los Thresholds de tu Blend Tree
+    [SerializeField] private float idleAnimValue = 0f;
+    [SerializeField] private float walkAnimValue = 2.2f;
+    [SerializeField] private float runAnimValue = 5.2f;
+
+    [SerializeField] private float animationDampTime = 0.05f;
+
+    // Nombre EXACTO del estado naranja en tu Animator
+    [SerializeField] private string locomotionStateName = "Locomotion";
+
+    [Header("Smooth Full Loop Fix")]
+    [SerializeField] private bool forceSmoothLoop = true;
+
+    // Velocidad general del loop
+    [SerializeField] private float manualLoopSpeed = 1f;
+
+    // Ajustes separados para walk y run
+    [SerializeField] private float walkLoopSpeed = 1f;
+    [SerializeField] private float runLoopSpeed = 1f;
+
+    private float locomotionLoopTime = 0f;
+    private bool wasMovingLastFrame = false;
+
     [Header("Runtime Motion")]
     [SerializeField] private bool externalControlEnabled = true;
     [SerializeField] private bool isGrounded;
@@ -55,7 +80,6 @@ public class PlayerMovement : MonoBehaviour
         capsule = GetComponent<CapsuleCollider>();
         playerLayer = LayerMask.NameToLayer("Player");
 
-        // Corrección: busca automáticamente el Animator en los hijos
         ResolveAnimatorReference();
     }
 
@@ -74,7 +98,8 @@ public class PlayerMovement : MonoBehaviour
         if (rb == null)
             rb = GetComponent<Rigidbody>();
 
-        capsule ??= GetComponent<CapsuleCollider>();
+        if (capsule == null)
+            capsule = GetComponent<CapsuleCollider>();
 
         rb.mass = Mathf.Max(0.01f, data.mass);
         rb.drag = 0f;
@@ -86,9 +111,8 @@ public class PlayerMovement : MonoBehaviour
         externalControlEnabled = true;
         moveInput = Vector2.zero;
         jumpQueued = false;
-        CheckGround();
 
-        // Corrección: asegura que el Animator se conecte aunque esté en un hijo
+        CheckGround();
         ResolveAnimatorReference();
 
         initialized = true;
@@ -116,6 +140,11 @@ public class PlayerMovement : MonoBehaviour
         {
             jumpQueued = false;
             moveInput = Vector2.zero;
+            wasMovingLastFrame = false;
+            locomotionLoopTime = 0f;
+
+            if (animator != null)
+                animator.SetFloat(SpeedHash, idleAnimValue);
         }
     }
 
@@ -352,8 +381,64 @@ public class PlayerMovement : MonoBehaviour
         if (animator == null || rb == null || animator.runtimeAnimatorController == null)
             return;
 
-        animator.SetFloat(SpeedHash, PlanarSpeed, 0.1f, Time.deltaTime);
+        bool hasInput = moveInput.sqrMagnitude >= 0.01f && externalControlEnabled;
+        bool hasVelocity = PlanarSpeed > minAnimMoveSpeed;
+        bool isMoving = hasInput || hasVelocity;
+
+        float targetAnimSpeed = idleAnimValue;
+
+        if (isMoving)
+        {
+            float maxPossibleSpeed = 1f;
+
+            if (data != null)
+                maxPossibleSpeed = Mathf.Max(0.01f, data.maxSpeed * speedMultiplier * tempBoostMultiplier);
+
+            float speedPercent = Mathf.Clamp01(PlanarSpeed / maxPossibleSpeed);
+
+            targetAnimSpeed = Mathf.Lerp(walkAnimValue, runAnimValue, speedPercent);
+        }
+
+        animator.SetFloat(SpeedHash, targetAnimSpeed, animationDampTime, Time.deltaTime);
         animator.SetBool(IsGroundedHash, isGrounded);
+
+        if (forceSmoothLoop)
+            ForceFullLocomotionLoop(isMoving, targetAnimSpeed);
+
+        wasMovingLastFrame = isMoving;
+    }
+
+    private void ForceFullLocomotionLoop(bool isMoving, float targetAnimSpeed)
+    {
+        if (!isMoving || targetAnimSpeed <= idleAnimValue + 0.01f)
+        {
+            locomotionLoopTime = 0f;
+            return;
+        }
+
+        AnimatorStateInfo stateInfo = animator.GetCurrentAnimatorStateInfo(0);
+
+        if (!stateInfo.IsName(locomotionStateName))
+            return;
+
+        if (!wasMovingLastFrame)
+        {
+            float currentTime = stateInfo.normalizedTime;
+            locomotionLoopTime = currentTime - Mathf.Floor(currentTime);
+        }
+
+        float speedPercent = Mathf.InverseLerp(walkAnimValue, runAnimValue, targetAnimSpeed);
+
+        float selectedLoopSpeed = Mathf.Lerp(walkLoopSpeed, runLoopSpeed, speedPercent);
+        float finalLoopSpeed = selectedLoopSpeed * manualLoopSpeed;
+
+        locomotionLoopTime += Time.deltaTime * finalLoopSpeed;
+
+        // Esto deja que la animación llegue al final completo.
+        // En cuanto pasa de 1, vuelve inmediatamente a 0.
+        locomotionLoopTime = Mathf.Repeat(locomotionLoopTime, 1f);
+
+        animator.Play(locomotionStateName, 0, locomotionLoopTime);
     }
 
     public void BindAnimator(Animator targetAnimator)
@@ -368,7 +453,8 @@ public class PlayerMovement : MonoBehaviour
 
             if (animator.runtimeAnimatorController != null)
             {
-                animator.SetFloat("Speed", 0f);
+                animator.SetFloat(SpeedHash, idleAnimValue);
+                animator.SetBool(IsGroundedHash, true);
                 animator.Rebind();
                 animator.Update(0f);
             }
@@ -389,7 +475,10 @@ public class PlayerMovement : MonoBehaviour
             animator.cullingMode = AnimatorCullingMode.AlwaysAnimate;
 
             if (animator.runtimeAnimatorController != null)
-                animator.SetFloat("Speed", 0f);
+            {
+                animator.SetFloat(SpeedHash, idleAnimValue);
+                animator.SetBool(IsGroundedHash, true);
+            }
         }
     }
 
