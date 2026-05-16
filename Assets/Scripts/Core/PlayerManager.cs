@@ -239,6 +239,7 @@ public partial class PlayerManager : MonoBehaviour
 
         expectedLobbyPlayers = LobbyPlayerSessionData.Count;
         int restoredPlayers = 0;
+        playerInputManager.EnableJoining();
 
         foreach (LobbyPlayerSessionEntry entry in LobbyPlayerSessionData.Entries)
         {
@@ -253,17 +254,25 @@ public partial class PlayerManager : MonoBehaviour
             }
 
             GameObject prefabToUse = GetPlayerPrefabForEntry(entry);
+            if (prefabToUse == null)
+            {
+                Debug.LogWarning($"[PlayerManager] No prefab available for lobby slot {entry.PlayerIndex}.");
+                continue;
+            }
 
-            PlayerInput restoredInput = PlayerInput.Instantiate(
-                prefabToUse,
+            playerInputManager.playerPrefab = prefabToUse;
+
+            PlayerInput restoredInput = playerInputManager.JoinPlayer(
                 playerIndex: entry.PlayerIndex,
-                controlScheme: entry.ControlScheme,
                 splitScreenIndex: -1,
+                controlScheme: entry.ControlScheme,
                 pairWithDevice: device
             );
 
-            OnPlayerJoined(restoredInput);
-            restoredPlayers++;
+            if (restoredInput != null)
+                restoredPlayers++;
+            else
+                Debug.LogWarning($"[PlayerManager] Could not restore lobby player {entry.PlayerIndex} ({entry.ControlScheme}).");
         }
 
         if (debugLog)
@@ -1287,36 +1296,13 @@ public partial class PlayerManager : MonoBehaviour
 
     GameObject GetPlayerPrefabForEntry(LobbyPlayerSessionEntry entry)
     {
-        if (playerPrefabsBySlot == null || playerPrefabsBySlot.Length == 0)
+        if (entry == null)
         {
-            Debug.LogWarning("[PlayerManager] No hay prefabs asignados. Usando prefab default.");
+            Debug.LogWarning("[PlayerManager] Lobby entry nulo. Usando prefab default.");
             return playerInputManager.playerPrefab;
         }
 
-        int prefabIndex = 0;
-
-        if (entry.ControlScheme == "KeyboardP1")
-        {
-            prefabIndex = 0; // Espacio -> Fixie_P1
-        }
-        else if (entry.ControlScheme == "KeyboardP2")
-        {
-            prefabIndex = 1; // Enter -> Fixie_P2
-        }
-        else
-        {
-            prefabIndex = 2; // Gamepad -> Fixie_P3
-        }
-
-        if (prefabIndex >= playerPrefabsBySlot.Length || playerPrefabsBySlot[prefabIndex] == null)
-        {
-            Debug.LogWarning($"[PlayerManager] No hay prefab en Element {prefabIndex}. Usando prefab default.");
-            return playerInputManager.playerPrefab;
-        }
-
-        Debug.Log($"[PlayerManager] {entry.ControlScheme} usará prefab: {playerPrefabsBySlot[prefabIndex].name}");
-
-        return playerPrefabsBySlot[prefabIndex];
+        return GetPlayerPrefabForSlot(entry.PlayerIndex);
     }
 
     void SetPlayerInputManagerPrefab(int index)

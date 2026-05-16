@@ -37,9 +37,9 @@ public static class FixieAnimatorRebuilder
     };
 
     [InitializeOnLoadMethod]
-    private static void AutoRepairOnLoad()
+    private static void WarnIfManualRepairIsNeededOnLoad()
     {
-        EditorApplication.delayCall += TryAutoRebuild;
+        EditorApplication.delayCall += WarnIfManualRebuildIsNeeded;
     }
 
     [MenuItem("Tools/Fixies/Rebuild Animator From Imported FBX")]
@@ -68,7 +68,7 @@ public static class FixieAnimatorRebuilder
         Debug.Log($"[FixieAnimatorRebuilder] Controller reconstruido con clips: {idle.name}, {walk.name}, {run.name}");
     }
 
-    private static void TryAutoRebuild()
+    private static void WarnIfManualRebuildIsNeeded()
     {
         AnimatorController controller = AssetDatabase.LoadAssetAtPath<AnimatorController>(ControllerPath);
         if (controller == null)
@@ -76,12 +76,11 @@ public static class FixieAnimatorRebuilder
 
         if (NeedsRebuild(controller))
         {
-            RebuildFromImportedFbx();
-            return;
+            Debug.LogWarning(
+                "[FixieAnimatorRebuilder] El AnimatorController de Fixie necesita reparación. " +
+                "Ejecuta manualmente Tools/Fixies/Rebuild Animator From Imported FBX. " +
+                "No se reparó automáticamente para evitar modificar assets durante pruebas o al abrir Unity.");
         }
-
-        EnsurePerFixieOverrides(controller);
-        AssetDatabase.SaveAssets();
     }
 
     private static bool NeedsRebuild(AnimatorController controller)
