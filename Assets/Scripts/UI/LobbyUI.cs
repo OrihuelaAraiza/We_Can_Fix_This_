@@ -24,7 +24,7 @@ public class LobbyUI : MonoBehaviour
     [Header("Start Button")]
     [SerializeField] GameObject startPrompt;
     [SerializeField] TextMeshProUGUI startPromptText;
-    [SerializeField] Button btnStart;   // botón INICIAR — conectar desde Inspector
+    [SerializeField] Button btnStart;   // legado: se oculta; el lobby inicia automaticamente al estar todos listos
     [SerializeField] Button btnBack;    // botón VOLVER  — conectar desde Inspector
 
     [Header("Instrucciones")]
@@ -68,6 +68,8 @@ public class LobbyUI : MonoBehaviour
 
         if (startPrompt != null)
             startPrompt.SetActive(false);
+        if (btnStart != null)
+            btnStart.gameObject.SetActive(false);
 
         // Normaliza el layout base para que todos los paneles compartan la misma geometría.
         for (int i = 0; i < playerPanels.Count; i++)
@@ -85,7 +87,6 @@ public class LobbyUI : MonoBehaviour
         btnStart?.onClick.AddListener(OnStartClicked);
         btnBack?.onClick.AddListener(OnBackClicked);
 
-        // Botón INICIAR deshabilitado hasta que haya suficientes jugadores listos
         RefreshStartAvailability();
     }
 
@@ -222,14 +223,20 @@ public class LobbyUI : MonoBehaviour
 
     void OnAllReady()
     {
+        if (joinPromptPanel != null)
+            joinPromptPanel.SetActive(false);
+
+        if (btnStart != null)
+            btnStart.gameObject.SetActive(false);
+
         if (startPrompt != null)
         {
             startPrompt.SetActive(true);
             if (startPromptText != null)
-                startPromptText.text = "¡INICIANDO...";
+                startPromptText.text = "INICIANDO...";
         }
 
-        // Habilitar botón INICIAR cuando todos están listos
+        // Conserva el estado interno para escenas antiguas que aun tengan BtnStart conectado.
         RefreshStartAvailability();
     }
 
@@ -297,16 +304,28 @@ public class LobbyUI : MonoBehaviour
             if (title != null)
             {
                 title.text = "WE CAN FIX THIS!";
-                title.fontSize = 50f;
+                title.fontSize = 46f;
                 title.color = TextColor;
                 title.alignment = TextAlignmentOptions.Center;
                 title.enableWordWrapping = false;
-                SetRect(title.rectTransform, new Vector2(0.5f, 1f), new Vector2(0f, -42f), new Vector2(760f, 58f));
+                SetRect(title.rectTransform, new Vector2(0.5f, 1f), new Vector2(0f, -16f), new Vector2(820f, 48f));
+            }
+
+            TMP_Text subtitle = FindChild<TMP_Text>(canvas.transform, "Subtitle");
+            if (subtitle != null)
+            {
+                subtitle.text = "CREW SELECTION  //  COREXIS MAINTENANCE PROTOCOL";
+                subtitle.fontSize = 18f;
+                subtitle.color = Hex("#8a8e92");
+                subtitle.alignment = TextAlignmentOptions.Center;
+                subtitle.enableWordWrapping = false;
+                SetRect(subtitle.rectTransform, new Vector2(0.5f, 1f), new Vector2(0f, -70f), new Vector2(820f, 24f));
             }
         }
 
         StylePrompt(joinPromptPanel, joinPromptText, "UNIRSE  SPACE=P1  ENTER=P2  GAMEPAD=A");
-        StylePrompt(startPrompt, startPromptText, "TRIPULACION LISTA");
+        StylePrompt(startPrompt, startPromptText, "INICIANDO...");
+        NormalizeStartPrompt();
         StyleButton(btnStart, GreenColor, TextColor);
         StyleButton(btnBack, RedColor, TextColor);
 
@@ -374,6 +393,32 @@ public class LobbyUI : MonoBehaviour
             label.fontSize = Mathf.Max(label.fontSize, 18f);
             label.alignment = TextAlignmentOptions.Center;
         }
+    }
+
+    void NormalizeStartPrompt()
+    {
+        if (btnStart != null)
+            btnStart.gameObject.SetActive(false);
+
+        if (startPrompt == null)
+            return;
+
+        RectTransform promptRect = startPrompt.GetComponent<RectTransform>();
+        SetRect(promptRect, new Vector2(0.5f, 0f), new Vector2(0f, 90f), new Vector2(420f, 44f));
+
+        if (startPromptText == null)
+            return;
+
+        RectTransform textRect = startPromptText.rectTransform;
+        textRect.anchorMin = Vector2.zero;
+        textRect.anchorMax = Vector2.one;
+        textRect.pivot = new Vector2(0.5f, 0.5f);
+        textRect.offsetMin = Vector2.zero;
+        textRect.offsetMax = Vector2.zero;
+
+        startPromptText.alignment = TextAlignmentOptions.Center;
+        startPromptText.fontSize = 22f;
+        startPromptText.enableWordWrapping = false;
     }
 
     static void EnsureOutline(GameObject target, Color color, Vector2 distance)

@@ -130,10 +130,10 @@ public static class LobbySceneBuilder
         AddOutline(top.gameObject, Border, new Vector2(1.5f, -1.5f));
 
         TMP_Text title = Label(top.transform, "Title", "WE CAN FIX THIS!", 50f, Text, TextAlignmentOptions.Center);
-        Pin(title.rectTransform, new Vector2(0.5f, 1f), new Vector2(0f, -12f), new Vector2(760f, 50f));
+        Pin(title.rectTransform, new Vector2(0.5f, 1f), new Vector2(0f, -16f), new Vector2(820f, 48f));
 
         TMP_Text subtitle = Label(top.transform, "Subtitle", "CREW SELECTION  //  COREXIS MAINTENANCE PROTOCOL", 18f, Muted, TextAlignmentOptions.Center);
-        Pin(subtitle.rectTransform, new Vector2(0.5f, 0f), new Vector2(0f, 14f), new Vector2(760f, 24f));
+        Pin(subtitle.rectTransform, new Vector2(0.5f, 1f), new Vector2(0f, -70f), new Vector2(820f, 24f));
     }
 
     static void CreateFooter(Transform canvas)
@@ -200,11 +200,10 @@ public static class LobbySceneBuilder
         AddOutline(prompt.gameObject, Green, new Vector2(1.5f, -1.5f));
         prompt.gameObject.SetActive(false);
 
-        startText = Label(prompt.transform, "StartPromptText", "TRIPULACION LISTA", 18f, Hex("#9fe6a5"), TextAlignmentOptions.Left);
-        Pin(startText.rectTransform, new Vector2(0f, 0.5f), new Vector2(16f, 0f), new Vector2(230f, 28f));
+        startText = Label(prompt.transform, "StartPromptText", "INICIANDO...", 22f, Hex("#9fe6a5"), TextAlignmentOptions.Center);
+        Stretch(startText.rectTransform);
 
-        startButton = ButtonGO(prompt.transform, "BtnStart", "INICIAR", Hex("#183c20"), Hex("#70b888"), new Vector2(128f, 30f));
-        Pin(startButton.GetComponent<RectTransform>(), new Vector2(1f, 0.5f), new Vector2(-14f, 0f), new Vector2(128f, 30f));
+        startButton = null;
         return prompt.gameObject;
     }
 
