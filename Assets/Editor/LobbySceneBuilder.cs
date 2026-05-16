@@ -152,13 +152,13 @@ public static class LobbySceneBuilder
         AddOutline(root, Border, new Vector2(2f, -2f));
 
         var accent = ImageGO(root.transform, "RoleColorBar", Amber);
-        var playerLabel = Label(root.transform, "PlayerLabel", $"JUGADOR {index + 1}", 22f, Text, TextAlignmentOptions.Left);
+        var playerLabel = Label(root.transform, "PlayerLabel", $"PLAYER {index + 1}", 22f, Text, TextAlignmentOptions.Left);
         var roleName = Label(root.transform, "RoleName", "FIXIE", 32f, Text, TextAlignmentOptions.Left);
-        var perk = Label(root.transform, "PerkText", "Selecciona un rol para ver ventajas.", 18f, Hex("#7ee06f"), TextAlignmentOptions.Left);
-        var penalty = Label(root.transform, "PenaltyText", "! Sin penalizacion activa", 16f, Hex("#ff6565"), TextAlignmentOptions.Left);
+        var perk = Label(root.transform, "PerkText", "Select a role to see perks.", 18f, Hex("#7ee06f"), TextAlignmentOptions.Left);
+        var penalty = Label(root.transform, "PenaltyText", "! No active penalty", 16f, Hex("#ff6565"), TextAlignmentOptions.Left);
 
         Image readyIndicator = ImageGO(root.transform, "ReadyIndicator", Hex("#4a4a44"));
-        TextMeshProUGUI readyText = Label(root.transform, "ReadyText", "PRESIONA READY", 17f, Text, TextAlignmentOptions.Left);
+        TextMeshProUGUI readyText = Label(root.transform, "ReadyText", "PRESS READY", 17f, Text, TextAlignmentOptions.Left);
 
         Button prev = ButtonGO(root.transform, "BtnPrev", "<", Hex("#1a1e28"), Hex("#8090a8"), new Vector2(54f, 40f));
         Button next = ButtonGO(root.transform, "BtnNext", ">", Hex("#1a1e28"), Hex("#8090a8"), new Vector2(54f, 40f));
@@ -188,7 +188,7 @@ public static class LobbySceneBuilder
         Pin(prompt.rectTransform, new Vector2(0.5f, 0f), new Vector2(0f, 28f), new Vector2(780f, 46f));
         AddOutline(prompt.gameObject, Hex("#252b38"), new Vector2(1f, -1f));
 
-        joinText = Label(prompt.transform, "JoinPromptText", "UNIRSE  SPACE=P1  ENTER=P2  GAMEPAD=A", 20f, Text, TextAlignmentOptions.Center);
+        joinText = Label(prompt.transform, "JoinPromptText", "JOIN  SPACE=P1  ENTER=P2  GAMEPAD=A", 20f, Text, TextAlignmentOptions.Center);
         Stretch(joinText.rectTransform);
         return prompt.gameObject;
     }

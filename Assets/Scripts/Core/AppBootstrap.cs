@@ -15,6 +15,9 @@ namespace Wcft.Core
         [FormerlySerializedAs("loadLobbyOnStart")]
         [SerializeField] private bool loadMainMenuOnStart = true;
 
+        [Header("Audio")]
+        [SerializeField] private AudioManager audioManagerPrefab;
+
         private void Awake()
         {
             // Singleton simple para evitar duplicados
@@ -28,6 +31,7 @@ namespace Wcft.Core
             DontDestroyOnLoad(gameObject);
 
             ApplyGlobalSettings();
+            EnsureAudioManager();
         }
 
         private void Start()
@@ -36,6 +40,23 @@ namespace Wcft.Core
             {
                 SceneLoader.LoadScene(GameConfig.SCENE_MAIN_MENU);
             }
+        }
+
+        private void EnsureAudioManager()
+        {
+            if (AudioManager.Instance != null)
+                return;
+
+            if (audioManagerPrefab != null)
+            {
+                Instantiate(audioManagerPrefab);
+                return;
+            }
+
+            // Fallback: create a bare AudioManager so the game doesn't crash without one
+            var go = new GameObject("AudioManager", typeof(AudioManager));
+            DontDestroyOnLoad(go);
+            Debug.LogWarning("[AppBootstrap] AudioManager prefab not assigned — created blank instance. Assign it in the Inspector to load audio clips.");
         }
 
         private void ApplyGlobalSettings()

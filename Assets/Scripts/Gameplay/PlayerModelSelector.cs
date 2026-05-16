@@ -4,7 +4,7 @@ using UnityEngine;
 
 public class PlayerModelSelector : MonoBehaviour
 {
-    [Header("Modelos visuales por jugador")]
+    [Header("Visual models by player")]
     [SerializeField] private GameObject[] playerModels;
 
     public void SetModel(int playerIndex)

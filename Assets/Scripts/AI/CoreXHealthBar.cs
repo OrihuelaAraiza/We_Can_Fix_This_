@@ -3,12 +3,12 @@ using UnityEngine.UI;
 using TMPro;
 
 /// <summary>
-/// HUD de estado de Core-X: fase actual y modo jefe.
-/// Agregar a un Canvas con Image (fill), TextMeshProUGUI y panel de advertencia.
+/// Core-X status HUD: current phase and boss mode.
+/// Add to a Canvas with Image (fill), TextMeshProUGUI, and a warning panel.
 /// </summary>
 public class CoreXHealthBar : MonoBehaviour
 {
-    [Header("Referencias UI")]
+    [Header("UI References")]
     [SerializeField] private Image           phaseFill;
     [SerializeField] private TextMeshProUGUI phaseText;
     [SerializeField] private GameObject      bossWarningPanel;
@@ -36,7 +36,7 @@ public class CoreXHealthBar : MonoBehaviour
     private void HandlePhaseChanged(int phase)
     {
         if (phaseText != null)
-            phaseText.text = $"CORE-X — FASE {phase + 1}";
+            phaseText.text = $"CORE-X — PHASE {phase + 1}";
 
         if (phaseFill != null)
         {
@@ -47,7 +47,7 @@ public class CoreXHealthBar : MonoBehaviour
                 2 => new Color(0.9f, 0.1f, 0.1f),  // rojo
                 _ => Color.red
             };
-            // Fill avanza con cada fase (visual de "vida del jefe")
+            // Fill advances with each phase (boss health visual)
             phaseFill.fillAmount = 1f - (phase / 3f);
         }
     }
@@ -55,7 +55,7 @@ public class CoreXHealthBar : MonoBehaviour
     private void HandleBossActivated()
     {
         if (bossWarningPanel != null) bossWarningPanel.SetActive(true);
-        if (phaseText != null)      phaseText.text = "! CORE-X — MODO CRITICO !";
+        if (phaseText != null)      phaseText.text = "! CORE-X — CRITICAL MODE !";
         if (phaseFill != null)
         {
             phaseFill.color      = Color.red;
@@ -66,7 +66,7 @@ public class CoreXHealthBar : MonoBehaviour
     private void HandleDefeated()
     {
         if (bossWarningPanel != null) bossWarningPanel.SetActive(false);
-        if (phaseText != null)      phaseText.text = "CORE-X ELIMINADO";
+        if (phaseText != null)      phaseText.text = "CORE-X ELIMINATED";
         if (phaseFill != null)
         {
             phaseFill.color      = Color.gray;

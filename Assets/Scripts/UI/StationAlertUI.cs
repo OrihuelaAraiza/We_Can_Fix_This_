@@ -15,13 +15,12 @@ public class StationAlertUI : MonoBehaviour
     [SerializeField] Color colorWarning  = new Color(0.9f, 0.6f, 0.1f, 0.9f);
     [SerializeField] Color colorOk       = new Color(0.1f, 0.7f, 0.3f, 0.9f);
 
-    // Diccionario con nombres amigables por tipo
     readonly Dictionary<string, string> roomNames = new()
     {
-        { "Energy",         "⚡ SALA DE ENERGÍA"        },
-        { "Communications", "📡 COMUNICACIONES"          },
-        { "Gravity",        "🌀 CONTROL DE GRAVEDAD"    },
-        { "Hull",           "🛡 INTEGRIDAD DEL CASCO"   }
+        { "Energy",         "⚡ ENERGY ROOM"       },
+        { "Communications", "📡 COMMUNICATIONS"    },
+        { "Gravity",        "🌀 GRAVITY CONTROL"   },
+        { "Hull",           "🛡 HULL INTEGRITY"    }
     };
 
     // Lista de alertas activas
@@ -71,9 +70,9 @@ public class StationAlertUI : MonoBehaviour
 
         alertPanel.SetActive(true);
 
-        // Construir texto con todas las alertas activas
+        // Build text with all active alerts
         var sb = new System.Text.StringBuilder();
-        sb.AppendLine("⚠ FALLAS DETECTADAS:");
+        sb.AppendLine("⚠ FAILURES DETECTED:");
         foreach (var key in activeAlerts)
         {
             string name = roomNames.ContainsKey(key) ? roomNames[key] : key;
@@ -83,7 +82,7 @@ public class StationAlertUI : MonoBehaviour
         if (alertText != null)
             alertText.text = sb.ToString();
 
-        // Color según cantidad de fallas
+        // Color based on failure count
         if (alertBackground != null)
             alertBackground.color = activeAlerts.Count >= 2
                 ? colorCritical

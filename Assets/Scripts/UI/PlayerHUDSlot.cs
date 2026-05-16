@@ -101,7 +101,7 @@ public class PlayerHUDSlot : MonoBehaviour
             if (trackedRole.Role.ability == RoleAbility.None)
                 abilityCooldownText.text = "";
             else if (ready)
-                abilityCooldownText.text = "LISTO";
+                abilityCooldownText.text = "READY";
             else
             {
                 float seconds = normalized * trackedRole.Role.abilityCooldown;

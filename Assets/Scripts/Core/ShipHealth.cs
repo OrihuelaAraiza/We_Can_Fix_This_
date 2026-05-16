@@ -143,7 +143,7 @@ public class ShipHealth : MonoBehaviour
 
             destroyedRaised = true;
             OnShipDestroyed?.Invoke();
-            Debug.Log("[ShipHealth] NAVE DESTRUIDA");
+            Debug.Log("[ShipHealth] SHIP DESTROYED");
             return;
         }
 
@@ -151,13 +151,13 @@ public class ShipHealth : MonoBehaviour
         {
             isCritical = true;
             OnShipCritical?.Invoke();
-            Debug.Log("[ShipHealth] ESTADO CRÍTICO");
+            Debug.Log("[ShipHealth] CRITICAL STATE");
         }
         else if (isCritical && HealthPercent > criticalThreshold)
         {
             isCritical = false;
             OnShipRecovered?.Invoke();
-            Debug.Log("[ShipHealth] Nave recuperada");
+            Debug.Log("[ShipHealth] Ship recovered");
         }
     }
 }

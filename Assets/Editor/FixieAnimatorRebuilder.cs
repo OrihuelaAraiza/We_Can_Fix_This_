@@ -47,7 +47,7 @@ public static class FixieAnimatorRebuilder
     {
         if (!TryResolveClips(out AnimationClip idle, out AnimationClip walk, out AnimationClip run))
         {
-            Debug.LogWarning("[FixieAnimatorRebuilder] No se encontraron clips Idle/Walk/Run en Assets/Art/Models.");
+            Debug.LogWarning("[FixieAnimatorRebuilder] No Idle/Walk/Run clips found in Assets/Art/Models.");
             return;
         }
 
@@ -56,7 +56,7 @@ public static class FixieAnimatorRebuilder
         AnimatorController controller = AssetDatabase.LoadAssetAtPath<AnimatorController>(ControllerPath);
         if (controller == null)
         {
-            Debug.LogError($"[FixieAnimatorRebuilder] Controller no encontrado: {ControllerPath}");
+            Debug.LogError($"[FixieAnimatorRebuilder] Controller not found: {ControllerPath}");
             return;
         }
 
@@ -65,7 +65,7 @@ public static class FixieAnimatorRebuilder
         AssetDatabase.SaveAssets();
         AssetDatabase.Refresh();
 
-        Debug.Log($"[FixieAnimatorRebuilder] Controller reconstruido con clips: {idle.name}, {walk.name}, {run.name}");
+        Debug.Log($"[FixieAnimatorRebuilder] Controller rebuilt with clips: {idle.name}, {walk.name}, {run.name}");
     }
 
     private static void WarnIfManualRebuildIsNeeded()
@@ -77,9 +77,9 @@ public static class FixieAnimatorRebuilder
         if (NeedsRebuild(controller))
         {
             Debug.LogWarning(
-                "[FixieAnimatorRebuilder] El AnimatorController de Fixie necesita reparación. " +
-                "Ejecuta manualmente Tools/Fixies/Rebuild Animator From Imported FBX. " +
-                "No se reparó automáticamente para evitar modificar assets durante pruebas o al abrir Unity.");
+                "[FixieAnimatorRebuilder] Fixie's AnimatorController needs rebuilding. " +
+                "Run manually: Tools/Fixies/Rebuild Animator From Imported FBX. " +
+                "Auto-repair was skipped to avoid modifying assets during testing or on Unity startup.");
         }
     }
 
@@ -133,7 +133,7 @@ public static class FixieAnimatorRebuilder
     {
         if (!TryResolveClipsFromModel(binding.ModelPath, out AnimationClip idle, out AnimationClip walk, out AnimationClip run))
         {
-            Debug.LogWarning($"[FixieAnimatorRebuilder] Clips faltantes para {binding.ModelPath}");
+            Debug.LogWarning($"[FixieAnimatorRebuilder] Missing clips for {binding.ModelPath}");
             return;
         }
 
@@ -173,14 +173,14 @@ public static class FixieAnimatorRebuilder
         GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(binding.PrefabPath);
         if (prefab == null)
         {
-            Debug.LogWarning($"[FixieAnimatorRebuilder] Prefab no encontrado: {binding.PrefabPath}");
+            Debug.LogWarning($"[FixieAnimatorRebuilder] Prefab not found: {binding.PrefabPath}");
             return;
         }
 
         Animator animator = prefab.GetComponent<Animator>();
         if (animator == null)
         {
-            Debug.LogWarning($"[FixieAnimatorRebuilder] Animator no encontrado en {binding.PrefabPath}");
+            Debug.LogWarning($"[FixieAnimatorRebuilder] Animator not found in {binding.PrefabPath}");
             return;
         }
 

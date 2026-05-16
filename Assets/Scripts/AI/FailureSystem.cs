@@ -124,7 +124,7 @@ public class FailureSystem : MonoBehaviour
 
         station.TriggerFailure();
         totalFailures++;
-        Debug.Log($"[FailureSystem] CoreX forzó falla en: {station.Type}");
+        Debug.Log($"[FailureSystem] CoreX forced failure on: {station.Type}");
     }
 
     /// <summary>Cambia la tasa de fallas (fallas por minuto). CoreXBrain llama esto al entrar de fase.</summary>

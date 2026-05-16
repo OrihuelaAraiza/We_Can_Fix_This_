@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// Core-X: Director de IA adaptativo para We Can Fix This!
-/// Analiza patrones de los jugadores y escala la dificultad por fases.
-/// Compatible con FailureSystem (mantiene SelectStationToBreak / RegisterRepair).
+/// Core-X: Adaptive AI director for We Can Fix This!
+/// Analyzes player patterns and scales difficulty by phase.
+/// Compatible with FailureSystem (keeps SelectStationToBreak / RegisterRepair).
 /// </summary>
 public class CoreXBrain : MonoBehaviour
 {
@@ -18,15 +18,15 @@ public class CoreXBrain : MonoBehaviour
     public static event System.Action                OnCoreXDefeated;
 
     // ── Config inspector ───────────────────────────────────────
-    [Header("Fases")]
+    [Header("Phases")]
     [SerializeField] private CoreXPhase[] phases;
 
-    [Header("Análisis de jugadores")]
+    [Header("Player Analysis")]
     [SerializeField] private float analysisInterval  = 10f;
     [SerializeField] private float patternMemoryTime = 30f;
 
-    [Header("Modo Jefe")]
-    [SerializeField] private float bossHealthThreshold = 0.2f; // 0-1 porcentaje de salud
+    [Header("Boss Mode")]
+    [SerializeField] private float bossHealthThreshold = 0.2f;
     [SerializeField] private float bossActivationDelay = 3f;
 
     [Header("Legacy compat - Debug")]
@@ -44,13 +44,13 @@ public class CoreXBrain : MonoBehaviour
     private Dictionary<RepairStation, int> repairFrequency = new();
     private Dictionary<RepairStation, int> breakFrequency  = new();
 
-    // Estadísticas de reparación para escalar
+    // Repair stats for scaling
     private float repairsPerMinute    = 0f;
     private int   totalRepairs        = 0;
     private int   consecutiveRepairs  = 0;
     private float gameStartTime;
 
-    // NPCs spawneados por CoreX
+    // NPCs spawned by CoreX
     private readonly List<GameObject> spawnedNPCs = new();
 
     // ── Properties públicas ───────────────────────────────────
@@ -90,7 +90,7 @@ public class CoreXBrain : MonoBehaviour
             EnterPhase(0);
 
         StartCoroutine(BrainTick());
-        Debug.Log($"[CoreX] Iniciado con {allStations.Length} estaciones y {phases?.Length ?? 0} fases");
+        Debug.Log($"[CoreX] Started with {allStations.Length} stations and {phases?.Length ?? 0} phases");
     }
 
     static RepairStation[] GetRegisteredStations()
@@ -110,7 +110,7 @@ public class CoreXBrain : MonoBehaviour
 #pragma warning restore CS0618
     }
 
-    // ── Tick principal (Behavior Tree simplificado) ────────────
+    // ── Main tick (simplified Behavior Tree) ──────────────────
     private IEnumerator BrainTick()
     {
         while (!coreXDefeated)
@@ -123,17 +123,17 @@ public class CoreXBrain : MonoBehaviour
             phaseTimer   += interval;
             analysisTimer += interval;
 
-            // Actualizar agresión
+            // Update aggression
             aggressionLevel = Mathf.Min(1f, aggressionLevel + interval * 0.003f);
 
-            // Analizar patrones periódicamente
+            // Analyze patterns periodically
             if (analysisTimer >= analysisInterval)
             {
                 analysisTimer = 0f;
                 AnalyzePlayerPatterns();
             }
 
-            // Escalar a siguiente fase si se cumplió tiempo
+            // Advance to next phase if time has elapsed
             float phaseDuration = CurrentPhaseData?.phaseDuration ?? 120f;
             if (phaseTimer >= phaseDuration && currentPhaseIndex < (phases?.Length ?? 1) - 1)
             {
@@ -141,14 +141,14 @@ public class CoreXBrain : MonoBehaviour
                 EnterPhase(currentPhaseIndex + 1);
             }
 
-            // Sabotaje estratégico adicional (por encima del FailureSystem)
+            // Additional strategic sabotage (on top of FailureSystem)
             float sabotageInterval = CurrentPhaseData?.sabotageInterval ?? 15f;
             if (phaseTimer % sabotageInterval < interval)
                 TriggerStrategicSabotage();
         }
     }
 
-    // ── Fases ─────────────────────────────────────────────────
+    // ── Phases ────────────────────────────────────────────────
     private void EnterPhase(int index)
     {
         if (phases == null || index >= phases.Length) return;
@@ -156,36 +156,35 @@ public class CoreXBrain : MonoBehaviour
         currentPhaseIndex = index;
         var phase = phases[index];
 
-        // Aplicar tasa de fallas al FailureSystem
         if (FailureSystem.Instance != null)
             FailureSystem.Instance.SetFailureRate(phase.failureRate);
 
-        // Reemplazar NPCs de la fase anterior con los de la nueva fase
+        // Replace NPCs from the previous phase with those from the new phase
         DespawnAllNPCs();
         SpawnPhaseNPCs(phase);
 
         OnPhaseChanged?.Invoke(index);
-        Debug.Log($"[CoreX] Fase {index} ({phase.phaseName}) activada | fallas/min={phase.failureRate}");
+        Debug.Log($"[CoreX] Phase {index} ({phase.phaseName}) activated | failures/min={phase.failureRate}");
     }
 
-    // ── Spawn de NPCs ─────────────────────────────────────────
+    // ── NPC Spawning ──────────────────────────────────────────
     private void SpawnPhaseNPCs(CoreXPhase phase)
     {
         if (!phase.canDeployNPCs) return;
         if (phase.npcPrefabs == null || phase.npcPrefabs.Length == 0)
         {
-            Debug.LogWarning("[CoreX] canDeployNPCs=true pero npcPrefabs está vacío.");
+            Debug.LogWarning("[CoreX] canDeployNPCs=true but npcPrefabs is empty.");
             return;
         }
 
-        // Usar los spawn points de la fase; si no hay, tomar los de ShipRoom
+        // Use phase spawn points; if none, fall back to ShipRoom
         Transform[] spawnPoints = (phase.npcSpawnPoints != null && phase.npcSpawnPoints.Length > 0)
             ? phase.npcSpawnPoints
             : GatherShipSpawnPoints();
 
         if (spawnPoints == null || spawnPoints.Length == 0)
         {
-            Debug.LogWarning("[CoreX] No hay spawn points disponibles para NPCs.");
+            Debug.LogWarning("[CoreX] No spawn points available for NPCs.");
             return;
         }
 
@@ -200,7 +199,7 @@ public class CoreXBrain : MonoBehaviour
             spawnedNPCs.Add(npc);
         }
 
-        Debug.Log($"[CoreX] {spawnedNPCs.Count} NPCs spawneados para fase {currentPhaseIndex}.");
+        Debug.Log($"[CoreX] {spawnedNPCs.Count} NPCs spawned for phase {currentPhaseIndex}.");
     }
 
     private void DespawnAllNPCs()
@@ -240,7 +239,7 @@ public class CoreXBrain : MonoBehaviour
     private CoreXPhase CurrentPhaseData =>
         (phases != null && currentPhaseIndex < phases.Length) ? phases[currentPhaseIndex] : null;
 
-    // ── Análisis de patrones ───────────────────────────────────
+    // ── Pattern analysis ──────────────────────────────────────
     private void AnalyzePlayerPatterns()
     {
         var players = FindObjectsOfType<PlayerMovement>();
@@ -255,7 +254,7 @@ public class CoreXBrain : MonoBehaviour
         if (repairsPerMinute > threshold)
         {
             aggressionLevel = Mathf.Min(1f, aggressionLevel + 0.1f);
-            Debug.Log($"[CoreX] Jugadores eficientes ({repairsPerMinute:F1}/min) — agresión sube");
+            Debug.Log($"[CoreX] Efficient players ({repairsPerMinute:F1}/min) — raising aggression");
         }
 
         // Si hubo muchas reparaciones seguidas, contraatacar
@@ -264,11 +263,11 @@ public class CoreXBrain : MonoBehaviour
         {
             consecutiveRepairs = 0;
             TriggerStrategicSabotage();
-            Debug.Log("[CoreX] Patrón detectado: contraataque activado");
+            Debug.Log("[CoreX] Pattern detected: counterattack activated");
         }
     }
 
-    // ── Sabotaje estratégico ───────────────────────────────────
+    // ── Strategic sabotage ────────────────────────────────────
     private void TriggerStrategicSabotage()
     {
         if (FailureSystem.Instance == null) return;
@@ -284,10 +283,10 @@ public class CoreXBrain : MonoBehaviour
 
         FailureSystem.Instance.ForceFailStation(target);
         OnTargetSelected?.Invoke(target);
-        Debug.Log($"[CoreX] Sabotaje estratégico → {target.Type}");
+        Debug.Log($"[CoreX] Strategic sabotage → {target.Type}");
     }
 
-    // ── Modo Jefe ─────────────────────────────────────────────
+    // ── Boss mode ─────────────────────────────────────────────
     private void HandleHealthChanged(float healthPercent)
     {
         if (bossActivated || coreXDefeated) return;
@@ -298,7 +297,7 @@ public class CoreXBrain : MonoBehaviour
     private IEnumerator ActivateBossMode()
     {
         bossActivated = true;
-        Debug.Log("[CoreX] MODO JEFE — activando en " + bossActivationDelay + "s");
+        Debug.Log("[CoreX] BOSS MODE — activating in " + bossActivationDelay + "s");
         yield return new WaitForSeconds(bossActivationDelay);
 
         OnBossModeActivated?.Invoke();
@@ -320,11 +319,11 @@ public class CoreXBrain : MonoBehaviour
                     station.State == RepairStation.StationState.Fixed)
                     FailureSystem.Instance.ForceFailStation(station);
             }
-            Debug.Log("[CoreX] Boss tick — rompiendo todas las estaciones");
+            Debug.Log("[CoreX] Boss tick — breaking all stations");
         }
     }
 
-    // ── Desactivación (victoria) ───────────────────────────────
+    // ── Deactivation (victory) ────────────────────────────────
     public void Deactivate()
     {
         if (coreXDefeated) return;
@@ -334,10 +333,10 @@ public class CoreXBrain : MonoBehaviour
         DespawnAllNPCs();
         OnCoreXDefeated?.Invoke();
         GameManager.Instance?.TriggerVictory();
-        Debug.Log("[CoreX] Desactivado — ¡jugadores ganaron!");
+        Debug.Log("[CoreX] Deactivated — players won!");
     }
 
-    // ── Manejo de eventos ─────────────────────────────────────
+    // ── Event handlers ────────────────────────────────────────
     private void HandleShipDestroyed()
     {
         coreXDefeated = true; // detener ticks
@@ -352,14 +351,14 @@ public class CoreXBrain : MonoBehaviour
 
     private void HandleStationFailed(RepairStation station)
     {
-        consecutiveRepairs = 0; // resetear racha al romperse algo
+        consecutiveRepairs = 0;
         if (!breakFrequency.ContainsKey(station)) breakFrequency[station] = 0;
         breakFrequency[station]++;
     }
 
-    // ── API pública (compatibilidad con FailureSystem) ─────────
+    // ── Public API (FailureSystem compatibility) ───────────────
 
-    /// <summary>Llamado por FailureSystem para elegir qué estación romper.</summary>
+    /// <summary>Called by FailureSystem to choose which station to break.</summary>
     public RepairStation SelectStationToBreak(List<RepairStation> stations)
     {
         var candidates = stations.FindAll(s =>
@@ -379,7 +378,7 @@ public class CoreXBrain : MonoBehaviour
         return chosen;
     }
 
-    /// <summary>Llamado por FailureSystem cuando una estación es reparada.</summary>
+    /// <summary>Called by FailureSystem when a station is repaired.</summary>
     public void RegisterRepair(RepairStation station)
     {
         if (!repairFrequency.ContainsKey(station)) repairFrequency[station] = 0;
@@ -387,7 +386,7 @@ public class CoreXBrain : MonoBehaviour
         totalRepairs++;
     }
 
-    // ── Estrategias de selección ───────────────────────────────
+    // ── Selection strategies ───────────────────────────────────
     private RepairStation SelectByStrategy(List<RepairStation> candidates)
     {
         if (aggressionLevel < 0.3f)

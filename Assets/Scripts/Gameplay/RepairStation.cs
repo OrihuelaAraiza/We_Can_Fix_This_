@@ -107,7 +107,7 @@ public class RepairStation : MonoBehaviour, IInteractable
     }
 
     public string GetInteractLabel()
-        => state == StationState.Broken ? $"Reparar {stationType} [E]" : "";
+        => state == StationState.Broken ? $"Repair {stationType} [E]" : "";
 
     // ── Public API ─────────────────────────────────────────────
 

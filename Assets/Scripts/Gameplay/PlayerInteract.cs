@@ -74,14 +74,14 @@ public class PlayerInteract : MonoBehaviour
 
         if (role.cannotRepairManually)
         {
-            Debug.Log($"[Interact] {role.roleName} no puede reparar manualmente");
+            Debug.Log($"[Interact] {role.roleName} cannot repair manually");
             return false;
         }
 
         if (role.cannotRepairEnergy &&
             station.Type == RepairStation.StationType.Energy)
         {
-            Debug.Log($"[Interact] {role.roleName} no puede reparar Energía");
+            Debug.Log($"[Interact] {role.roleName} cannot repair Energy");
             return false;
         }
 

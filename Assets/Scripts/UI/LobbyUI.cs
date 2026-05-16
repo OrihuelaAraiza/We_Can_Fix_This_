@@ -18,16 +18,16 @@ public class LobbyUI : MonoBehaviour
     [Header("Scenes")]
     [SerializeField] int minPlayersToStart = 2;
 
-    [Header("Player Panels — uno por jugador (máx 4)")]
+    [Header("Player Panels — one per player (max 4)")]
     [SerializeField] List<PlayerLobbyPanel> playerPanels = new();
 
     [Header("Start Button")]
     [SerializeField] GameObject startPrompt;
     [SerializeField] TextMeshProUGUI startPromptText;
-    [SerializeField] Button btnStart;   // legado: se oculta; el lobby inicia automaticamente al estar todos listos
-    [SerializeField] Button btnBack;    // botón VOLVER  — conectar desde Inspector
+    [SerializeField] Button btnStart;
+    [SerializeField] Button btnBack;
 
-    [Header("Instrucciones")]
+    [Header("Instructions")]
     [SerializeField] GameObject      joinPromptPanel;
     [SerializeField] TextMeshProUGUI joinPromptText;
 
@@ -82,7 +82,7 @@ public class LobbyUI : MonoBehaviour
         // Instrucciones de controles
         if (joinPromptText != null)
             joinPromptText.text =
-                "UNIRSE  SPACE=P1  ENTER=P2  GAMEPAD=A";
+                "JOIN  SPACE=P1  ENTER=P2  GAMEPAD=A";
 
         btnStart?.onClick.AddListener(OnStartClicked);
         btnBack?.onClick.AddListener(OnBackClicked);
@@ -144,7 +144,7 @@ public class LobbyUI : MonoBehaviour
             panel.readyButton.onClick.AddListener(() => OnReadyButton(idx));
         }
 
-        Debug.Log($"[LobbyUI] Botones conectados para P{playerIndex}");
+        Debug.Log($"[LobbyUI] Buttons connected for P{playerIndex}");
     }
 
     void OnPrevRole(int playerIndex)
@@ -233,7 +233,7 @@ public class LobbyUI : MonoBehaviour
         {
             startPrompt.SetActive(true);
             if (startPromptText != null)
-                startPromptText.text = "INICIANDO...";
+                startPromptText.text = "STARTING...";
         }
 
         // Conserva el estado interno para escenas antiguas que aun tengan BtnStart conectado.
@@ -242,9 +242,7 @@ public class LobbyUI : MonoBehaviour
 
     void OnReadyChanged_CheckStartButton(int playerIndex, bool ready)
     {
-        // Contar cuántos jugadores están en estado READY para habilitar el botón INICIAR
-        // (requiere acceso a LobbyManager; si no está disponible, depender solo de OnAllReady)
-        _ = playerIndex; _ = ready; // usados indirectamente vía LobbyManager
+        _ = playerIndex; _ = ready;
     }
 
     // ── Botones de escena ─────────────────────────────────────────
@@ -323,8 +321,8 @@ public class LobbyUI : MonoBehaviour
             }
         }
 
-        StylePrompt(joinPromptPanel, joinPromptText, "UNIRSE  SPACE=P1  ENTER=P2  GAMEPAD=A");
-        StylePrompt(startPrompt, startPromptText, "INICIANDO...");
+        StylePrompt(joinPromptPanel, joinPromptText, "JOIN  SPACE=P1  ENTER=P2  GAMEPAD=A");
+        StylePrompt(startPrompt, startPromptText, "STARTING...");
         NormalizeStartPrompt();
         StyleButton(btnStart, GreenColor, TextColor);
         StyleButton(btnBack, RedColor, TextColor);
@@ -571,7 +569,7 @@ public class PlayerLobbyPanel
         currentRoleIndex = 0;
 
         if (playerLabel != null)
-            playerLabel.text = $"JUGADOR {index + 1}";
+            playerLabel.text = $"PLAYER {index + 1}";
 
         // Forzar texto visible en botones (ASCII — evita warnings de Unicode con LiberationSans)
         SetButtonText(prevRoleButton, "<");
@@ -634,7 +632,7 @@ public class PlayerLobbyPanel
 
     void ToggleReady()
     {
-        Debug.Log($"[Lobby] ToggleReady llamado para playerIndex={playerIndex}");
+        Debug.Log($"[Lobby] ToggleReady called for playerIndex={playerIndex}");
         LobbyManager.Instance?.ToggleReady(playerIndex);
     }
 
@@ -666,7 +664,7 @@ public class PlayerLobbyPanel
                 ? new Color(0.20f, 0.78f, 0.38f)
                 : new Color(0.30f, 0.30f, 0.28f);
         if (readyText != null)
-            readyText.text = ready ? "LISTO" : "PRESIONA READY";
+            readyText.text = ready ? "READY!" : "PRESS READY";
     }
 
     public void SetVisible(bool visible)

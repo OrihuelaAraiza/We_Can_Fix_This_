@@ -5,7 +5,7 @@ using Wcft.Core;
 
 public class WinLoseScreen : MonoBehaviour
 {
-    [Header("Panel principal")]
+    [Header("Main Panel")]
     [SerializeField] GameObject      screenPanel;
     [SerializeField] TextMeshProUGUI titleText;
     [SerializeField] TextMeshProUGUI subtitleText;
@@ -13,7 +13,7 @@ public class WinLoseScreen : MonoBehaviour
     [SerializeField] Button          restartButton;
     [SerializeField] Button          lobbyButton;
 
-    [Header("Colores")]
+    [Header("Colors")]
     [SerializeField] Color colorWin  = new Color(0.05f, 0.40f, 0.10f, 0.92f);
     [SerializeField] Color colorLose = new Color(0.40f, 0.05f, 0.05f, 0.92f);
 
@@ -39,12 +39,12 @@ public class WinLoseScreen : MonoBehaviour
 
     void ShowWin()
     {
-        Show("WE FIXED IT!", "Core-X desactivado. La nave sobrevivio.", colorWin);
+        Show("WE FIXED IT!", "Core-X disabled. The ship survived.", colorWin);
     }
 
     void ShowLose()
     {
-        Show("GAME OVER", "La nave fue destruida. El espacio es cruel.", colorLose);
+        Show("GAME OVER", "The ship was destroyed. Space is unforgiving.", colorLose);
     }
 
     void Show(string title, string subtitle, Color bgColor)
@@ -54,7 +54,7 @@ public class WinLoseScreen : MonoBehaviour
         if (subtitleText      != null) subtitleText.text = subtitle;
         if (backgroundOverlay != null) backgroundOverlay.color = bgColor;
 
-        Time.timeScale = 0f; // Pausar el juego
+        Time.timeScale = 0f;
     }
 
     void RestartGame()

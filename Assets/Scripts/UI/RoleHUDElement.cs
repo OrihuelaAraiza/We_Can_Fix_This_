@@ -2,7 +2,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 
-// Muestra el rol activo y el cooldown de habilidad para cada jugador
+// Displays the active role and ability cooldown for each player
 public class RoleHUDElement : MonoBehaviour
 {
     [Header("References")]
@@ -35,10 +35,9 @@ public class RoleHUDElement : MonoBehaviour
                 ? 1f
                 : 1f - trackedRole.AbilityCooldownNormalized;
 
-        // Texto estado habilidad
         if (abilityStatusText != null)
             abilityStatusText.text = trackedRole.AbilityReady
-                ? "Q — LISTO"
+                ? "Q — READY"
                 : $"COOLDOWN {trackedRole.AbilityCooldownNormalized * trackedRole.Role.abilityCooldown:F0}s";
     }
 }

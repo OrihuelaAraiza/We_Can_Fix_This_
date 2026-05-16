@@ -40,7 +40,7 @@ public class ShipAssembler : MonoBehaviour
         PositionStations();
         RegisterNPCSpawnPoints();
 
-        Debug.Log("[ShipAssembler] Nave ensamblada sin paredes bloqueantes.");
+        Debug.Log("[ShipAssembler] Ship assembled without blocking walls.");
     }
 
     // ── Centro 20x20 — abierto en los 4 lados donde conectan los brazos
@@ -170,7 +170,7 @@ public class ShipAssembler : MonoBehaviour
             Debug.Log($"[ShipAssembler] {stationName} → ({x},{y},{z})");
         }
         else
-            Debug.LogWarning($"[ShipAssembler] No encontró: {stationName}");
+            Debug.LogWarning($"[ShipAssembler] Not found: {stationName}");
     }
 
     // ─── Helpers ──────────────────────────────────────────────────────

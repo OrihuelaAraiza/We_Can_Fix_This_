@@ -5,14 +5,14 @@ using UnityEngine;
 using UnityEngine.UI;
 
 /// <summary>
-/// Herramienta: WeCF → Fix Raycast Targets in Lobby
+/// Tool: WeCF → Fix Raycast Targets in Lobby
 ///
-/// Las líneas rojas diagonales en el Scene View indican que un Image o
-/// Panel decorativo tiene Raycast Target = true y bloquea todos los clicks
-/// a los botones que están debajo en el orden Z.
+/// Red diagonal lines in the Scene View indicate that an Image or
+/// decorative Panel has Raycast Target = true and blocks all clicks
+/// on buttons beneath it in Z order.
 ///
-/// Esta herramienta desactiva Raycast Target en todos los Image y
-/// TextMeshProUGUI que NO son botones ni hijos de botones.
+/// This tool disables Raycast Target on all Images and
+/// TextMeshProUGUI elements that are NOT buttons or children of buttons.
 /// </summary>
 public static class FixRaycastTargets
 {
@@ -25,7 +25,6 @@ public static class FixRaycastTargets
         var allImages = Object.FindObjectsOfType<Image>(true);
         foreach (var img in allImages)
         {
-            // Mantener raycast en el propio Button y su imagen de fondo
             bool isButton      = img.TryGetComponent<Button>(out _);
             bool insideButton  = img.GetComponentInParent<Button>() != null;
 
@@ -35,7 +34,7 @@ public static class FixRaycastTargets
                 img.raycastTarget = false;
                 EditorUtility.SetDirty(img);
                 fixedCount++;
-                Debug.Log($"[RaycastFix] Image desactivada: {FullPath(img.gameObject)}");
+                Debug.Log($"[RaycastFix] Image disabled: {FullPath(img.gameObject)}");
             }
         }
 
@@ -50,12 +49,12 @@ public static class FixRaycastTargets
                 txt.raycastTarget = false;
                 EditorUtility.SetDirty(txt);
                 fixedCount++;
-                Debug.Log($"[RaycastFix] TMP desactivado: {FullPath(txt.gameObject)}");
+                Debug.Log($"[RaycastFix] TMP disabled: {FullPath(txt.gameObject)}");
             }
         }
 
         EditorSceneManager.MarkSceneDirty(EditorSceneManager.GetActiveScene());
-        Debug.Log($"[RaycastFix] Listo. {fixedCount} elementos corregidos. Guardá la escena (Ctrl+S).");
+        Debug.Log($"[RaycastFix] Done. {fixedCount} elements fixed. Save the scene (Ctrl+S).");
     }
 
     static string FullPath(GameObject go)

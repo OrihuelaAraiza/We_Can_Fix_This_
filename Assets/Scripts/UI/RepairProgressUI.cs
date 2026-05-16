@@ -113,10 +113,10 @@ public class RepairProgressUI : MonoBehaviour
         {
             promptLabel.text = state switch
             {
-                RepairStation.StationState.Broken => "MANTEN INTERACTUAR",
-                RepairStation.StationState.Repairing => "REPARANDO",
-                RepairStation.StationState.Fixed => "ESTABILIZADO",
-                _ => "SISTEMA LISTO"
+                RepairStation.StationState.Broken => "HOLD INTERACT",
+                RepairStation.StationState.Repairing => "REPAIRING",
+                RepairStation.StationState.Fixed => "STABILIZED",
+                _ => "SYSTEM READY"
             };
             promptLabel.color = state == RepairStation.StationState.Functional ? TextMuted : TextPrimary;
         }
@@ -265,7 +265,7 @@ public class RepairProgressUI : MonoBehaviour
     {
         return state switch
         {
-            RepairStation.StationState.Broken => "FALLA",
+            RepairStation.StationState.Broken => "FAILURE",
             RepairStation.StationState.Repairing => $"FIX {Mathf.RoundToInt(progress * 100f)}%",
             RepairStation.StationState.Fixed => "OK",
             _ => "ONLINE"

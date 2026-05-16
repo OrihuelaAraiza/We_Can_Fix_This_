@@ -6,8 +6,8 @@ using UnityEngine.UI;
 using Wcft.Core;
 
 /// <summary>
-/// Menu de pausa autocontenido para gameplay.
-/// Se puede crear por codigo dentro del Canvas y no depende del Inspector.
+/// Self-contained pause menu for gameplay.
+/// Can be created in code inside the Canvas and does not depend on the Inspector.
 /// </summary>
 [DisallowMultipleComponent]
 public class PauseMenuUI : MonoBehaviour
@@ -270,8 +270,8 @@ public class PauseMenuUI : MonoBehaviour
         windowSizeFitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
         windowSizeFitter.verticalFit = ContentSizeFitter.FitMode.Unconstrained;
 
-        CreateTextBlock(windowRect, "TitleText", "|| PAUSA", 34f, TitleColor, FontStyles.Bold, 42f);
-        CreateTextBlock(windowRect, "HintText", "ESC para continuar", 16f, HintColor, FontStyles.Normal, 26f);
+        CreateTextBlock(windowRect, "TitleText", "|| PAUSE", 34f, TitleColor, FontStyles.Bold, 42f);
+        CreateTextBlock(windowRect, "HintText", "ESC to resume", 16f, HintColor, FontStyles.Normal, 26f);
 
         RectTransform spacer = CreateRect("Spacer", windowRect);
         spacer.gameObject.AddComponent<LayoutElement>().preferredHeight = 8f;
@@ -289,10 +289,10 @@ public class PauseMenuUI : MonoBehaviour
         buttonSizeFitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
         buttonSizeFitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
 
-        btnContinue = CreateButton(buttonStack, "BtnContinue", "CONTINUAR", ContinueColor, ContinueTextColor);
-        btnRestart = CreateButton(buttonStack, "BtnRestart", "REINICIAR", RestartColor, RestartTextColor);
-        btnMainMenu = CreateButton(buttonStack, "BtnMainMenu", "MENU PRINCIPAL", MainMenuColor, MainTextColor);
-        btnQuit = CreateButton(buttonStack, "BtnQuit", "SALIR DEL JUEGO", QuitColor, QuitTextColor);
+        btnContinue = CreateButton(buttonStack, "BtnContinue", "RESUME", ContinueColor, ContinueTextColor);
+        btnRestart = CreateButton(buttonStack, "BtnRestart", "RESTART", RestartColor, RestartTextColor);
+        btnMainMenu = CreateButton(buttonStack, "BtnMainMenu", "MAIN MENU", MainMenuColor, MainTextColor);
+        btnQuit = CreateButton(buttonStack, "BtnQuit", "QUIT GAME", QuitColor, QuitTextColor);
 
         panelGO.SetActive(false);
     }

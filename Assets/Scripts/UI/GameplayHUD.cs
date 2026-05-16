@@ -4,17 +4,17 @@ using UnityEngine.UI;
 using TMPro;
 
 /// <summary>
-/// Controlador maestro del HUD de gameplay.
-/// Escucha eventos del juego y actualiza todos los sub-elementos.
+/// Master gameplay HUD controller.
+/// Listens to game events and updates all sub-elements.
 /// </summary>
 public class GameplayHUD : MonoBehaviour
 {
-    [Header("=== NAVE HEALTH ===")]
+    [Header("=== SHIP HEALTH ===")]
     [SerializeField] Slider            shipHealthSlider;
     [SerializeField] Image             shipHealthFill;
     [SerializeField] TextMeshProUGUI   shipHealthPercent;
     [SerializeField] TextMeshProUGUI   shipStatusText;
-    [SerializeField] GameObject        criticalFlashPanel; // panel rojo semitransparente
+    [SerializeField] GameObject        criticalFlashPanel;
 
     [Header("=== CORE-X STATUS ===")]
     [SerializeField] TextMeshProUGUI   coreXPhaseText;
@@ -22,15 +22,15 @@ public class GameplayHUD : MonoBehaviour
     [SerializeField] TextMeshProUGUI   coreXAggressionLabel;
     [SerializeField] GameObject        bossWarningPanel;
 
-    [Header("=== FALLAS ACTIVAS ===")]
+    [Header("=== ACTIVE FAILURES ===")]
     [SerializeField] GameObject        failureListPanel;
     [SerializeField] TextMeshProUGUI   failureListText;
     [SerializeField] Image             failurePanelBg;
 
-    [Header("=== PAUSA ===")]
-    [SerializeField] PauseMenuUI pauseMenu;  // asignar desde el Inspector
+    [Header("=== PAUSE ===")]
+    [SerializeField] PauseMenuUI pauseMenu;
 
-    [Header("=== COLORES ===")]
+    [Header("=== COLORS ===")]
     [SerializeField] Color colorHealthGood     = new Color(0.15f, 0.80f, 0.35f);
     [SerializeField] Color colorHealthWarning  = new Color(0.95f, 0.65f, 0.10f);
     [SerializeField] Color colorHealthCritical = new Color(0.90f, 0.15f, 0.10f);
@@ -57,14 +57,13 @@ public class GameplayHUD : MonoBehaviour
         pauseMenu = PauseMenuUI.EnsureOnCanvas(canvas);
     }
 
-    // Mapa de nombres amigables por tipo de estación
     static readonly System.Collections.Generic.Dictionary<string, string> RoomNames =
         new System.Collections.Generic.Dictionary<string, string>
     {
-        { "Energy",         "ENERGIA"         },
-        { "Communications", "COMUNICACIONES"  },
-        { "Gravity",        "GRAVEDAD"        },
-        { "Hull",           "CASCO"           }
+        { "Energy",         "ENERGY"         },
+        { "Communications", "COMMUNICATIONS" },
+        { "Gravity",        "GRAVITY"        },
+        { "Hull",           "HULL"           }
     };
 
     // ─────────────────────────────────────────────────────────────
@@ -119,11 +118,11 @@ public class GameplayHUD : MonoBehaviour
         if (coreXAggressionFill != null)
             coreXAggressionFill.fillAmount = aggression;
         if (coreXAggressionLabel != null)
-            coreXAggressionLabel.text = $"Agresion: {Mathf.RoundToInt(aggression * 100)}%";
+            coreXAggressionLabel.text = $"Aggression: {Mathf.RoundToInt(aggression * 100)}%";
     }
 
     // ════════════════════════════════════════════════════════════
-    // SALUD DE NAVE
+    // SHIP HEALTH
     // ════════════════════════════════════════════════════════════
 
     void OnHealthChanged(float normalized)
@@ -150,7 +149,7 @@ public class GameplayHUD : MonoBehaviour
     void OnShipCritical()
     {
         isCritical = true;
-        SetShipStatus("! CRITICO", colorHealthCritical);
+        SetShipStatus("! CRITICAL", colorHealthCritical);
         StartCoroutine(FlashCriticalPanel());
     }
 
@@ -163,7 +162,7 @@ public class GameplayHUD : MonoBehaviour
 
     void OnShipDestroyed()
     {
-        SetShipStatus("DESTRUIDA", colorHealthCritical);
+        SetShipStatus("DESTROYED", colorHealthCritical);
         if (criticalFlashPanel != null) criticalFlashPanel.SetActive(true);
     }
 
@@ -189,7 +188,7 @@ public class GameplayHUD : MonoBehaviour
     }
 
     // ════════════════════════════════════════════════════════════
-    // FALLAS ACTIVAS
+    // ACTIVE FAILURES
     // ════════════════════════════════════════════════════════════
 
     void OnStationFailed(RepairStation station)
@@ -225,7 +224,7 @@ public class GameplayHUD : MonoBehaviour
         SetFailurePanel(true);
 
         var sb = new System.Text.StringBuilder();
-        sb.AppendLine("! FALLAS ACTIVAS:");
+        sb.AppendLine("! ACTIVE FAILURES:");
         foreach (var n in activeFailureNames)
             sb.AppendLine($"  -> {n}");
 
@@ -248,9 +247,10 @@ public class GameplayHUD : MonoBehaviour
     // CORE-X STATUS
     // ════════════════════════════════════════════════════════════
 
+
     void OnCoreXPhaseChanged(int phase)
     {
-        string[] phaseNames = { "Fase 1 - Reactivo", "Fase 2 - Agresivo", "Fase 3 - Critico" };
+        string[] phaseNames = { "Phase 1 - Reactive", "Phase 2 - Aggressive", "Phase 3 - Critical" };
         if (coreXPhaseText != null)
             coreXPhaseText.text = phase < phaseNames.Length
                 ? $"CORE-X  {phaseNames[phase]}"
@@ -271,7 +271,7 @@ public class GameplayHUD : MonoBehaviour
     {
         if (coreXPhaseText != null)
         {
-            coreXPhaseText.text  = "! CORE-X  MODO BOSS";
+            coreXPhaseText.text  = "! CORE-X  BOSS MODE";
             coreXPhaseText.color = colorHealthCritical;
         }
         if (bossWarningPanel != null)
@@ -279,12 +279,12 @@ public class GameplayHUD : MonoBehaviour
     }
 
     // ════════════════════════════════════════════════════════════
-    // API PÚBLICA — llamada por sistemas externos
+    // PUBLIC API
     // ════════════════════════════════════════════════════════════
 
     /// <summary>
-    /// Actualiza la barra de integridad de la nave con los colores del design system.
-    /// normalized: 0-1. Llama también a OnHealthChanged para mantener sincronía.
+    /// Updates the ship integrity bar using design system colors.
+    /// normalized: 0-1. Also calls OnHealthChanged to stay in sync.
     /// </summary>
     public void UpdateCorexisIntegrity(float normalized)
     {
@@ -307,7 +307,7 @@ public class GameplayHUD : MonoBehaviour
     }
 
     /// <summary>
-    /// Actualiza el panel Core-X con fase y nivel de agresión directamente.
+    /// Updates the Core-X panel with phase and aggression level directly.
     /// </summary>
     public void SetCoreXPhase(int phase, float aggression)
     {
@@ -316,7 +316,7 @@ public class GameplayHUD : MonoBehaviour
         if (coreXAggressionFill != null)
             coreXAggressionFill.fillAmount = Mathf.Clamp01(aggression);
         if (coreXAggressionLabel != null)
-            coreXAggressionLabel.text = $"Agresion: {Mathf.RoundToInt(aggression * 100)}%";
+            coreXAggressionLabel.text = $"Aggression: {Mathf.RoundToInt(aggression * 100)}%";
 
         if (coreXPhaseText != null)
             coreXPhaseText.text = $"PHASE {phase + 1}";

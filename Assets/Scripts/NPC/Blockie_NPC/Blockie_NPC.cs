@@ -3,12 +3,12 @@ using UnityEngine;
 [RequireComponent(typeof(Rigidbody))]
 public class BlockieNPC : NPCBehaviourBase
 {
-    [Header("Velocidad")]
+    [Header("Speed")]
     public float baseSpeed = 2f;
     public float extraSpeedPerPlayer = 1f;
     public float turnSpeed = 360f;
 
-    [Header("Peso")]
+    [Header("Physics")]
     public float mass = 200f;
     public float drag = 6f;
     public float angularDrag = 10f;
@@ -19,7 +19,7 @@ public class BlockieNPC : NPCBehaviourBase
     public float rayHeight = 1f;
     public LayerMask obstacleMask;
 
-    [Header("Jugador")]
+    [Header("Player")]
     public string playerTag = "Player";
 
     private Rigidbody rb;

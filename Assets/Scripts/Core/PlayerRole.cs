@@ -53,11 +53,9 @@ public class PlayerRole : MonoBehaviour
     {
         if (currentRole == null) return;
 
-        // Aplicar multiplicador de velocidad
         if (movement != null)
             movement.SetSpeedMultiplier(currentRole.moveSpeedMultiplier);
 
-        // Aplicar multiplicador de reparación
         if (interact != null)
             interact.SetRepairMultiplier(currentRole.repairSpeedMultiplier);
     }
@@ -99,11 +97,11 @@ public class PlayerRole : MonoBehaviour
         }
     }
 
-    // ── Implementaciones de habilidades ──────────────────────────
+    // ── Ability implementations ──────────────────────────────────
 
     void ExecuteRemoteRepair()
     {
-        // Encuentra la estación rota más cercana y avanza su reparación
+        // Find the nearest broken station and advance its repair
         RepairStation closest = null;
         float minDist = float.MaxValue;
 
@@ -117,14 +115,14 @@ public class PlayerRole : MonoBehaviour
 
         if (closest != null)
         {
-            closest.ApplyRemoteRepairBoost(0.3f); // avanza 30% la reparación
+            closest.ApplyRemoteRepairBoost(0.3f);
             Debug.Log($"[Hacker] Remote repair on {closest.Type}");
         }
     }
 
     void ExecuteTeamSpeedBoost()
     {
-        // Boost de velocidad a todos los jugadores cercanos por 8 segundos
+        // Speed boost to all nearby players for 8 seconds
         var players = FindObjectsOfType<PlayerMovement>();
         foreach (var p in players)
         {
@@ -153,12 +151,12 @@ public class PlayerRole : MonoBehaviour
             }
         }
 
-        Debug.Log($"[Saboteador] Electric bomb — {affected} NPCs deshabilitados por {disableSecs}s");
+        Debug.Log($"[Saboteur] Electric bomb — {affected} NPCs disabled for {disableSecs}s");
     }
 
     void ExecuteResetStation()
     {
-        // Encuentra estación más cercana y resetea su degradación
+        // Find nearest station and reset its degradation
         RepairStation closest = null;
         float minDist = float.MaxValue;
 
@@ -172,7 +170,7 @@ public class PlayerRole : MonoBehaviour
         if (closest != null)
         {
             closest.ResetDegradation();
-            Debug.Log($"[Mecánico] Station reset: {closest.Type}");
+            Debug.Log($"[Mechanic] Station reset: {closest.Type}");
         }
     }
 
@@ -180,8 +178,7 @@ public class PlayerRole : MonoBehaviour
     {
         if (FailureSystem.Instance != null)
         {
-            Debug.Log("[Comandante] Preview next attack — " +
-                      "próxima implementación con CoreXBrain");
+            Debug.Log("[Commander] Preview next attack — upcoming implementation with CoreXBrain");
         }
     }
 }

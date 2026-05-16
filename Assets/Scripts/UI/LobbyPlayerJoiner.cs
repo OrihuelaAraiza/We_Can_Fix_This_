@@ -6,7 +6,7 @@ using UnityEngine.InputSystem.LowLevel;
 
 public class LobbyPlayerJoiner : MonoBehaviour
 {
-    [Header("Configuración")]
+    [Header("Configuration")]
     [SerializeField] int maxPlayers = 4;
 
     LobbyUI lobbyUI;

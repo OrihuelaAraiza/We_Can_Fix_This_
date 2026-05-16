@@ -19,7 +19,7 @@ public partial class PlayerManager : MonoBehaviour
     [SerializeField] private Transform[] spawnPoints;
     [SerializeField] private Transform cameraTransform;
 
-    [Header("Player Prefabs por jugador")]
+    [Header("Player Prefabs by Slot")]
     [Tooltip("Element 0 = Player 1, Element 1 = Player 2, Element 2 = Player 3")]
     [SerializeField] private GameObject[] playerPrefabsBySlot;
 
@@ -284,7 +284,7 @@ public partial class PlayerManager : MonoBehaviour
         PlayerRole playerRole = playerInput.GetComponent<PlayerRole>();
         if (playerRole == null)
         {
-            Debug.LogWarning($"[PlayerManager] PlayerRole no encontrado en P{slotIndex} — sin rol");
+            Debug.LogWarning($"[PlayerManager] PlayerRole not found on P{slotIndex} — no role assigned");
             return;
         }
 
@@ -292,11 +292,11 @@ public partial class PlayerManager : MonoBehaviour
         if (roleDef != null)
         {
             playerRole.AssignRole(roleDef);
-            Debug.Log($"[PlayerManager] Rol '{roleDef.roleName}' aplicado a P{slotIndex}");
+            Debug.Log($"[PlayerManager] Role '{roleDef.roleName}' applied to P{slotIndex}");
             return;
         }
 
-        Debug.LogWarning($"[PlayerManager] Sin rol guardado para P{slotIndex} — sin restricciones");
+        Debug.LogWarning($"[PlayerManager] No saved role for P{slotIndex} — no restrictions");
     }
 
     Vector3 ResolveSupportedSpawnPosition(Transform playerRoot, int slotIndex, Vector3 requestedPosition)
@@ -531,6 +531,9 @@ public partial class PlayerManager : MonoBehaviour
 
         if (playerObject.GetComponent<PlayerInputHandler>() == null)
             playerObject.AddComponent<PlayerInputHandler>();
+
+        if (playerObject.GetComponent<PlayerAudioController>() == null)
+            playerObject.AddComponent<PlayerAudioController>();
 
         // Para que el jugador tenga tambaleo visual al chocar
         if (playerObject.GetComponent<PlayerVisualWobble>() == null)
@@ -921,7 +924,7 @@ public partial class PlayerManager : MonoBehaviour
 
         if (!hasVisibleRenderer)
         {
-            Debug.LogWarning($"[PlayerManager] Fixie '{modelPrefab.name}' se instanció sin renderers visibles. Se deja visible la cápsula fallback.");
+            Debug.LogWarning($"[PlayerManager] Fixie '{modelPrefab.name}' spawned with no visible renderers. Keeping fallback capsule visible.");
         }
         else if (debugLog)
             Debug.Log($"[PlayerManager] Attached Fixie model '{modelPrefab.name}' to player slot {slotIndex}.");
@@ -1279,17 +1282,17 @@ public partial class PlayerManager : MonoBehaviour
     {
         if (playerPrefabsBySlot == null || playerPrefabsBySlot.Length == 0)
         {
-            Debug.LogWarning("[PlayerManager] No hay playerPrefabsBySlot asignados. Usando prefab del PlayerInputManager.");
+            Debug.LogWarning("[PlayerManager] No playerPrefabsBySlot assigned. Using PlayerInputManager prefab.");
             return playerInputManager.playerPrefab;
         }
 
         if (slotIndex < 0 || slotIndex >= playerPrefabsBySlot.Length || playerPrefabsBySlot[slotIndex] == null)
         {
-            Debug.LogWarning($"[PlayerManager] No hay prefab asignado para slot {slotIndex}. Usando prefab del PlayerInputManager.");
+            Debug.LogWarning($"[PlayerManager] No prefab assigned for slot {slotIndex}. Using PlayerInputManager prefab.");
             return playerInputManager.playerPrefab;
         }
 
-        Debug.Log($"[PlayerManager] Slot {slotIndex} usará prefab completo: {playerPrefabsBySlot[slotIndex].name}");
+        Debug.Log($"[PlayerManager] Slot {slotIndex} will use prefab: {playerPrefabsBySlot[slotIndex].name}");
 
         return playerPrefabsBySlot[slotIndex];
     }
@@ -1298,7 +1301,7 @@ public partial class PlayerManager : MonoBehaviour
     {
         if (entry == null)
         {
-            Debug.LogWarning("[PlayerManager] Lobby entry nulo. Usando prefab default.");
+            Debug.LogWarning("[PlayerManager] Lobby entry is null. Using default prefab.");
             return playerInputManager.playerPrefab;
         }
 
@@ -1312,25 +1315,24 @@ public partial class PlayerManager : MonoBehaviour
 
         if (playerPrefabsBySlot == null || playerPrefabsBySlot.Length == 0)
         {
-            Debug.LogWarning("[PlayerManager] No hay prefabs asignados en playerPrefabsBySlot.");
+            Debug.LogWarning("[PlayerManager] No prefabs assigned in playerPrefabsBySlot.");
             return;
         }
 
         if (index < 0 || index >= playerPrefabsBySlot.Length)
         {
-            Debug.Log("[PlayerManager] Ya no hay más prefabs diferentes para asignar.");
+            Debug.Log("[PlayerManager] No more unique prefabs to assign.");
             return;
         }
 
-
         if (playerPrefabsBySlot[index] == null)
         {
-            Debug.LogWarning($"[PlayerManager] El Element {index} está vacío.");
+            Debug.LogWarning($"[PlayerManager] Element {index} is null.");
             return;
         }
 
         playerInputManager.playerPrefab = playerPrefabsBySlot[index];
 
-        Debug.Log($"[PlayerManager] PlayerInputManager ahora usará: {playerPrefabsBySlot[index].name}");
+        Debug.Log($"[PlayerManager] PlayerInputManager will now use: {playerPrefabsBySlot[index].name}");
     }
 }

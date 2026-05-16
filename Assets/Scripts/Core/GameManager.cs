@@ -25,8 +25,8 @@ public class GameManager : MonoBehaviour
         Instance = this;
     }
 
-    // Roles aplicados principalmente en PlayerManager.OnPlayerJoined().
-    // ApplySelectedRoles() actúa como fallback de diagnóstico.
+    // Roles are applied primarily in PlayerManager.OnPlayerJoined().
+    // ApplySelectedRoles() acts as a diagnostic fallback.
 
     IEnumerator Start()
     {
@@ -40,15 +40,15 @@ public class GameManager : MonoBehaviour
 
         // Buscar por PlayerMovement (componente garantizado en el prefab)
         var movements = FindObjectsOfType<PlayerMovement>();
-        Debug.Log($"[GameManager] Found {movements.Length} players con PlayerMovement");
+        Debug.Log($"[GameManager] Found {movements.Length} players with PlayerMovement");
 
         foreach (var movement in movements)
         {
-            // Agregar PlayerRole si el prefab no lo tiene
+            // Add PlayerRole if the prefab does not have it
             if (!movement.TryGetComponent<PlayerRole>(out var pr))
             {
                 pr = movement.gameObject.AddComponent<PlayerRole>();
-                Debug.Log($"[GameManager] PlayerRole agregado dinámicamente a P{movement.PlayerIndex}");
+                Debug.Log($"[GameManager] PlayerRole dynamically added to P{movement.PlayerIndex}");
             }
 
             int index = movement.PlayerIndex;
@@ -68,7 +68,7 @@ public class GameManager : MonoBehaviour
             }
             else
             {
-                Debug.LogWarning($"[GameManager] Sin rol guardado para P{index}");
+                Debug.LogWarning($"[GameManager] No saved role for P{index}");
             }
         }
     }
@@ -97,20 +97,20 @@ public class GameManager : MonoBehaviour
         if (gameWon) return;
         gameWon = true;
         OnGameWon?.Invoke();
-        Debug.Log("[GameManager] VICTORIA");
+        Debug.Log("[GameManager] VICTORY");
     }
 
-    /// <summary>Llamado por CoreXBrain cuando el Core-X es derrotado.</summary>
+    /// <summary>Called by CoreXBrain when Core-X is defeated.</summary>
     public void TriggerVictory()
     {
-        Debug.Log("[GameManager] Core-X derrotado — VICTORIA!");
+        Debug.Log("[GameManager] Core-X defeated — VICTORY!");
         HandleGameWon();
     }
 
-    /// <summary>Llamado por SurvivalTimerUI cuando el tiempo se agota.</summary>
+    /// <summary>Called by SurvivalTimerUI when the timer runs out.</summary>
     public void OnTimerExpired()
     {
-        Debug.Log("[GameManager] Timer expired — DERROTA!");
+        Debug.Log("[GameManager] Timer expired — DEFEAT!");
         HandleGameOver();
     }
 

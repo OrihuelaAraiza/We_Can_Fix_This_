@@ -27,7 +27,7 @@ public class NPCSpawnManager : MonoBehaviour
     [SerializeField] private float      dropZoneRadius    = 1.5f;
 
     [Header("Spawn Config")]
-    [Tooltip("Separación mínima entre NPCs del mismo tipo (en unidades).")]
+    [Tooltip("Minimum spacing between NPCs of the same type (in units).")]
     [SerializeField] private float minSpacing = 3f;
 
     // Rooms de reparación en las que se spawnean Blockie/Smoggos
@@ -93,7 +93,7 @@ public class NPCSpawnManager : MonoBehaviour
             }
         }
 
-        Debug.Log($"[NPCSpawnManager] {positions.Count} NPCs deambulantes spawneados.");
+        Debug.Log($"[NPCSpawnManager] {positions.Count} roaming NPCs spawned.");
     }
 
     // ── Clank ─────────────────────────────────────────────────────────
@@ -107,10 +107,10 @@ public class NPCSpawnManager : MonoBehaviour
         {
             if (!centers.TryGetValue("Bridge", out storageCenter))
             {
-                Debug.LogWarning("[NPCSpawnManager] No se encontró Storage ni Bridge para Clank.");
+                Debug.LogWarning("[NPCSpawnManager] No Storage or Bridge found for Clank.");
                 return;
             }
-            Debug.LogWarning("[NPCSpawnManager] Extra_Storage no existe en el mapa; Clank usará Bridge.");
+            Debug.LogWarning("[NPCSpawnManager] Extra_Storage not found in map; Clank will use Bridge.");
         }
 
         // ── Zona de recolección (BoxSpawner) ──────────────────────────
@@ -153,7 +153,7 @@ public class NPCSpawnManager : MonoBehaviour
                 clank.holdPoint = clankGO.transform;
         }
 
-        Debug.Log($"[NPCSpawnManager] Clank spawneado en Storage ({storageCenter}).");
+        Debug.Log($"[NPCSpawnManager] Clank spawned in Storage ({storageCenter}).");
     }
 
     // ── Helpers ───────────────────────────────────────────────────────
