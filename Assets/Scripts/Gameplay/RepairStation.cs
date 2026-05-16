@@ -11,7 +11,6 @@ public class RepairStation : MonoBehaviour, IInteractable
     [Header("Config")]
     [SerializeField] private StationType stationType;
     [SerializeField] private float repairDuration = 5f;
-    [SerializeField] private float shipDrainOnBroken = 1f; // extra drain mientras rota
 
     [Header("Runtime")]
     [SerializeField] private StationState state = StationState.Functional;
@@ -27,6 +26,13 @@ public class RepairStation : MonoBehaviour, IInteractable
 
     [Header("UI")]
     [SerializeField] private bool autoCreateWorldStatusUI = true;
+
+    private static readonly List<RepairStation> activeStations = new();
+
+    public static IReadOnlyList<RepairStation> ActiveStations => activeStations;
+    public static event Action<RepairStation> OnRegistered;
+    public static event Action<RepairStation> OnUnregistered;
+    public static event Action<RepairStation, StationState, StationState> OnStateChanged;
 
     public event Action<RepairStation> OnBroken;
     public event Action<RepairStation> OnRepaired;
@@ -48,10 +54,19 @@ public class RepairStation : MonoBehaviour, IInteractable
         EnsureWorldStatusUI();
     }
 
-    private void Update()
+    private void OnEnable()
     {
-        if (state == StationState.Broken)
-            ShipHealth.Instance?.ApplyDamage(shipDrainOnBroken * Time.deltaTime);
+        if (!activeStations.Contains(this))
+        {
+            activeStations.Add(this);
+            OnRegistered?.Invoke(this);
+        }
+    }
+
+    private void OnDisable()
+    {
+        if (activeStations.Remove(this))
+            OnUnregistered?.Invoke(this);
     }
 
     // ── IInteractable ──────────────────────────────────────────
@@ -61,8 +76,8 @@ public class RepairStation : MonoBehaviour, IInteractable
     public void OnInteractStart(PlayerMovement player)
     {
         if (state != StationState.Broken) return;
-        state = StationState.Repairing;
         repairingPlayer = player;
+        SetState(StationState.Repairing);
         ApplyStateVisual();
         Debug.Log($"[RepairStation] {stationType} repair started by P{player.PlayerIndex}");
     }
@@ -83,9 +98,9 @@ public class RepairStation : MonoBehaviour, IInteractable
     {
         if (state == StationState.Repairing)
         {
-            state = StationState.Broken; // cancelar reparación
             repairProgress = 0f;
             repairingPlayer = null;
+            SetState(StationState.Broken); // cancelar reparación
             ApplyStateVisual();
             Debug.Log($"[RepairStation] {stationType} repair cancelled");
         }
@@ -100,31 +115,27 @@ public class RepairStation : MonoBehaviour, IInteractable
     public void TriggerFailure()
     {
         if (state == StationState.Broken || state == StationState.Repairing) return;
-        state         = StationState.Broken;
         repairProgress = 0f;
+        SetState(StationState.Broken);
         ApplyStateVisual();
-        FailureSystem.NotifyStationFailed(this);
-        OnBroken?.Invoke(this);
         Debug.Log($"[RepairStation] {stationType} FALLO (CoreX)");
     }
 
     public void BreakStation()
     {
         if (state == StationState.Broken || state == StationState.Repairing) return;
-        state = StationState.Broken;
         repairProgress = 0f;
+        SetState(StationState.Broken);
         ApplyStateVisual();
-        OnBroken?.Invoke(this);
         Debug.Log($"[RepairStation] {stationType} BROKEN!");
     }
 
     private void CompleteRepair()
     {
-        state = StationState.Fixed;
         repairingPlayer = null;
         ShipHealth.Instance?.Repair(20f); // reparar da salud a la nave
+        SetState(StationState.Fixed);
         ApplyStateVisual();
-        OnRepaired?.Invoke(this);
         Debug.Log($"[RepairStation] {stationType} REPAIRED!");
 
         // Vuelve a Functional después de un delay
@@ -133,8 +144,8 @@ public class RepairStation : MonoBehaviour, IInteractable
 
     private void ResetToFunctional()
     {
-        state = StationState.Functional;
         repairProgress = 0f;
+        SetState(StationState.Functional);
         ApplyStateVisual();
     }
 
@@ -186,10 +197,9 @@ public class RepairStation : MonoBehaviour, IInteractable
         // Por ahora simplemente repara si está rota
         if (state == StationState.Broken)
         {
-            state          = StationState.Functional;
             repairProgress = 0f;
+            SetState(StationState.Functional);
             ApplyStateVisual();
-            OnRepaired?.Invoke(this);
             Debug.Log($"[RepairStation] Degradation reset: {stationType}");
         }
     }
@@ -238,6 +248,28 @@ public class RepairStation : MonoBehaviour, IInteractable
         SetGeneratedLocationLabel(locationLabel);
         RefreshVisualBindings();
         ApplyStateVisual();
+    }
+
+    void SetState(StationState nextState)
+    {
+        if (state == nextState)
+            return;
+
+        StationState previousState = state;
+        state = nextState;
+
+        OnStateChanged?.Invoke(this, previousState, nextState);
+
+        if (nextState == StationState.Broken && previousState != StationState.Repairing)
+        {
+            OnBroken?.Invoke(this);
+            return;
+        }
+
+        bool recoveredFromFailure = previousState == StationState.Broken
+            || previousState == StationState.Repairing;
+        if (nextState == StationState.Fixed || (nextState == StationState.Functional && recoveredFromFailure))
+            OnRepaired?.Invoke(this);
     }
 
     void RefreshVisualBindings()

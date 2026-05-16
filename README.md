@@ -1,107 +1,101 @@
 # We Can Fix This!
 
-Juego cooperativo de reparación para 1–4 jugadores. Unity 2022.3 LTS + URP.
-
-## Descripción
-
-Los jugadores son la tripulación de una nave espacial averiada. Deben coordinar reparaciones, gestionar recursos y sobrevivir a fallos en cadena antes de que la salud del barco llegue a cero.
+Juego cooperativo local de reparación para 1-4 jugadores. Los jugadores son la tripulación de una nave averiada: deben coordinar roles, reparar estaciones, sobrevivir fallos en cadena y derrotar al Core-X antes de que la integridad de la nave llegue a cero.
 
 ## Requisitos
 
-- Unity 2022.3 LTS
-- Universal Render Pipeline (URP)
-- New Input System 1.14.2
+- Unity `2022.3.62f3` LTS
+- Universal Render Pipeline `14.0.12`
+- New Input System `1.14.2`
 - TextMeshPro
+
+## Flujo de escenas
+
+Las escenas activas en Build Settings son:
+
+| Indice | Escena | Proposito |
+|---|---|---|
+| 0 | `00_Bootstrap` | Aplica settings globales y carga el menu principal. |
+| 1 | `01_MainMenu scene` | Menu principal. |
+| 2 | `02_Lobby` | Registro local de jugadores y seleccion de roles. |
+| 3 | `03_Gameplay` | Partida principal. |
+
+Los nombres oficiales viven en `Wcft.Core.GameConfig`. Para cambios de escena en scripts, usar `Wcft.Core.SceneLoader`.
 
 ## Controles
 
-### Teclado (hasta 4 jugadores)
+### Teclado
 
-| Acción | P1 | P2 | P3 | P4 |
+| Accion | P1 | P2 | P3 | P4 |
 |---|---|---|---|---|
-| Moverse | WASD | ←↑↓→ | TFGH | IJKL |
+| Moverse | WASD | Flechas | TFGH | IJKL |
 | Saltar | Espacio | Enter | R | P |
 | Interactuar | E | Numpad 0 | Y | O |
 | Habilidad | Q | Numpad 2 | T | U |
 
 ### Gamepad
 
-| Acción | Botón |
+| Accion | Boton |
 |---|---|
 | Moverse | Stick izquierdo |
 | Saltar | A / Cruz |
 | Interactuar | X / Cuadrado |
-| Habilidad | Y / Triángulo |
+| Habilidad | Y / Triangulo |
 
 ## Roles
 
-| Rol | Perk | Penalización |
+| Rol | Perk | Penalizacion |
 |---|---|---|
-| **Fixie** | Repara más rápido | — |
-| **Comandante** | Boost de velocidad al equipo | No puede reparar manualmente |
-| **Hacker** | Reparación remota | No puede reparar Energía |
-| **Mecánico** | Resetea degradación de estación | — |
-| **Artillero** | Torreta desde cualquier lugar | — |
-| **Saboteador** | Bomba eléctrica (desactiva drones) | — |
+| Fixie | Repara mas rapido | - |
+| Comandante | Boost de velocidad al equipo | No puede reparar manualmente |
+| Hacker | Reparacion remota | No puede reparar Energia |
+| Mecanico | Resetea degradacion de estacion | - |
+| Artillero | Torreta desde cualquier lugar | - |
+| Saboteador | Bomba electrica contra NPCs | - |
 
-## Estructura del proyecto
+## Setup rapido
 
-```
-Assets/
-├── Scripts/
-│   ├── Core/
-│   │   ├── GameManager.cs         — estado global, aplica roles al iniciar
-│   │   ├── LobbyManager.cs        — registro de jugadores y selección de roles
-│   │   ├── PlayerData.cs          — ScriptableObject con stats de movimiento
-│   │   ├── PlayerManager.cs       — spawn y setup de jugadores en gameplay
-│   │   ├── PlayerRole.cs          — sistema de roles y habilidades
-│   │   ├── RoleDefinition.cs      — ScriptableObject de definición de rol
-│   │   ├── RoleSelectionData.cs   — persiste roles entre escenas (estático)
-│   │   └── ShipHealth.cs          — salud de la nave, eventos estáticos
-│   ├── Gameplay/
-│   │   ├── CoopCamera.cs          — cámara dinámica coop con zoom automático
-│   │   ├── PlayerInputHandler.cs  — bridge entre New Input System y componentes
-│   │   ├── PlayerInteract.cs      — detección y hold de interacciones
-│   │   ├── PlayerMovement.cs      — movimiento con Rigidbody
-│   │   └── RepairStation.cs       — estación reparable (IInteractable)
-│   └── UI/
-│       ├── LobbyEventSystemFixer.cs   — auto-configura InputSystemUIInputModule
-│       ├── LobbyPlayerJoiner.cs       — detecta dispositivos y registra jugadores
-│       ├── LobbyUI.cs                 — UI del lobby con paneles por jugador
-│       ├── PlayerLobbyInputHandler.cs — navegación de roles en lobby
-│       ├── RepairProgressUI.cs        — barra de progreso de reparación
-│       ├── RoleHUDElement.cs          — HUD de rol y cooldown de habilidad
-│       └── ShipHealthUI.cs            — barra de salud de la nave
-└── Editor/
-    └── LobbyLayoutFixer.cs  — herramienta: WeCF → Fix Lobby Layout
+1. Abrir el proyecto con Unity `2022.3.62f3`.
+2. Abrir `Assets/Scenes/00_Bootstrap.unity` para probar el flujo completo.
+3. Verificar que `EditorBuildSettings` contiene las cuatro escenas listadas arriba, en ese orden.
+4. En `02_Lobby`, `LobbyManager` debe tener roles asignados en `availableRoles`.
+5. En `03_Gameplay`, `PlayerManager` debe tener `PlayerData`, spawn/camera references y prefabs por slot si se usan.
+
+## Arquitectura runtime
+
+- `GameConfig` define nombres de escenas y settings globales.
+- `SceneLoader` centraliza cambios de escena y recarga de escena activa.
+- `LobbyPlayerSessionData` persiste dispositivos/control schemes del lobby al gameplay.
+- `RoleSelectionData` persiste roles seleccionados entre lobby y gameplay.
+- `RepairStation` mantiene una registry runtime (`ActiveStations`) y emite `OnStateChanged`.
+- `ShipHealth` calcula el drenaje de nave desde la registry de estaciones, una sola vez por tick.
+- `FailureSystem` mantiene sus eventos publicos (`OnStationFailed`, `OnStationRepaired`) como capa de compatibilidad para UI y sistemas existentes.
+
+## Pruebas
+
+Ejecutar EditMode tests desde Unity Test Runner:
+
+```text
+Window > General > Test Runner > EditMode > Run All
 ```
 
-## Escenas
+Tambien se pueden ejecutar por batchmode si Unity esta en PATH:
 
-| Índice | Nombre | Descripción |
-|---|---|---|
-| 0 | `01_Lobby` | Selección de roles, hasta 4 jugadores |
-| 1 | `02_Gameplay` | Partida principal |
+```bash
+Unity -batchmode -projectPath . -runTests -testPlatform EditMode -testResults Logs/EditModeResults.xml -quit
+```
 
-## Setup rápido
+Cobertura actual relevante:
 
-1. Abrir `01_Lobby` en el editor
-2. Verificar que el GameObject `LobbyManager` tiene los componentes:
-   - `LobbyManager`
-   - `LobbyPlayerJoiner`
-   - `LobbyEventSystemFixer`
-3. Asignar los `RoleDefinition` ScriptableObjects en el Inspector de `LobbyManager`
-4. El EventSystem de la escena debe tener `InputSystemUIInputModule`
-   (o dejar que `LobbyEventSystemFixer` lo configure automáticamente)
-5. En `02_Gameplay`, el prefab del jugador debe tener:
-   - `PlayerMovement`
-   - `PlayerInputHandler`
-   - `PlayerInteract`
-   - `PlayerRole`
+- Layout procedural de nave (`ShipLayoutGeneratorTests`).
+- Drenaje centralizado de `ShipHealth`.
+- Eventos de estado de `RepairStation`.
+- Consistencia entre `GameConfig` y Build Settings.
+- Registro de jugadores en `LobbyPlayerSessionData`.
 
-## Notas técnicas
+## Notas de estabilidad
 
-- Los eventos de `ShipHealth` son **estáticos** — suscribirse via nombre de clase, no `.Instance`
-- `RoleSelectionData` persiste entre escenas como clase estática en memoria
-- `PlayerManager.OnPlayerJoined()` aplica el rol guardado en el momento del spawn
-- `GameManager.ApplySelectedRoles()` actúa como fallback con 0.5s de delay
+- Evitar `SceneManager.LoadScene` fuera de `SceneLoader`.
+- Evitar `FindObjectsOfType<RepairStation>()` en loops de runtime; usar `RepairStation.ActiveStations`.
+- `PlayerInputHandler` usa suscripciones C# a acciones del New Input System. No mezclar con callbacks `SendMessages` en el mismo script.
+- `Assets/Scripts/UI/ShipHealthUI.cs` queda solo como stub legacy auto-desactivado para no romper referencias viejas; la UI activa es `Assets/Scripts/UI/HUD/ShipHealthUI.cs`.

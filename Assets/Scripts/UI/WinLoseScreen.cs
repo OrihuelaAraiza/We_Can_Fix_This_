@@ -1,6 +1,5 @@
 using UnityEngine;
 using UnityEngine.UI;
-using UnityEngine.SceneManagement;
 using TMPro;
 using Wcft.Core;
 
@@ -61,12 +60,12 @@ public class WinLoseScreen : MonoBehaviour
     void RestartGame()
     {
         Time.timeScale = 1f;
-        SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+        SceneLoader.ReloadActiveScene();
     }
 
     void GoToLobby()
     {
         Time.timeScale = 1f;
-        SceneManager.LoadScene(GameConfig.SCENE_LOBBY);
+        SceneLoader.LoadScene(GameConfig.SCENE_LOBBY);
     }
 }

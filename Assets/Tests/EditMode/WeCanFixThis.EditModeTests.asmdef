@@ -1,7 +1,8 @@
 {
   "name": "WeCanFixThis.EditModeTests",
   "references": [
-    "Assembly-CSharp"
+    "Assembly-CSharp",
+    "Unity.InputSystem"
   ],
   "includePlatforms": [
     "Editor"

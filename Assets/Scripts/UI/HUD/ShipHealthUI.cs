@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Linq;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
@@ -26,20 +27,22 @@ public class ShipHealthUI : MonoBehaviour
     void OnEnable()
     {
         ShipHealth.OnHealthChanged         += OnHealthChanged;
-        FailureSystem.OnStationFailed      += OnStationChanged;
-        FailureSystem.OnStationRepaired    += OnStationChanged;
+        RepairStation.OnRegistered         += OnStationChanged;
+        RepairStation.OnUnregistered       += OnStationChanged;
+        RepairStation.OnStateChanged       += OnStationStateChanged;
     }
 
     void OnDisable()
     {
         ShipHealth.OnHealthChanged         -= OnHealthChanged;
-        FailureSystem.OnStationFailed      -= OnStationChanged;
-        FailureSystem.OnStationRepaired    -= OnStationChanged;
+        RepairStation.OnRegistered         -= OnStationChanged;
+        RepairStation.OnUnregistered       -= OnStationChanged;
+        RepairStation.OnStateChanged       -= OnStationStateChanged;
     }
 
     void Start()
     {
-        cachedStations = FindObjectsOfType<RepairStation>();
+        cachedStations = RepairStation.ActiveStations.ToArray();
         SetIntegrity(1f);
         SetPower(1f);
         SetHull(1f);
@@ -52,7 +55,16 @@ public class ShipHealthUI : MonoBehaviour
 
     void OnStationChanged(RepairStation _)
     {
+        cachedStations = RepairStation.ActiveStations.ToArray();
         UpdateSubBars();
+    }
+
+    void OnStationStateChanged(
+        RepairStation station,
+        RepairStation.StationState previousState,
+        RepairStation.StationState nextState)
+    {
+        OnStationChanged(station);
     }
 
     // ── Public API ──────────────────────────────────────────────
@@ -102,7 +114,7 @@ public class ShipHealthUI : MonoBehaviour
     void UpdateSubBars()
     {
         if (cachedStations == null || cachedStations.Length == 0)
-            cachedStations = FindObjectsOfType<RepairStation>();
+            cachedStations = RepairStation.ActiveStations.ToArray();
 
         float powerHealth = 1f;
         float hullHealth  = 1f;

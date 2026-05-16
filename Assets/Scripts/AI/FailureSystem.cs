@@ -35,15 +35,24 @@ public class FailureSystem : MonoBehaviour
 
     private void Start()
     {
-        // Registrar todas las estaciones
-        allStations.AddRange(FindObjectsOfType<RepairStation>());
+        RefreshStationCache();
         coreX = GetComponent<CoreXBrain>();
 
-        // Suscribirse a eventos de reparación
-        foreach (var s in allStations)
-            s.OnRepaired += HandleStationRepaired;
-
         Debug.Log($"[FailureSystem] Registered {allStations.Count} stations");
+    }
+
+    private void OnEnable()
+    {
+        RepairStation.OnRegistered += HandleStationRegistered;
+        RepairStation.OnUnregistered += HandleStationUnregistered;
+        RepairStation.OnStateChanged += HandleStationStateChanged;
+    }
+
+    private void OnDisable()
+    {
+        RepairStation.OnRegistered -= HandleStationRegistered;
+        RepairStation.OnUnregistered -= HandleStationUnregistered;
+        RepairStation.OnStateChanged -= HandleStationStateChanged;
     }
 
     private void Update()
@@ -81,7 +90,6 @@ public class FailureSystem : MonoBehaviour
 
         target.BreakStation();
         totalFailures++;
-        OnStationFailed?.Invoke(target);
 
         // Escalar dificultad
         currentInterval = Mathf.Max(
@@ -89,11 +97,6 @@ public class FailureSystem : MonoBehaviour
             currentInterval * intervalDecreaseRate);
 
         Debug.Log($"[FailureSystem] Failure #{totalFailures} | Next in {currentInterval:F1}s");
-    }
-
-    private void HandleStationRepaired(RepairStation station)
-    {
-        OnStationRepaired?.Invoke(station);
     }
 
     private RepairStation SelectRandom()
@@ -130,5 +133,48 @@ public class FailureSystem : MonoBehaviour
         if (failuresPerMinute <= 0) return;
         currentInterval = Mathf.Max(minimumFailureInterval, 60f / failuresPerMinute);
         Debug.Log($"[FailureSystem] Failure rate -> {failuresPerMinute:F1}/min (interval={currentInterval:F1}s)");
+    }
+
+    void RefreshStationCache()
+    {
+        allStations.Clear();
+        foreach (RepairStation station in RepairStation.ActiveStations)
+            HandleStationRegistered(station);
+    }
+
+    void HandleStationRegistered(RepairStation station)
+    {
+        if (station != null && !allStations.Contains(station))
+            allStations.Add(station);
+    }
+
+    void HandleStationUnregistered(RepairStation station)
+    {
+        if (station != null)
+            allStations.Remove(station);
+    }
+
+    void HandleStationStateChanged(
+        RepairStation station,
+        RepairStation.StationState previousState,
+        RepairStation.StationState nextState)
+    {
+        if (station == null)
+            return;
+
+        if (nextState == RepairStation.StationState.Broken
+            && previousState != RepairStation.StationState.Repairing)
+        {
+            OnStationFailed?.Invoke(station);
+            return;
+        }
+
+        bool recovered = previousState == RepairStation.StationState.Broken
+            || previousState == RepairStation.StationState.Repairing;
+        if (recovered && (nextState == RepairStation.StationState.Fixed
+            || nextState == RepairStation.StationState.Functional))
+        {
+            OnStationRepaired?.Invoke(station);
+        }
     }
 }

@@ -8,6 +8,10 @@ public class PlayerInputHandler : MonoBehaviour
     private PlayerInput    _playerInput;
     private PlayerInteract _interact;
     private PlayerRole     _role;
+    private InputAction     _moveAction;
+    private InputAction     _jumpAction;
+    private InputAction     _interactAction;
+    private InputAction     _abilityAction;
 
     private void Awake()
     {
@@ -20,28 +24,54 @@ public class PlayerInputHandler : MonoBehaviour
         if (_playerInput == null)
             return;
 
-        _playerInput.actions["Move"].performed     += OnMovePerformed;
-        _playerInput.actions["Move"].canceled      += OnMoveCanceled;
-        _playerInput.actions["Jump"].performed     += OnJumpPerformed;
-        _playerInput.actions["Interact"].performed += OnInteractPerformed;
-        _playerInput.actions["Interact"].canceled  += OnInteractCanceled;
-        // "Ability" acción requerida en el Input Actions Asset (Q / Numpad2 / Button North)
-        try { _playerInput.actions["Ability"].performed += OnAbilityPerformed; }
-        catch { Debug.LogWarning("[Handler] 'Ability' action not found in InputActions asset — add it to enable role abilities."); }
+        _moveAction = FindRequiredAction("Move");
+        _jumpAction = FindRequiredAction("Jump");
+        _interactAction = FindRequiredAction("Interact");
+        _abilityAction = FindOptionalAction("Ability");
+
+        if (_moveAction != null)
+        {
+            _moveAction.performed += OnMovePerformed;
+            _moveAction.canceled += OnMoveCanceled;
+        }
+
+        if (_jumpAction != null)
+            _jumpAction.performed += OnJumpPerformed;
+
+        if (_interactAction != null)
+        {
+            _interactAction.performed += OnInteractPerformed;
+            _interactAction.canceled += OnInteractCanceled;
+        }
+
+        if (_abilityAction != null)
+            _abilityAction.performed += OnAbilityPerformed;
     }
 
     private void OnDisable()
     {
-        if (_playerInput == null)
-            return;
+        if (_moveAction != null)
+        {
+            _moveAction.performed -= OnMovePerformed;
+            _moveAction.canceled -= OnMoveCanceled;
+        }
 
-        _playerInput.actions["Move"].performed     -= OnMovePerformed;
-        _playerInput.actions["Move"].canceled      -= OnMoveCanceled;
-        _playerInput.actions["Jump"].performed     -= OnJumpPerformed;
-        _playerInput.actions["Interact"].performed -= OnInteractPerformed;
-        _playerInput.actions["Interact"].canceled  -= OnInteractCanceled;
-        try { _playerInput.actions["Ability"].performed -= OnAbilityPerformed; }
-        catch { /* silencioso — ya se loggeó en OnEnable */ }
+        if (_jumpAction != null)
+            _jumpAction.performed -= OnJumpPerformed;
+
+        if (_interactAction != null)
+        {
+            _interactAction.performed -= OnInteractPerformed;
+            _interactAction.canceled -= OnInteractCanceled;
+        }
+
+        if (_abilityAction != null)
+            _abilityAction.performed -= OnAbilityPerformed;
+
+        _moveAction = null;
+        _jumpAction = null;
+        _interactAction = null;
+        _abilityAction = null;
     }
 
     private void OnMovePerformed(InputAction.CallbackContext ctx)
@@ -65,50 +95,37 @@ public class PlayerInputHandler : MonoBehaviour
     private void OnInteractPerformed(InputAction.CallbackContext ctx)
     {
         ResolveReferences();
-        Debug.Log("[Handler] Interact PRESSED");
         _interact?.SetInteractHeld(true);
     }
 
     private void OnInteractCanceled(InputAction.CallbackContext ctx)
     {
         ResolveReferences();
-        Debug.Log("[Handler] Interact RELEASED");
         _interact?.SetInteractHeld(false);
     }
 
     private void OnAbilityPerformed(InputAction.CallbackContext ctx)
     {
         ResolveReferences();
-        Debug.Log("[Handler] Ability PRESSED");
         if (_role != null) _role.UseAbility();
     }
 
-    // ── Send Messages / Broadcast Messages callbacks ──────────────────────────────
-    // Called automatically by PlayerInput when Behavior = SendMessages or
-    // BroadcastMessages. Safe to coexist with the C# subscriptions above —
-    // movement/jump assignments are idempotent on the same frame.
-    private void OnMove(InputValue value)
+    InputAction FindRequiredAction(string actionName)
     {
-        ResolveReferences();
-        _movement?.OnMove(value.Get<Vector2>());
+        InputAction action = _playerInput.actions?.FindAction(actionName, throwIfNotFound: false);
+        if (action == null)
+            Debug.LogError($"[Handler] Required action '{actionName}' not found in InputActions asset.");
+
+        return action;
     }
 
-    private void OnJump(InputValue value)
+    InputAction FindOptionalAction(string actionName)
     {
-        ResolveReferences();
-        if (value.isPressed) _movement?.OnJump();
-    }
+        InputAction action = _playerInput.actions?.FindAction(actionName, throwIfNotFound: false);
+        if (action == null)
+            Debug.LogWarning($"[Handler] Optional action '{actionName}' not found in InputActions asset.");
 
-    private void OnInteract(InputValue value)
-    {
-        ResolveReferences();
-        _interact?.SetInteractHeld(value.isPressed);
-    }
-
-    private void OnAbility(InputValue value)
-    {
-        ResolveReferences();
-        if (value.isPressed) _role?.UseAbility();
+        return action;
     }
 
     private void ResolveReferences()

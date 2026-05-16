@@ -2,7 +2,6 @@ using System;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
-using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using Wcft.Core;
 
@@ -145,7 +144,7 @@ public class PauseMenuUI : MonoBehaviour
     void RestartScene()
     {
         ExitPauseState();
-        SceneLoader.LoadScene(SceneManager.GetActiveScene().name);
+        SceneLoader.ReloadActiveScene();
     }
 
     void GoToMainMenu()
