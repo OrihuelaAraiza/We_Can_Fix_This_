@@ -392,7 +392,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8f0b17daaf50c7e40b72bd84cb697b12, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  loadLobbyOnStart: 1
+  loadMainMenuOnStart: 1
+  audioManagerPrefab: {fileID: 4938871283348114839, guid: a6fef9e5f5e014ab3a7ee080f3e02049,
+    type: 3}
 --- !u!4 &1768021176
 Transform:
   m_ObjectHideFlags: 0

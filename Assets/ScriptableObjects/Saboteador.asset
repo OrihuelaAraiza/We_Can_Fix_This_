@@ -10,13 +10,13 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: dbc6d02d22d814f068161162d409e81f, type: 3}
-  m_Name: Saboteador
-  m_EditorClassIdentifier: 
-  roleName: Saboteador
-  description: 
+  m_Name: Saboteur
+  m_EditorClassIdentifier:
+  roleName: Saboteur
+  description:
   roleColor: {r: 0.9098039, g: 0.2901961, b: 0.2901961, a: 0}
-  perkDescription: "Bomba el\xE9ctrica vs drones. Inmune a empujones de NPCs"
-  penaltyDescription: -25% salud de nave si es noqueado
+  perkDescription: Electric bomb vs drones. Immune to NPC knockbacks
+  penaltyDescription: -25% ship health if knocked out
   moveSpeedMultiplier: 1.1
   repairSpeedMultiplier: 1
   canRepairWhileMoving: 0

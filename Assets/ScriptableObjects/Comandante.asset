@@ -10,16 +10,13 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: dbc6d02d22d814f068161162d409e81f, type: 3}
-  m_Name: Comandante
-  m_EditorClassIdentifier: 
-  roleName: Comandante
-  description: 
+  m_Name: Commander
+  m_EditorClassIdentifier:
+  roleName: Commander
+  description:
   roleColor: {r: 0.6509804, g: 0.2901961, b: 0.9098039, a: 0}
-  perkDescription: "Boost de velocidad a jugadores cercanos. Ve pr\xF3ximo objetivo
-    de Core-X"
-  penaltyDescription: 'No puede reparar estaciones
-
-'
+  perkDescription: Speed boost to nearby players. See next Core-X target
+  penaltyDescription: Cannot repair stations
   moveSpeedMultiplier: 1.2
   repairSpeedMultiplier: 1
   canRepairWhileMoving: 0

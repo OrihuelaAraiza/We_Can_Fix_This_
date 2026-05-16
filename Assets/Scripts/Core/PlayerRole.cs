@@ -130,7 +130,7 @@ public class PlayerRole : MonoBehaviour
             if (d < 15f)
                 p.ApplyTemporarySpeedBoost(1.5f, 8f);
         }
-        Debug.Log("[Comandante] Team speed boost activated");
+        Debug.Log("[Commander] Team speed boost activated");
     }
 
     void ExecuteElectricBomb()

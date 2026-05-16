@@ -190,7 +190,7 @@ public class RepairStation : MonoBehaviour, IInteractable
             CompleteRepair();
     }
 
-    // Para habilidad Mecánico — resetea degradación acumulada
+    // For Mechanic ability — resets accumulated degradation
     public void ResetDegradation()
     {
         // Si la estación tiene un timer de degradación, resetearlo

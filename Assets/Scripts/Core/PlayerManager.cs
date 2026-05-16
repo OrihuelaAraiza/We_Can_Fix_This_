@@ -174,6 +174,7 @@ public partial class PlayerManager : MonoBehaviour
         {
             EnsurePlayerCollider(playerInput.gameObject);
             movement.Initialize(slotIndex, playerData, cameraTransform);
+            EnsureBuildSafeFixieAnimation(playerInput.gameObject, movement, slotIndex);
         }
         finally
         {
@@ -660,6 +661,26 @@ public partial class PlayerManager : MonoBehaviour
             runtime = visualRoot.gameObject.AddComponent<FixieAnimationRuntime>();
 
         runtime.Bind(movement, visualRoot, modelPrefab, sourceAnimator, slotIndex);
+    }
+
+    void EnsureBuildSafeFixieAnimation(GameObject playerObject, PlayerMovement movement, int slotIndex)
+    {
+        if (playerObject == null || movement == null)
+            return;
+
+        GameObject sourcePrefab = GetPlayerPrefabForSlot(slotIndex);
+        Transform visualRoot = FindPrimaryVisualRoot(playerObject.transform);
+        Animator animator = playerObject.GetComponentInChildren<Animator>(true);
+
+        if (sourcePrefab == null || visualRoot == null || animator == null)
+        {
+            Debug.LogWarning($"{AnimationDebugPrefix} slot={slotIndex} missing runtime animation binding data.");
+            return;
+        }
+
+        ForceRenderersVisible(visualRoot);
+        BindVisualWobble(playerObject.transform, visualRoot);
+        AttachRuntimeFixieAnimation(playerObject, movement, sourcePrefab, visualRoot, animator, slotIndex);
     }
 
     Transform EnsureModelRoot(Transform playerRoot)

@@ -15,8 +15,8 @@ MonoBehaviour:
   roleName: Hacker
   description: 
   roleColor: {r: 0.2901961, g: 0.9098039, b: 0.7607843, a: 0}
-  perkDescription: "Repara estaci\xF3n remota c/45s. Ve todas las fallas en mapa"
-  penaltyDescription: "No puede reparar Energ\xEDa manualmente"
+  perkDescription: Remote repair any station every 45s. See all failures on map
+  penaltyDescription: Cannot repair Energy manually
   moveSpeedMultiplier: 1
   repairSpeedMultiplier: 1
   canRepairWhileMoving: 0

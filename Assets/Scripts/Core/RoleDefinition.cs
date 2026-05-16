@@ -18,7 +18,7 @@ public class RoleDefinition : ScriptableObject
     [Range(0.5f, 2f)] public float repairSpeedMultiplier = 1f;
     public bool canRepairWhileMoving = false;
     public bool cannotRepairEnergy   = false;
-    public float repairDurabilityBonus = 0f; // 0.5 = +50% durabilidad
+    public float repairDurabilityBonus = 0f; // 0.5 = +50% durability
 
     [Header("Special Ability")]
     public RoleAbility ability;
@@ -33,10 +33,10 @@ public class RoleDefinition : ScriptableObject
 public enum RoleAbility
 {
     None,
-    RemoteRepair,       // Hacker — repara estación remota
-    TurretAnywhere,     // Artillero — activa torreta desde lejos
-    ResetStation,       // Mecánico — resetea cooldown de estación
-    TeamSpeedBoost,     // Comandante — boost de velocidad a cercanos
-    PreviewNextAttack,  // Comandante — ve próxima sala atacada
-    ElectricBomb        // Saboteador — desactiva drones
+    RemoteRepair,       // Hacker — repairs a remote station
+    TurretAnywhere,     // Gunner — activates turret from anywhere
+    ResetStation,       // Mechanic — resets station cooldown
+    TeamSpeedBoost,     // Commander — speed boost to nearby players
+    PreviewNextAttack,  // Commander — previews next targeted room
+    ElectricBomb        // Saboteur — disables drones
 }

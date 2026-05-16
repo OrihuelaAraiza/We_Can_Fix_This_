@@ -10,13 +10,13 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: dbc6d02d22d814f068161162d409e81f, type: 3}
-  m_Name: "Meca\u0301nico"
-  m_EditorClassIdentifier: 
-  roleName: "Mec\xE1nico"
-  description: 
+  m_Name: Mechanic
+  m_EditorClassIdentifier:
+  roleName: Mechanic
+  description:
   roleColor: {r: 0.9098039, g: 0.7607843, b: 0.2901961, a: 0}
-  perkDescription: Reparaciones dejan +50% durabilidad. Resetea cooldown 1x
-  penaltyDescription: "-40% velocidad de reparaci\xF3n\n"
+  perkDescription: Repairs leave +50% durability. Reset cooldown 1x
+  penaltyDescription: -40% repair speed
   moveSpeedMultiplier: 1
   repairSpeedMultiplier: 0.6
   canRepairWhileMoving: 0
