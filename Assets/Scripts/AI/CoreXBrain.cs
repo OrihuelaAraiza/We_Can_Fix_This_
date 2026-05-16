@@ -83,7 +83,7 @@ public class CoreXBrain : MonoBehaviour
 
     private void Start()
     {
-        allStations    = FindObjectsOfType<RepairStation>();
+        allStations    = GetRegisteredStations();
         gameStartTime  = Time.time;
 
         if (phases != null && phases.Length > 0)
@@ -91,6 +91,23 @@ public class CoreXBrain : MonoBehaviour
 
         StartCoroutine(BrainTick());
         Debug.Log($"[CoreX] Iniciado con {allStations.Length} estaciones y {phases?.Length ?? 0} fases");
+    }
+
+    static RepairStation[] GetRegisteredStations()
+    {
+        var stations = new List<RepairStation>();
+        foreach (RepairStation station in RepairStation.ActiveStations)
+        {
+            if (station != null)
+                stations.Add(station);
+        }
+
+        if (stations.Count > 0)
+            return stations.ToArray();
+
+#pragma warning disable CS0618
+        return FindObjectsOfType<RepairStation>();
+#pragma warning restore CS0618
     }
 
     // ── Tick principal (Behavior Tree simplificado) ────────────

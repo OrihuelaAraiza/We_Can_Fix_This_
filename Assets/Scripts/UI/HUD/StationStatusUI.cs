@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
+using System.Linq;
 
 public class StationStatusUI : MonoBehaviour
 {
@@ -35,14 +36,16 @@ public class StationStatusUI : MonoBehaviour
 
     void OnEnable()
     {
-        FailureSystem.OnStationFailed   += HandleFailed;
-        FailureSystem.OnStationRepaired += HandleRepaired;
+        RepairStation.OnRegistered += HandleStationRegistered;
+        RepairStation.OnUnregistered += HandleStationUnregistered;
+        RepairStation.OnStateChanged += HandleStationStateChanged;
     }
 
     void OnDisable()
     {
-        FailureSystem.OnStationFailed   -= HandleFailed;
-        FailureSystem.OnStationRepaired -= HandleRepaired;
+        RepairStation.OnRegistered -= HandleStationRegistered;
+        RepairStation.OnUnregistered -= HandleStationUnregistered;
+        RepairStation.OnStateChanged -= HandleStationStateChanged;
     }
 
     void Start()
@@ -71,12 +74,22 @@ public class StationStatusUI : MonoBehaviour
         RefreshAllRows();
     }
 
-    void HandleFailed(RepairStation station)
+    void HandleStationRegistered(RepairStation station)
     {
-        SetStationRow(station);
+        CacheStations();
+        RefreshAllRows();
     }
 
-    void HandleRepaired(RepairStation station)
+    void HandleStationUnregistered(RepairStation station)
+    {
+        CacheStations();
+        RefreshAllRows();
+    }
+
+    void HandleStationStateChanged(
+        RepairStation station,
+        RepairStation.StationState previousState,
+        RepairStation.StationState nextState)
     {
         SetStationRow(station);
     }
@@ -144,9 +157,7 @@ public class StationStatusUI : MonoBehaviour
 
     void CacheStations()
     {
-#pragma warning disable CS0618
-        _stations = FindObjectsOfType<RepairStation>();
-#pragma warning restore CS0618
+        _stations = RepairStation.ActiveStations.ToArray();
     }
 
     void SetRowState(StationRow row, StationDisplayState state, float progress)

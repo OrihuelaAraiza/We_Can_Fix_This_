@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.SceneManagement;
 using Wcft.Core;
 
 public class LobbyManager : MonoBehaviour
@@ -124,6 +123,6 @@ public class LobbyManager : MonoBehaviour
     {
         // Guardar roles seleccionados para que GameManager los aplique
         RoleSelectionData.Save(selectedRoles);
-        SceneManager.LoadScene(GameConfig.SCENE_GAMEPLAY);
+        SceneLoader.LoadScene(GameConfig.SCENE_GAMEPLAY);
     }
 }

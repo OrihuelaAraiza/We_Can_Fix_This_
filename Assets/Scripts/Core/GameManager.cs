@@ -1,6 +1,6 @@
 using System.Collections;
 using UnityEngine;
-using UnityEngine.SceneManagement;
+using Wcft.Core;
 
 public class GameManager : MonoBehaviour
 {
@@ -116,6 +116,6 @@ public class GameManager : MonoBehaviour
 
     void RestartScene()
     {
-        SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+        SceneLoader.ReloadActiveScene();
     }
 }

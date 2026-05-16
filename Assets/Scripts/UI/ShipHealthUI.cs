@@ -1,8 +1,9 @@
+using System;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 
-// Legacy — replaced by Assets/Scripts/UI/HUD/ShipHealthUI.cs
+[Obsolete("Replaced by Assets/Scripts/UI/HUD/ShipHealthUI.cs. Kept only to avoid missing script references in old scenes.")]
 public class LegacyShipHealthUI : MonoBehaviour
 {
     [Header("References")]
@@ -15,6 +16,11 @@ public class LegacyShipHealthUI : MonoBehaviour
     [SerializeField] Color colorGood     = new Color(0.2f, 0.8f, 0.3f);
     [SerializeField] Color colorWarning  = new Color(0.9f, 0.6f, 0.1f);
     [SerializeField] Color colorCritical = new Color(0.9f, 0.2f, 0.1f);
+
+    void Awake()
+    {
+        enabled = false;
+    }
 
     void OnEnable()
     {

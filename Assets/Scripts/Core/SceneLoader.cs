@@ -18,6 +18,12 @@ namespace Wcft.Core
             SceneManager.LoadScene(sceneName);
         }
 
+        public static void ReloadActiveScene()
+        {
+            string activeSceneName = SceneManager.GetActiveScene().name;
+            LoadScene(activeSceneName);
+        }
+
         public static IEnumerator LoadSceneAsync(string sceneName)
         {
             if (GameConfig.VERBOSE_LOGS)

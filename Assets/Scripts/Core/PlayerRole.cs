@@ -104,12 +104,12 @@ public class PlayerRole : MonoBehaviour
     void ExecuteRemoteRepair()
     {
         // Encuentra la estación rota más cercana y avanza su reparación
-        var stations = FindObjectsOfType<RepairStation>();
         RepairStation closest = null;
         float minDist = float.MaxValue;
 
-        foreach (var s in stations)
+        foreach (var s in RepairStation.ActiveStations)
         {
+            if (s == null) continue;
             if (s.State != RepairStation.StationState.Broken) continue;
             float d = Vector3.Distance(transform.position, s.transform.position);
             if (d < minDist) { minDist = d; closest = s; }
@@ -159,12 +159,12 @@ public class PlayerRole : MonoBehaviour
     void ExecuteResetStation()
     {
         // Encuentra estación más cercana y resetea su degradación
-        var stations = FindObjectsOfType<RepairStation>();
         RepairStation closest = null;
         float minDist = float.MaxValue;
 
-        foreach (var s in stations)
+        foreach (var s in RepairStation.ActiveStations)
         {
+            if (s == null) continue;
             float d = Vector3.Distance(transform.position, s.transform.position);
             if (d < minDist) { minDist = d; closest = s; }
         }

@@ -1,6 +1,5 @@
 using UnityEngine;
 using UnityEngine.UI;
-using UnityEngine.SceneManagement;
 using TMPro;
 using Wcft.Core;
 
@@ -115,12 +114,12 @@ public class WinLoseUI : MonoBehaviour
 
     void OnRestart()
     {
-        SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+        SceneLoader.ReloadActiveScene();
     }
 
     void OnLobby()
     {
-        SceneManager.LoadScene(GameConfig.SCENE_LOBBY);
+        SceneLoader.LoadScene(GameConfig.SCENE_LOBBY);
     }
 
     void ApplyButtonColor(Button btn, Color bg)
