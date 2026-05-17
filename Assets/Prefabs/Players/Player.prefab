@@ -29,7 +29,7 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 1200000000000000002}
+  - {fileID: 9003104497251223709}
   m_Father: {fileID: 8322177807284062747}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &4108714465431096865
@@ -332,6 +332,26 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 1000000000000000002}
     m_Modifications:
+    - target: {fileID: 4085432536944772313, guid: 891e50ae3d48543e58d8c685f03ea703,
+        type: 3}
+      propertyPath: m_Name
+      value: HardcodedFixieVisual
+      objectReference: {fileID: 0}
+    - target: {fileID: 7806482471852804252, guid: 891e50ae3d48543e58d8c685f03ea703,
+        type: 3}
+      propertyPath: m_LocalScale.x
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 7806482471852804252, guid: 891e50ae3d48543e58d8c685f03ea703,
+        type: 3}
+      propertyPath: m_LocalScale.y
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 7806482471852804252, guid: 891e50ae3d48543e58d8c685f03ea703,
+        type: 3}
+      propertyPath: m_LocalScale.z
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 7806482471852804252, guid: 891e50ae3d48543e58d8c685f03ea703,
         type: 3}
       propertyPath: m_LocalPosition.x
@@ -382,32 +402,12 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
-    - target: {fileID: 7806482471852804252, guid: 891e50ae3d48543e58d8c685f03ea703,
-        type: 3}
-      propertyPath: m_LocalScale.x
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 7806482471852804252, guid: 891e50ae3d48543e58d8c685f03ea703,
-        type: 3}
-      propertyPath: m_LocalScale.y
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 7806482471852804252, guid: 891e50ae3d48543e58d8c685f03ea703,
-        type: 3}
-      propertyPath: m_LocalScale.z
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 4085432536944772313, guid: 891e50ae3d48543e58d8c685f03ea703,
-        type: 3}
-      propertyPath: m_Name
-      value: HardcodedFixieVisual
-      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 891e50ae3d48543e58d8c685f03ea703, type: 3}
---- !u!4 &1200000000000000002 stripped
+--- !u!4 &9003104497251223709 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 7806482471852804252, guid: 891e50ae3d48543e58d8c685f03ea703,
     type: 3}
