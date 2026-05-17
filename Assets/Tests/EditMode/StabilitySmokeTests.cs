@@ -299,6 +299,24 @@ public class StabilitySmokeTests
     }
 
     [Test]
+    public void EmergencyLighting_TracksStationFailuresAndAmbientInjector()
+    {
+        string emergencySource = System.IO.File.ReadAllText("Assets/Scripts/World/EmergencyLightController.cs");
+        Assert.That(emergencySource, Does.Contain("RepairStation.OnStateChanged"));
+        Assert.That(emergencySource, Does.Contain("stationEmergencyActive"));
+        Assert.That(emergencySource, Does.Contain("IsStationEmergency"));
+
+        string ambientSource = System.IO.File.ReadAllText("Assets/Scripts/World/ShipAmbientLightInjector.cs");
+        Assert.That(ambientSource, Does.Contain("SpawnRoomLights"));
+        Assert.That(ambientSource, Does.Contain("SpawnCorridorLights"));
+        Assert.That(ambientSource, Does.Contain("RenderSettings.ambientLight"));
+
+        string layoutSource = System.IO.File.ReadAllText("Assets/Scripts/World/ShipLayoutGenerator.cs");
+        Assert.That(layoutSource, Does.Contain("EnsureAmbientLightInjector"));
+        Assert.That(layoutSource, Does.Contain("AddComponent<ShipAmbientLightInjector>"));
+    }
+
+    [Test]
     public void RoamingNPCs_UseNavMeshAgentsAndRecovery()
     {
         string blockieSource = System.IO.File.ReadAllText("Assets/Scripts/NPC/Blockie_NPC/Blockie_NPC.cs");

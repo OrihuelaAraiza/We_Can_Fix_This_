@@ -7,21 +7,29 @@ using UnityEngine;
 public class ShipAmbientLightInjector : MonoBehaviour
 {
     [Header("Room Lights")]
-    [SerializeField] private Color  roomLightColor     = new Color(0.55f, 0.70f, 1.00f);
-    [SerializeField] private float  roomLightIntensity = 2.2f;
-    [SerializeField] private float  roomLightRange     = 11f;
-    [SerializeField] private float  roomHeightOffset   = 2.8f;
+    [SerializeField] private Color  roomLightColor     = new Color(0.72f, 0.84f, 1.00f);
+    [SerializeField] private float  roomLightIntensity = 3.2f;
+    [SerializeField] private float  roomLightRange     = 14f;
+    [SerializeField] private float  roomHeightOffset   = 3.1f;
+    [SerializeField] private float  roomFillOffset     = 4.5f;
+    [SerializeField] private float  roomFillIntensity  = 1.35f;
+    [SerializeField] private float  roomFillRange      = 7f;
 
     [Header("Corridor Lights")]
-    [SerializeField] private Color  corridorLightColor     = new Color(0.45f, 0.60f, 0.90f);
-    [SerializeField] private float  corridorLightIntensity = 1.4f;
-    [SerializeField] private float  corridorLightRange     = 6f;
-    [SerializeField] private float  corridorHeightOffset   = 2.2f;
+    [SerializeField] private Color  corridorLightColor     = new Color(0.62f, 0.76f, 1.00f);
+    [SerializeField] private float  corridorLightIntensity = 2.1f;
+    [SerializeField] private float  corridorLightRange     = 8f;
+    [SerializeField] private float  corridorHeightOffset   = 2.45f;
+    [SerializeField] private float  corridorSecondaryOffset = 2.2f;
 
     [Header("Settings")]
     [SerializeField] private bool castShadows = false;
+    [SerializeField] private bool adjustAmbientLighting = true;
+    [SerializeField] private Color ambientColor = new Color(0.18f, 0.22f, 0.30f);
+    [SerializeField] private float ambientIntensity = 1.25f;
 
     private readonly List<Light> spawnedLights = new();
+    private bool spawned;
 
     private void OnEnable()
     {
@@ -40,19 +48,63 @@ public class ShipAmbientLightInjector : MonoBehaviour
     {
         ShipLayoutGenerator.OnRoomCentersReady -= OnLayoutReady;
 
+        if (spawned)
+            return;
+
+        spawned = true;
+        ApplyAmbientSettings();
+
         foreach (var kvp in roomCenters)
         {
             bool isCorridor = kvp.Key.StartsWith("Corridor", System.StringComparison.OrdinalIgnoreCase);
 
-            Color color      = isCorridor ? corridorLightColor     : roomLightColor;
-            float intensity  = isCorridor ? corridorLightIntensity : roomLightIntensity;
-            float range      = isCorridor ? corridorLightRange      : roomLightRange;
-            float heightOff  = isCorridor ? corridorHeightOffset    : roomHeightOffset;
-
-            SpawnLight($"AmbientLight_{kvp.Key}", kvp.Value + Vector3.up * heightOff, color, intensity, range);
+            if (isCorridor)
+                SpawnCorridorLights(kvp.Key, kvp.Value);
+            else
+                SpawnRoomLights(kvp.Key, kvp.Value);
         }
 
         Debug.Log($"[ShipAmbientLightInjector] Placed {spawnedLights.Count} lights across {roomCenters.Count} areas");
+    }
+
+    private void SpawnRoomLights(string areaName, Vector3 center)
+    {
+        SpawnLight($"AmbientLight_{areaName}_Center", center + Vector3.up * roomHeightOffset, roomLightColor, roomLightIntensity, roomLightRange);
+
+        Vector3[] offsets =
+        {
+            new Vector3(roomFillOffset, 0f, roomFillOffset),
+            new Vector3(-roomFillOffset, 0f, roomFillOffset),
+            new Vector3(roomFillOffset, 0f, -roomFillOffset),
+            new Vector3(-roomFillOffset, 0f, -roomFillOffset),
+        };
+
+        for (int i = 0; i < offsets.Length; i++)
+        {
+            SpawnLight(
+                $"AmbientLight_{areaName}_Fill_{i + 1}",
+                center + offsets[i] + Vector3.up * (roomHeightOffset - 0.45f),
+                roomLightColor,
+                roomFillIntensity,
+                roomFillRange);
+        }
+    }
+
+    private void SpawnCorridorLights(string areaName, Vector3 center)
+    {
+        SpawnLight($"AmbientLight_{areaName}_Center", center + Vector3.up * corridorHeightOffset, corridorLightColor, corridorLightIntensity, corridorLightRange);
+        SpawnLight($"AmbientLight_{areaName}_A", center + Vector3.right * corridorSecondaryOffset + Vector3.up * corridorHeightOffset, corridorLightColor, corridorLightIntensity * 0.65f, corridorLightRange * 0.75f);
+        SpawnLight($"AmbientLight_{areaName}_B", center - Vector3.right * corridorSecondaryOffset + Vector3.up * corridorHeightOffset, corridorLightColor, corridorLightIntensity * 0.65f, corridorLightRange * 0.75f);
+    }
+
+    private void ApplyAmbientSettings()
+    {
+        if (!adjustAmbientLighting)
+            return;
+
+        RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Flat;
+        RenderSettings.ambientLight = ambientColor;
+        RenderSettings.ambientIntensity = ambientIntensity;
     }
 
     private void SpawnLight(string lightName, Vector3 position, Color color, float intensity, float range)

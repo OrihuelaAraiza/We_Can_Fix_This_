@@ -358,6 +358,8 @@ public class ShipLayoutGenerator : MonoBehaviour
 
         try
         {
+            EnsureAmbientLightInjector();
+
             if (!BuildShip(baseSeed, out int successfulSeed, out string failureReason))
             {
                 CurrentSeed = baseSeed;
@@ -383,6 +385,16 @@ public class ShipLayoutGenerator : MonoBehaviour
             IsReady = true;
             Debug.Log("[ShipLayout] IsReady = true");
         }
+    }
+
+    void EnsureAmbientLightInjector()
+    {
+#pragma warning disable CS0618
+        if (FindObjectOfType<ShipAmbientLightInjector>() != null)
+            return;
+#pragma warning restore CS0618
+
+        gameObject.AddComponent<ShipAmbientLightInjector>();
     }
 
     internal bool GenerateLayoutForTesting(int baseSeed, out string failureReason)
@@ -1024,9 +1036,21 @@ public class ShipLayoutGenerator : MonoBehaviour
             centers[module.Name] = new Vector3(centerX, y, centerZ);
         }
 
+        foreach (var connection in placedConnections)
+        {
+            if (connection.Instance == null) continue;
+
+            var wr = connection.WalkableRect;
+            float centerX = (wr.Min.x + wr.Max.x) * 0.5f;
+            float centerZ = (wr.Min.y + wr.Max.y) * 0.5f;
+            float y = connection.Instance.transform.position.y + 1f;
+
+            centers[connection.Name] = new Vector3(centerX, y, centerZ);
+        }
+
         RoomCenters = centers;
         OnRoomCentersReady?.Invoke(centers);
-        Log($"[ShipLayout] Room centers publicados: {centers.Count} habitaciones.");
+        Log($"[ShipLayout] Room centers publicados: {centers.Count} areas.");
     }
 
     Transform CreateSafeSpawnAnchor(Transform parent, string name, Vector3 desiredWorldPosition, PlacedModule bridgePlaced)
