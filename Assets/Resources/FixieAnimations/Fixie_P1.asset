@@ -16,6 +16,7 @@ MonoBehaviour:
   aliases:
   - Fixie_P1
   - Astronaut_FinnTheFrog
+  visualPrefab: {fileID: 4085432536944772313, guid: 891e50ae3d48543e58d8c685f03ea703, type: 3}
   avatar: {fileID: 9000000, guid: d9244d1a61d0844aab4e3e4512d36e78, type: 3}
   idleClip: {fileID: 110800006, guid: 5fc10614fb9f24f94b0c2f1ead07f5ba, type: 3}
   walkClip: {fileID: 110800026, guid: 5fc10614fb9f24f94b0c2f1ead07f5ba, type: 3}

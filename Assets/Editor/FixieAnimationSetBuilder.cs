@@ -12,25 +12,22 @@ public static class FixieAnimationSetBuilder
         new(
             "Fixie_P1",
             new[] { "Fixie_P1", "Astronaut_FinnTheFrog" },
+            "Assets/Art/Characters/Fixies/Prefabs/Fixie_P1.prefab",
             "Assets/Art/Models/Astronaut_FinnTheFrog.fbx",
             "Assets/Art/Models/Temp/Players/Astronaut_FinnTheFrog.fbx"),
         new(
             "Fixie_P2",
             new[] { "Fixie_P2", "Astronaut_FernandoTheFlamingo" },
-            "Assets/Art/Models/Astronaut_FernandoTheFlamingo.fbx",
+            "Assets/Art/Characters/Fixies/Prefabs/Fixie_P2.prefab",
+            "Assets/Art/Models/Astronaut_FinnTheFrog.fbx",
             "Assets/Art/Models/Temp/Players/Astronaut_FernandoTheFlamingo.fbx"),
         new(
             "Fixie_P3",
             new[] { "Fixie_P3", "Astronaut_BarbaraTheBee" },
-            "Assets/Art/Models/Astronaut_BarbaraTheBee.fbx",
+            "Assets/Art/Characters/Fixies/Prefabs/Fixie_P3.prefab",
+            "Assets/Art/Models/Astronaut_FinnTheFrog.fbx",
             "Assets/Art/Models/Temp/Players/Astronaut_BarbaraTheBee.fbx"),
     };
-
-    [InitializeOnLoadMethod]
-    private static void AutoBuildOnLoad()
-    {
-        EditorApplication.delayCall += EnsureAnimationSets;
-    }
 
     [MenuItem("Tools/Fixies/Rebuild Runtime Animation Sets")]
     public static void EnsureAnimationSets()
@@ -62,7 +59,8 @@ public static class FixieAnimationSetBuilder
             AssetDatabase.CreateAsset(set, assetPath);
         }
 
-        set.Configure(binding.AssetName, binding.Aliases, avatar, idle, walk, run, jump, fall);
+        GameObject visualPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(binding.VisualPrefabPath);
+        set.Configure(binding.AssetName, binding.Aliases, visualPrefab, avatar, idle, walk, run, jump, fall);
         EditorUtility.SetDirty(set);
     }
 
@@ -126,7 +124,7 @@ public static class FixieAnimationSetBuilder
         jump = clips.FirstOrDefault(clip => clip != null && clip.name.EndsWith("|Jump"));
         fall = clips.FirstOrDefault(clip => clip != null && clip.name.EndsWith("|Jump_Idle"));
 
-        return idle != null && walk != null && run != null;
+        return idle != null && walk != null && run != null && jump != null && fall != null;
     }
 
     private static void EnsureFolder(string folderPath)
@@ -154,16 +152,18 @@ public static class FixieAnimationSetBuilder
 
     private readonly struct Binding
     {
-        public Binding(string assetName, string[] aliases, string preferredClipSourcePath, string avatarSourcePath)
+        public Binding(string assetName, string[] aliases, string visualPrefabPath, string preferredClipSourcePath, string avatarSourcePath)
         {
             AssetName = assetName;
             Aliases = aliases;
+            VisualPrefabPath = visualPrefabPath;
             PreferredClipSourcePath = preferredClipSourcePath;
             AvatarSourcePath = avatarSourcePath;
         }
 
         public string AssetName { get; }
         public string[] Aliases { get; }
+        public string VisualPrefabPath { get; }
         public string PreferredClipSourcePath { get; }
         public string AvatarSourcePath { get; }
     }

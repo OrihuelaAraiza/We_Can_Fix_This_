@@ -1,12 +1,7 @@
 using System;
-using System.Collections.Generic;
-using System.IO;
 using UnityEngine;
 using UnityEngine.Animations;
 using UnityEngine.Playables;
-#if UNITY_EDITOR
-using UnityEditor;
-#endif
 
 public class FixieAnimationRuntime : MonoBehaviour
 {
@@ -19,11 +14,8 @@ public class FixieAnimationRuntime : MonoBehaviour
         Air,
     }
 
-    private struct ResolvedAnimationData
+    private struct HardcodedAnimationData
     {
-        public string SourceId;
-        public string AvailableClipNames;
-        public Avatar Avatar;
         public AnimationClip IdleClip;
         public AnimationClip WalkClip;
         public AnimationClip RunClip;
@@ -31,40 +23,11 @@ public class FixieAnimationRuntime : MonoBehaviour
         public AnimationClip FallClip;
 
         public AnimationClip AirClip => FallClip != null ? FallClip : JumpClip;
-        public bool HasAnyClip => IdleClip != null || WalkClip != null || RunClip != null || JumpClip != null || FallClip != null;
-        public bool IsValid => IdleClip != null && WalkClip != null && RunClip != null;
+        public bool IsValid => IdleClip != null && WalkClip != null && RunClip != null && JumpClip != null && FallClip != null;
 
         public string DescribeClips()
         {
-            string airName = AirClip != null ? AirClip.name : "NONE";
-            return $"idle={GetClipName(IdleClip)} walk={GetClipName(WalkClip)} run={GetClipName(RunClip)} air={airName} available=[{AvailableClipNames}]";
-        }
-
-        public void FillMissingFrom(in ResolvedAnimationData fallback)
-        {
-            if (Avatar == null)
-                Avatar = fallback.Avatar;
-
-            if (IdleClip == null)
-                IdleClip = fallback.IdleClip;
-
-            if (WalkClip == null)
-                WalkClip = fallback.WalkClip;
-
-            if (RunClip == null)
-                RunClip = fallback.RunClip;
-
-            if (JumpClip == null)
-                JumpClip = fallback.JumpClip;
-
-            if (FallClip == null)
-                FallClip = fallback.FallClip;
-
-            if (string.IsNullOrWhiteSpace(SourceId))
-                SourceId = fallback.SourceId;
-
-            if (string.IsNullOrWhiteSpace(AvailableClipNames))
-                AvailableClipNames = fallback.AvailableClipNames;
+            return $"idle={GetClipName(IdleClip)} walk={GetClipName(WalkClip)} run={GetClipName(RunClip)} jump={GetClipName(JumpClip)} fall={GetClipName(FallClip)}";
         }
 
         private static string GetClipName(AnimationClip clip)
@@ -73,63 +36,91 @@ public class FixieAnimationRuntime : MonoBehaviour
         }
     }
 
-    private static readonly Dictionary<string, string> EditorAssetPaths = new(StringComparer.OrdinalIgnoreCase)
-    {
-        ["Fixie_P1"] = "Assets/Art/Models/Temp/Players/Astronaut_FinnTheFrog.fbx",
-        ["Astronaut_FinnTheFrog"] = "Assets/Art/Models/Temp/Players/Astronaut_FinnTheFrog.fbx",
-        ["Fixie_P2"] = "Assets/Art/Models/Temp/Players/Astronaut_FernandoTheFlamingo.fbx",
-        ["Astronaut_FernandoTheFlamingo"] = "Assets/Art/Models/Temp/Players/Astronaut_FernandoTheFlamingo.fbx",
-        ["Fixie_P3"] = "Assets/Art/Models/Temp/Players/Astronaut_BarbaraTheBee.fbx",
-        ["Astronaut_BarbaraTheBee"] = "Assets/Art/Models/Temp/Players/Astronaut_BarbaraTheBee.fbx",
-    };
-
-    private static FixieAnimationSet[] cachedSets;
-
     [Header("Bindings")]
     [SerializeField] private PlayerMovement movement;
     [SerializeField] private Transform visualRoot;
     [SerializeField] private Animator animator;
     [SerializeField] private FixieAnimationSet animationSet;
-    [SerializeField] private string resolvedSource;
+
+    [Header("Clips")]
+    [SerializeField] private AnimationClip idleClip;
+    [SerializeField] private AnimationClip walkClip;
+    [SerializeField] private AnimationClip runClip;
+    [SerializeField] private AnimationClip jumpClip;
+    [SerializeField] private AnimationClip fallClip;
 
     [Header("Blend")]
     [SerializeField] private float walkThreshold = 0.45f;
     [SerializeField] private float blendSpeed = 8f;
-    [SerializeField] private bool animationDebugLogs = true;
+    [SerializeField] private bool animationDebugLogs = false;
 
     private readonly float[] currentWeights = new float[4];
 
     private PlayableGraph graph;
     private AnimationMixerPlayable mixer;
     private AnimationState currentState;
-    private ResolvedAnimationData animationData;
+    private HardcodedAnimationData animationData;
     private string debugSourceName = "Unknown";
     private bool fatalErrorLogged;
 
-    public static FixieAnimationSet ResolveAnimationSet(GameObject sourcePrefab, Transform modelRoot)
+    public void Bind(
+        PlayerMovement targetMovement,
+        Transform targetVisualRoot,
+        Animator sourceAnimator,
+        FixieAnimationSet runtimeAnimationSet,
+        int slotIndex)
     {
-        EnsureCache();
-
-        if (cachedSets == null || cachedSets.Length == 0)
-            return null;
-
-        HashSet<string> candidates = BuildCandidateNames(sourcePrefab, modelRoot, null);
-        foreach (FixieAnimationSet set in cachedSets)
-        {
-            if (set == null)
-                continue;
-
-            foreach (string candidate in candidates)
-            {
-                if (set.Matches(candidate))
-                    return set;
-            }
-        }
-
-        return null;
+        BindInternal(
+            targetMovement,
+            targetVisualRoot,
+            sourceAnimator,
+            runtimeAnimationSet,
+            runtimeAnimationSet != null ? runtimeAnimationSet.Avatar : null,
+            runtimeAnimationSet != null ? runtimeAnimationSet.IdleClip : null,
+            runtimeAnimationSet != null ? runtimeAnimationSet.WalkClip : null,
+            runtimeAnimationSet != null ? runtimeAnimationSet.RunClip : null,
+            runtimeAnimationSet != null ? runtimeAnimationSet.JumpClip : null,
+            runtimeAnimationSet != null ? runtimeAnimationSet.FallClip : null,
+            slotIndex);
     }
 
-    public void Bind(PlayerMovement targetMovement, Transform targetVisualRoot, GameObject sourcePrefab, Animator sourceAnimator, int slotIndex)
+    public void Bind(
+        PlayerMovement targetMovement,
+        Transform targetVisualRoot,
+        Animator sourceAnimator,
+        AnimationClip hardcodedIdleClip,
+        AnimationClip hardcodedWalkClip,
+        AnimationClip hardcodedRunClip,
+        AnimationClip hardcodedJumpClip,
+        AnimationClip hardcodedFallClip,
+        int slotIndex)
+    {
+        BindInternal(
+            targetMovement,
+            targetVisualRoot,
+            sourceAnimator,
+            null,
+            null,
+            hardcodedIdleClip,
+            hardcodedWalkClip,
+            hardcodedRunClip,
+            hardcodedJumpClip,
+            hardcodedFallClip,
+            slotIndex);
+    }
+
+    private void BindInternal(
+        PlayerMovement targetMovement,
+        Transform targetVisualRoot,
+        Animator sourceAnimator,
+        FixieAnimationSet runtimeAnimationSet,
+        Avatar fallbackAvatar,
+        AnimationClip hardcodedIdleClip,
+        AnimationClip hardcodedWalkClip,
+        AnimationClip hardcodedRunClip,
+        AnimationClip hardcodedJumpClip,
+        AnimationClip hardcodedFallClip,
+        int slotIndex)
     {
         try
         {
@@ -137,24 +128,35 @@ public class FixieAnimationRuntime : MonoBehaviour
             movement = targetMovement;
             visualRoot = targetVisualRoot != null ? targetVisualRoot : transform;
             animator = null;
-            animationSet = null;
-            debugSourceName = sourcePrefab != null ? sourcePrefab.name : (visualRoot != null ? visualRoot.name : name);
+            animationSet = runtimeAnimationSet;
+            idleClip = hardcodedIdleClip;
+            walkClip = hardcodedWalkClip;
+            runClip = hardcodedRunClip;
+            jumpClip = hardcodedJumpClip;
+            fallClip = hardcodedFallClip;
+            debugSourceName = visualRoot != null ? visualRoot.name : name;
 
-            animationData = ResolveAnimationData(sourcePrefab, visualRoot, sourceAnimator);
-            resolvedSource = animationData.SourceId;
+            animationData = new HardcodedAnimationData
+            {
+                IdleClip = idleClip,
+                WalkClip = walkClip,
+                RunClip = runClip,
+                JumpClip = jumpClip,
+                FallClip = fallClip,
+            };
 
             if (!animationData.IsValid)
             {
-                LogWarning($"slot={slotIndex} no pudo resolver clips validos para '{debugSourceName}'. {animationData.DescribeClips()}");
+                LogWarning($"slot={slotIndex} animation clips incomplete for '{debugSourceName}'. {animationData.DescribeClips()}");
                 DestroyGraph();
                 enabled = false;
                 return;
             }
 
-            animator = EnsureAnimator(visualRoot, sourceAnimator, animationData.Avatar);
+            animator = EnsureAnimator(visualRoot, sourceAnimator, fallbackAvatar);
             if (animator == null)
             {
-                LogWarning($"slot={slotIndex} no pudo crear/obtener Animator para '{debugSourceName}'.");
+                LogWarning($"slot={slotIndex} could not find or create Animator for '{debugSourceName}'.");
                 DestroyGraph();
                 enabled = false;
                 return;
@@ -162,7 +164,7 @@ public class FixieAnimationRuntime : MonoBehaviour
 
             BuildGraph();
             enabled = true;
-            LogInfo($"slot={slotIndex} source='{resolvedSource}' visual='{debugSourceName}' animator='{animator.name}' {animationData.DescribeClips()}");
+            LogInfo($"slot={slotIndex} visual='{debugSourceName}' animator='{animator.name}' avatar='{(animator.avatar != null ? animator.avatar.name : "none")}' {animationData.DescribeClips()}");
         }
         catch (Exception exception)
         {
@@ -187,10 +189,9 @@ public class FixieAnimationRuntime : MonoBehaviour
             float targetWalk = 0f;
             float targetRun = 0f;
             float targetAir = 0f;
-
             AnimationState nextState;
 
-            if (!grounded && animationData.AirClip != null)
+            if (!grounded)
             {
                 targetAir = 1f;
                 nextState = AnimationState.Air;
@@ -237,26 +238,7 @@ public class FixieAnimationRuntime : MonoBehaviour
         }
     }
 
-    private ResolvedAnimationData ResolveAnimationData(GameObject sourcePrefab, Transform modelRoot, Animator sourceAnimator)
-    {
-        HashSet<string> candidates = BuildCandidateNames(sourcePrefab, modelRoot, sourceAnimator);
-        ResolvedAnimationData resolved = default;
-
-#if UNITY_EDITOR
-        if (TryResolveEditorAnimationData(candidates, sourceAnimator, out ResolvedAnimationData editorData))
-            resolved.FillMissingFrom(editorData);
-#endif
-
-        if (TryResolveAnimationSetData(sourcePrefab, modelRoot, out ResolvedAnimationData setData))
-            resolved.FillMissingFrom(setData);
-
-        if (TryResolveAnimatorControllerData(sourceAnimator, out ResolvedAnimationData controllerData))
-            resolved.FillMissingFrom(controllerData);
-
-        return resolved;
-    }
-
-    private Animator EnsureAnimator(Transform root, Animator preferredAnimator, Avatar avatar)
+    private Animator EnsureAnimator(Transform root, Animator preferredAnimator, Avatar fallbackAvatar)
     {
         Animator targetAnimator = preferredAnimator;
 
@@ -272,8 +254,31 @@ public class FixieAnimationRuntime : MonoBehaviour
         if (targetAnimator == null)
             return null;
 
-        if (avatar != null)
-            targetAnimator.avatar = avatar;
+        if (root != null)
+        {
+            foreach (PlayerAnimator controllerDriver in root.GetComponentsInChildren<PlayerAnimator>(true))
+                controllerDriver.enabled = false;
+        }
+
+        // Disable every other Animator in the hierarchy. Some prefabs (e.g. Fixie_P3) have
+        // an extra Animator on the root AND one from the FBX child. If both run, they fight
+        // over the same bones and the controller-driven one overrides the PlayableGraph.
+        if (root != null)
+        {
+            foreach (Animator other in root.GetComponentsInChildren<Animator>(true))
+            {
+                if (other == targetAnimator)
+                    continue;
+
+                other.runtimeAnimatorController = null;
+                other.enabled = false;
+            }
+        }
+
+        // Prefer the model's own avatar. If the selected Animator lacks one, use the
+        // build-safe avatar stored on the runtime animation set.
+        if (targetAnimator.avatar == null && fallbackAvatar != null)
+            targetAnimator.avatar = fallbackAvatar;
 
         targetAnimator.runtimeAnimatorController = null;
         targetAnimator.enabled = true;
@@ -288,11 +293,11 @@ public class FixieAnimationRuntime : MonoBehaviour
     {
         DestroyGraph();
 
-        graph = PlayableGraph.Create($"{name}_FixieAnimationGraph");
+        graph = PlayableGraph.Create($"{name}_FixieHardcodedAnimationGraph");
         graph.SetTimeUpdateMode(DirectorUpdateMode.GameTime);
 
         mixer = AnimationMixerPlayable.Create(graph, 4);
-        AnimationPlayableOutput output = AnimationPlayableOutput.Create(graph, "FixieAnimation", animator);
+        AnimationPlayableOutput output = AnimationPlayableOutput.Create(graph, "FixieHardcodedAnimation", animator);
         output.SetSourcePlayable(mixer);
 
         ConnectClip(0, animationData.IdleClip);
@@ -300,10 +305,12 @@ public class FixieAnimationRuntime : MonoBehaviour
         ConnectClip(2, animationData.RunClip);
         ConnectClip(3, animationData.AirClip);
 
+        // Start in idle so the character animates from frame 0, not T-pose.
         currentWeights[0] = 1f;
         currentWeights[1] = 0f;
         currentWeights[2] = 0f;
         currentWeights[3] = 0f;
+        mixer.SetInputWeight(0, 1f);
         currentState = AnimationState.None;
 
         graph.Play();
@@ -311,12 +318,6 @@ public class FixieAnimationRuntime : MonoBehaviour
 
     private void ConnectClip(int index, AnimationClip clip)
     {
-        if (clip == null)
-        {
-            mixer.SetInputWeight(index, 0f);
-            return;
-        }
-
         AnimationClipPlayable clipPlayable = AnimationClipPlayable.Create(graph, clip);
         clipPlayable.SetApplyFootIK(false);
         clipPlayable.SetApplyPlayableIK(false);
@@ -359,253 +360,6 @@ public class FixieAnimationRuntime : MonoBehaviour
 
     private void LogWarning(string message)
     {
-        if (animationDebugLogs)
-            Debug.LogWarning($"[FixieAnimation] {message}");
-    }
-
-    private static HashSet<string> BuildCandidateNames(GameObject sourcePrefab, Transform modelRoot, Animator sourceAnimator)
-    {
-        HashSet<string> candidates = new(StringComparer.OrdinalIgnoreCase);
-
-        if (sourcePrefab != null && !string.IsNullOrWhiteSpace(sourcePrefab.name))
-            candidates.Add(sourcePrefab.name);
-
-        if (sourceAnimator != null)
-        {
-            if (!string.IsNullOrWhiteSpace(sourceAnimator.name))
-                candidates.Add(sourceAnimator.name);
-
-            if (sourceAnimator.avatar != null && !string.IsNullOrWhiteSpace(sourceAnimator.avatar.name))
-                candidates.Add(sourceAnimator.avatar.name);
-        }
-
-        if (modelRoot == null)
-            return candidates;
-
-        if (!string.IsNullOrWhiteSpace(modelRoot.name))
-            candidates.Add(modelRoot.name);
-
-        foreach (Transform child in modelRoot.GetComponentsInChildren<Transform>(true))
-        {
-            if (child != null && !string.IsNullOrWhiteSpace(child.name))
-                candidates.Add(child.name);
-        }
-
-        return candidates;
-    }
-
-    private static bool TryResolveAnimationSetData(GameObject sourcePrefab, Transform modelRoot, out ResolvedAnimationData data)
-    {
-        data = default;
-        FixieAnimationSet set = ResolveAnimationSet(sourcePrefab, modelRoot);
-        if (set == null)
-            return false;
-
-        data.SourceId = $"AnimationSet/{set.SetId}";
-        data.Avatar = set.Avatar;
-        data.IdleClip = set.IdleClip;
-        data.WalkClip = set.WalkClip;
-        data.RunClip = set.RunClip;
-        data.JumpClip = set.JumpClip;
-        data.FallClip = set.FallClip;
-        data.AvailableClipNames = set.DescribeClips();
-        return data.HasAnyClip;
-    }
-
-    private static bool TryResolveAnimatorControllerData(Animator sourceAnimator, out ResolvedAnimationData data)
-    {
-        data = default;
-        if (sourceAnimator == null || sourceAnimator.runtimeAnimatorController == null)
-            return false;
-
-        data.SourceId = $"Controller/{sourceAnimator.runtimeAnimatorController.name}";
-        data.Avatar = sourceAnimator.avatar;
-
-        List<string> clipNames = new();
-        foreach (AnimationClip clip in sourceAnimator.runtimeAnimatorController.animationClips)
-        {
-            if (!IsUsableClip(clip))
-                continue;
-
-            clipNames.Add(clip.name);
-            RegisterClip(ref data, clip);
-        }
-
-        data.AvailableClipNames = clipNames.Count > 0 ? string.Join(", ", clipNames) : "NONE";
-        return data.HasAnyClip;
-    }
-
-#if UNITY_EDITOR
-    private static bool TryResolveEditorAnimationData(HashSet<string> candidates, Animator sourceAnimator, out ResolvedAnimationData data)
-    {
-        data = default;
-        if (!TryResolveEditorAssetPath(candidates, sourceAnimator, out string assetPath))
-            return false;
-
-        UnityEngine.Object[] assets = AssetDatabase.LoadAllAssetsAtPath(assetPath);
-        if (assets == null || assets.Length == 0)
-            return false;
-
-        List<string> clipNames = new();
-        data.SourceId = assetPath;
-
-        foreach (UnityEngine.Object asset in assets)
-        {
-            if (asset is Avatar avatar && data.Avatar == null)
-            {
-                data.Avatar = avatar;
-                continue;
-            }
-
-            if (asset is not AnimationClip clip || !IsUsableClip(clip))
-                continue;
-
-            clipNames.Add(clip.name);
-            RegisterClip(ref data, clip);
-        }
-
-        data.AvailableClipNames = clipNames.Count > 0 ? string.Join(", ", clipNames) : "NONE";
-        return data.HasAnyClip;
-    }
-
-    private static bool TryResolveEditorAssetPath(HashSet<string> candidates, Animator sourceAnimator, out string assetPath)
-    {
-        assetPath = GetHumanoidAssetPath(sourceAnimator != null && sourceAnimator.avatar != null
-            ? AssetDatabase.GetAssetPath(sourceAnimator.avatar)
-            : null);
-
-        if (!string.IsNullOrWhiteSpace(assetPath))
-            return true;
-
-        if (sourceAnimator != null && sourceAnimator.runtimeAnimatorController != null)
-        {
-            foreach (AnimationClip clip in sourceAnimator.runtimeAnimatorController.animationClips)
-            {
-                assetPath = GetHumanoidAssetPath(AssetDatabase.GetAssetPath(clip));
-                if (!string.IsNullOrWhiteSpace(assetPath))
-                    return true;
-            }
-        }
-
-        foreach (string candidate in candidates)
-        {
-            if (!EditorAssetPaths.TryGetValue(candidate, out assetPath))
-                continue;
-
-            assetPath = GetHumanoidAssetPath(assetPath);
-            if (!string.IsNullOrWhiteSpace(assetPath))
-                return true;
-        }
-
-        assetPath = null;
-        return false;
-    }
-
-    private static string GetHumanoidAssetPath(string assetPath)
-    {
-        if (string.IsNullOrWhiteSpace(assetPath))
-            return null;
-
-        string fileName = Path.GetFileName(assetPath);
-        if (string.IsNullOrWhiteSpace(fileName))
-            return null;
-
-        string humanoidPath = $"Assets/Art/Models/Temp/Players/{fileName}";
-        if (AssetDatabase.LoadAssetAtPath<GameObject>(humanoidPath) != null)
-            return humanoidPath;
-
-        if (AssetDatabase.LoadAssetAtPath<GameObject>(assetPath) != null)
-            return assetPath;
-
-        return null;
-    }
-#endif
-
-    private static void RegisterClip(ref ResolvedAnimationData data, AnimationClip clip)
-    {
-        if (clip == null)
-            return;
-
-        TryAssignClip(ref data.IdleClip, clip, 100, 20, "idle", "breathe", "breath", "rest");
-        TryAssignClip(ref data.WalkClip, clip, 100, 20, "walk", "move", "locomotion");
-        TryAssignClip(ref data.RunClip, clip, 100, 20, "run", "sprint", "jog");
-        TryAssignClip(ref data.JumpClip, clip, 100, 20, "jump", "takeoff", "launch", "hop");
-        TryAssignClip(ref data.FallClip, clip, 100, 20, "fall", "air", "airborne", "jumploop", "loop");
-
-        if (data.IdleClip == null)
-            data.IdleClip = clip;
-        else if (data.WalkClip == null && !ReferenceEquals(clip, data.IdleClip))
-            data.WalkClip = clip;
-        else if (data.RunClip == null && !ReferenceEquals(clip, data.IdleClip) && !ReferenceEquals(clip, data.WalkClip))
-            data.RunClip = clip;
-    }
-
-    private static void TryAssignClip(ref AnimationClip targetClip, AnimationClip candidateClip, int exactBonus, int partialBonus, params string[] tokens)
-    {
-        if (candidateClip == null)
-            return;
-
-        if (targetClip == null)
-        {
-            if (GetClipScore(candidateClip.name, exactBonus, partialBonus, tokens) > 0)
-                targetClip = candidateClip;
-
-            return;
-        }
-
-        int currentScore = GetClipScore(targetClip.name, exactBonus, partialBonus, tokens);
-        int candidateScore = GetClipScore(candidateClip.name, exactBonus, partialBonus, tokens);
-        if (candidateScore > currentScore)
-            targetClip = candidateClip;
-    }
-
-    private static int GetClipScore(string clipName, int exactBonus, int partialBonus, params string[] tokens)
-    {
-        if (string.IsNullOrWhiteSpace(clipName))
-            return 0;
-
-        string normalized = NormalizeToken(clipName);
-        int bestScore = 0;
-
-        foreach (string token in tokens)
-        {
-            string normalizedToken = NormalizeToken(token);
-            if (normalized == normalizedToken)
-                bestScore = Mathf.Max(bestScore, exactBonus);
-            else if (normalized.Contains(normalizedToken))
-                bestScore = Mathf.Max(bestScore, partialBonus);
-        }
-
-        return bestScore;
-    }
-
-    private static string NormalizeToken(string value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-            return string.Empty;
-
-        char[] buffer = new char[value.Length];
-        int length = 0;
-        for (int i = 0; i < value.Length; i++)
-        {
-            char character = char.ToLowerInvariant(value[i]);
-            if (char.IsLetterOrDigit(character))
-                buffer[length++] = character;
-        }
-
-        return new string(buffer, 0, length);
-    }
-
-    private static bool IsUsableClip(AnimationClip clip)
-    {
-        return clip != null &&
-            !clip.empty &&
-            !clip.name.StartsWith("__preview__", StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static void EnsureCache()
-    {
-        if (cachedSets == null)
-            cachedSets = Resources.LoadAll<FixieAnimationSet>("FixieAnimations");
+        Debug.LogWarning($"[FixieAnimation] {message}");
     }
 }

@@ -16,10 +16,10 @@ MonoBehaviour:
   aliases:
   - Fixie_P2
   - Astronaut_FernandoTheFlamingo
+  visualPrefab: {fileID: 8874579203571786221, guid: c9d59fcfd6a2141f0880bd5190f93365, type: 3}
   avatar: {fileID: 9000000, guid: 234ddc44ff0c24fceb03f94f1c2c0b90, type: 3}
-  idleClip: {fileID: 110800006, guid: 9e8e963790e274e41941f0bc7e7eccd4, type: 3}
-  walkClip: {fileID: -5599002979973759676, guid: 9e8e963790e274e41941f0bc7e7eccd4,
-    type: 3}
-  runClip: {fileID: 110800020, guid: 9e8e963790e274e41941f0bc7e7eccd4, type: 3}
-  jumpClip: {fileID: 110800010, guid: 9e8e963790e274e41941f0bc7e7eccd4, type: 3}
-  fallClip: {fileID: 110800012, guid: 9e8e963790e274e41941f0bc7e7eccd4, type: 3}
+  idleClip: {fileID: 110800006, guid: 5fc10614fb9f24f94b0c2f1ead07f5ba, type: 3}
+  walkClip: {fileID: 110800026, guid: 5fc10614fb9f24f94b0c2f1ead07f5ba, type: 3}
+  runClip: {fileID: 110800020, guid: 5fc10614fb9f24f94b0c2f1ead07f5ba, type: 3}
+  jumpClip: {fileID: 110800010, guid: 5fc10614fb9f24f94b0c2f1ead07f5ba, type: 3}
+  fallClip: {fileID: 110800012, guid: 5fc10614fb9f24f94b0c2f1ead07f5ba, type: 3}

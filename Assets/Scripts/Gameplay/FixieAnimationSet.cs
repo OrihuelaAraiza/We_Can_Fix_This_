@@ -6,6 +6,7 @@ public class FixieAnimationSet : ScriptableObject
 {
     [SerializeField] private string setId;
     [SerializeField] private string[] aliases = Array.Empty<string>();
+    [SerializeField] private GameObject visualPrefab;
     [SerializeField] private Avatar avatar;
     [SerializeField] private AnimationClip idleClip;
     [SerializeField] private AnimationClip walkClip;
@@ -14,6 +15,7 @@ public class FixieAnimationSet : ScriptableObject
     [SerializeField] private AnimationClip fallClip;
 
     public string SetId => setId;
+    public GameObject VisualPrefab => visualPrefab;
     public Avatar Avatar => avatar;
     public AnimationClip IdleClip => idleClip;
     public AnimationClip WalkClip => walkClip;
@@ -21,7 +23,7 @@ public class FixieAnimationSet : ScriptableObject
     public AnimationClip JumpClip => jumpClip;
     public AnimationClip FallClip => fallClip;
     public AnimationClip AirClip => fallClip != null ? fallClip : jumpClip;
-    public bool IsValid => idleClip != null && walkClip != null && runClip != null;
+    public bool IsValid => idleClip != null && walkClip != null && runClip != null && jumpClip != null && fallClip != null;
 
     public bool Matches(string candidate)
     {
@@ -43,8 +45,7 @@ public class FixieAnimationSet : ScriptableObject
 
     public string DescribeClips()
     {
-        string airName = AirClip != null ? AirClip.name : "NONE";
-        return $"idle={GetClipName(idleClip)} walk={GetClipName(walkClip)} run={GetClipName(runClip)} air={airName}";
+        return $"idle={GetClipName(idleClip)} walk={GetClipName(walkClip)} run={GetClipName(runClip)} jump={GetClipName(jumpClip)} fall={GetClipName(fallClip)}";
     }
 
     private static string GetClipName(AnimationClip clip)
@@ -54,6 +55,7 @@ public class FixieAnimationSet : ScriptableObject
 
     public void Configure(string id,
         string[] aliasList,
+        GameObject prefab,
         Avatar targetAvatar,
         AnimationClip idle,
         AnimationClip walk,
@@ -63,6 +65,7 @@ public class FixieAnimationSet : ScriptableObject
     {
         setId = id;
         aliases = aliasList ?? Array.Empty<string>();
+        visualPrefab = prefab;
         avatar = targetAvatar;
         idleClip = idle;
         walkClip = walk;

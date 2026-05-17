@@ -7,21 +7,26 @@ public partial class PlayerManager : MonoBehaviour
 {
     const int MaxSupportedPlayers = LobbyPlayerSessionData.MaxPlayers;
     const string AnimationDebugPrefix = "[FixieAnimation]";
+    const string FixieAnimationResourceFolder = "FixieAnimations";
+    const string FixieAnimationSetPrefix = "Fixie_P";
+    const int FixieAnimationSetCount = 3;
 
     public static PlayerManager Instance { get; private set; }
-
-    private static ILogHandler originalLogHandler;
-    private static AnimationOnlyLogHandler animationOnlyLogHandler;
-    private static bool animationLogFilterInstalled;
 
     [Header("Player Setup")]
     [SerializeField] private PlayerData playerData;
     [SerializeField] private Transform[] spawnPoints;
     [SerializeField] private Transform cameraTransform;
 
-    [Header("Player Prefabs by Slot")]
-    [Tooltip("Element 0 = Player 1, Element 1 = Player 2, Element 2 = Player 3")]
-    [SerializeField] private GameObject[] playerPrefabsBySlot;
+    [Header("Fixie Visual Prefabs (index = player slot)")]
+    [SerializeField] private GameObject[] fixieVisualPrefabs;
+
+    [Header("Shared Animation Clips")]
+    [SerializeField] private AnimationClip idleClip;
+    [SerializeField] private AnimationClip walkClip;
+    [SerializeField] private AnimationClip runClip;
+    [SerializeField] private AnimationClip jumpClip;
+    [SerializeField] private AnimationClip fallClip;
 
     [Header("Spawn Tuning")]
     [SerializeField] private float spawnHeightOffset = 0.15f;
@@ -37,42 +42,23 @@ public partial class PlayerManager : MonoBehaviour
     private readonly List<PlayerMovement> players = new();
     private readonly Dictionary<PlayerInput, int> activePlayerSlots = new();
     private readonly Dictionary<PlayerInput, int> pendingPlayerSlots = new();
+    private readonly FixieAnimationSet[] runtimeAnimationSets = new FixieAnimationSet[FixieAnimationSetCount];
 
     private PlayerInputManager playerInputManager;
     private int expectedLobbyPlayers;
-    private int nextPrefabIndex = 0;
 
     public static event System.Action OnPlayerCountChanged;
 
-    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
-    static void BootstrapAnimationDebugging()
-    {
-        ClearEditorConsoleForAnimationDebug();
-        InstallAnimationLogFilter();
-    }
-
     private void Awake()
     {
-        ClearEditorConsoleForAnimationDebug();
-        InstallAnimationLogFilter();
         Instance = this;
         playerInputManager = GetComponent<PlayerInputManager>();
-
-        nextPrefabIndex = 0;
-        SetPlayerInputManagerPrefab(nextPrefabIndex);
     }
 
     private void OnDestroy()
     {
         if (Instance == this)
             Instance = null;
-
-        RestoreAnimationLogFilter();
-    }
-
-    private void OnApplicationQuit()
-    {
-        RestoreAnimationLogFilter();
     }
 
     IEnumerator Start()
@@ -88,9 +74,6 @@ public partial class PlayerManager : MonoBehaviour
             return;
 
         StartCoroutine(InitializeJoinedPlayer(playerInput));
-
-        nextPrefabIndex++;
-        SetPlayerInputManagerPrefab(nextPrefabIndex);
     }
 
     IEnumerator InitializeJoinedPlayer(PlayerInput playerInput)
@@ -174,7 +157,7 @@ public partial class PlayerManager : MonoBehaviour
         {
             EnsurePlayerCollider(playerInput.gameObject);
             movement.Initialize(slotIndex, playerData, cameraTransform);
-            EnsureBuildSafeFixieAnimation(playerInput.gameObject, movement, slotIndex);
+            SetupPlayerVisual(playerInput.transform, movement, slotIndex);
         }
         finally
         {
@@ -253,15 +236,6 @@ public partial class PlayerManager : MonoBehaviour
                 Debug.LogWarning($"[PlayerManager] Missing device for lobby slot {entry.PlayerIndex} ({entry.ControlScheme}).");
                 continue;
             }
-
-            GameObject prefabToUse = GetPlayerPrefabForEntry(entry);
-            if (prefabToUse == null)
-            {
-                Debug.LogWarning($"[PlayerManager] No prefab available for lobby slot {entry.PlayerIndex}.");
-                continue;
-            }
-
-            playerInputManager.playerPrefab = prefabToUse;
 
             PlayerInput restoredInput = playerInputManager.JoinPlayer(
                 playerIndex: entry.PlayerIndex,
@@ -582,8 +556,24 @@ public partial class PlayerManager : MonoBehaviour
             if (component is Behaviour behaviour)
                 behaviour.enabled = false;
 
-            UnityEngine.Object.Destroy(component);
+            DestroyRuntimeObject(component);
         }
+    }
+
+    static void DestroyRuntimeObject(Object target)
+    {
+        if (target == null)
+            return;
+
+#if UNITY_EDITOR
+        if (!Application.isPlaying)
+        {
+            UnityEngine.Object.DestroyImmediate(target);
+            return;
+        }
+#endif
+
+        UnityEngine.Object.Destroy(target);
     }
 
     void EnsurePlayerCollider(GameObject playerObject)
@@ -619,15 +609,22 @@ public partial class PlayerManager : MonoBehaviour
         RemoveAvatarRig(playerRoot != null ? playerRoot.gameObject : null);
 
         Transform modelRoot = EnsureModelRoot(playerRoot);
-        ClearModelRoot(modelRoot);
 
-        GameObject modelPrefab = GetFixiePrefabForSlot(slotIndex);
+        FixieAnimationSet animationSet = GetAnimationSetForSlot(slotIndex);
+        GameObject modelPrefab = GetVisualPrefabForSlot(slotIndex, animationSet);
         if (modelPrefab == null)
         {
-            if (debugLog)
-                Debug.LogWarning($"[PlayerManager] No Fixie model assigned for slot {slotIndex}. Assign Fixie prefabs in the Inspector.");
+            Debug.LogWarning($"{AnimationDebugPrefix} Missing Fixie visual prefab for slot {slotIndex}. Configure Resources/FixieAnimations or assign fixieVisualPrefabs[] on PlayerManager.");
             return;
         }
+
+        if (!HasAnimationSource(animationSet))
+        {
+            Debug.LogWarning($"{AnimationDebugPrefix} Missing animation clips for slot {slotIndex}. Configure Resources/FixieAnimations/Fixie_P1..P3 or assign idle/walk/run/jump/fall on PlayerManager.");
+            return;
+        }
+
+        ClearModelRoot(modelRoot);
 
         MeshRenderer capsuleMesh = playerRoot.GetComponent<MeshRenderer>();
         if (capsuleMesh != null)
@@ -646,10 +643,11 @@ public partial class PlayerManager : MonoBehaviour
         AlignVisualToPlayer(playerRoot, model.transform);
         ForceRenderersVisible(model.transform);
 
-        AttachRuntimeFixieAnimation(playerRoot.gameObject, movement, modelPrefab, model.transform, modelAnimator, slotIndex);
+        BindVisualWobble(playerRoot, model.transform);
+        AttachRuntimeFixieAnimation(playerRoot.gameObject, movement, model.transform, modelAnimator, animationSet, slotIndex);
     }
 
-    void AttachRuntimeFixieAnimation(GameObject playerObject, PlayerMovement movement, GameObject modelPrefab, Transform visualRoot, Animator sourceAnimator, int slotIndex)
+    void AttachRuntimeFixieAnimation(GameObject playerObject, PlayerMovement movement, Transform visualRoot, Animator sourceAnimator, FixieAnimationSet animationSet, int slotIndex)
     {
         if (visualRoot == null)
             return;
@@ -660,27 +658,71 @@ public partial class PlayerManager : MonoBehaviour
         if (runtime == null)
             runtime = visualRoot.gameObject.AddComponent<FixieAnimationRuntime>();
 
-        runtime.Bind(movement, visualRoot, modelPrefab, sourceAnimator, slotIndex);
+        if (IsAnimationSetComplete(animationSet))
+        {
+            runtime.Bind(movement, visualRoot, sourceAnimator, animationSet, slotIndex);
+        }
+        else
+        {
+            runtime.Bind(
+                movement,
+                visualRoot,
+                sourceAnimator,
+                idleClip,
+                walkClip,
+                runClip,
+                jumpClip,
+                fallClip,
+                slotIndex);
+        }
     }
 
-    void EnsureBuildSafeFixieAnimation(GameObject playerObject, PlayerMovement movement, int slotIndex)
+    bool HasAnimationSource(FixieAnimationSet animationSet)
     {
-        if (playerObject == null || movement == null)
-            return;
+        return IsAnimationSetComplete(animationSet) || HasHardcodedAnimationClips();
+    }
 
-        GameObject sourcePrefab = GetPlayerPrefabForSlot(slotIndex);
-        Transform visualRoot = FindPrimaryVisualRoot(playerObject.transform);
-        Animator animator = playerObject.GetComponentInChildren<Animator>(true);
+    static bool IsAnimationSetComplete(FixieAnimationSet animationSet)
+    {
+        return animationSet != null && animationSet.IsValid;
+    }
 
-        if (sourcePrefab == null || visualRoot == null || animator == null)
-        {
-            Debug.LogWarning($"{AnimationDebugPrefix} slot={slotIndex} missing runtime animation binding data.");
-            return;
-        }
+    bool HasHardcodedAnimationClips()
+    {
+        return idleClip != null &&
+            walkClip != null &&
+            runClip != null &&
+            jumpClip != null &&
+            fallClip != null;
+    }
 
-        ForceRenderersVisible(visualRoot);
-        BindVisualWobble(playerObject.transform, visualRoot);
-        AttachRuntimeFixieAnimation(playerObject, movement, sourcePrefab, visualRoot, animator, slotIndex);
+    FixieAnimationSet GetAnimationSetForSlot(int slotIndex)
+    {
+        int index = Mathf.Clamp(slotIndex, 0, runtimeAnimationSets.Length - 1);
+        FixieAnimationSet cached = runtimeAnimationSets[index];
+        if (cached != null)
+            return cached;
+
+        string resourcePath = $"{FixieAnimationResourceFolder}/{FixieAnimationSetPrefix}{index + 1}";
+        cached = Resources.Load<FixieAnimationSet>(resourcePath);
+        runtimeAnimationSets[index] = cached;
+
+        if (cached == null && debugLog)
+            Debug.LogWarning($"{AnimationDebugPrefix} Runtime animation set not found at Resources/{resourcePath}.");
+
+        return cached;
+    }
+
+    GameObject GetVisualPrefabForSlot(int slotIndex, FixieAnimationSet animationSet)
+    {
+        if (animationSet != null && animationSet.VisualPrefab != null)
+            return animationSet.VisualPrefab;
+
+        if (fixieVisualPrefabs == null || fixieVisualPrefabs.Length == 0)
+            return null;
+
+        int index = Mathf.Clamp(slotIndex, 0, fixieVisualPrefabs.Length - 1);
+        return fixieVisualPrefabs[index];
     }
 
     Transform EnsureModelRoot(Transform playerRoot)
@@ -706,57 +748,8 @@ public partial class PlayerManager : MonoBehaviour
         {
             Transform child = modelRoot.GetChild(i);
             child.gameObject.SetActive(false);
-            Destroy(child.gameObject);
+            DestroyRuntimeObject(child.gameObject);
         }
-    }
-
-    void AttachAvatarRig(GameObject playerObject, PlayerMovement movement, Transform visualRoot)
-    {
-        if (playerObject == null || disableProceduralPlayerVisuals)
-            return;
-
-        PlayerAvatarRig rig = playerObject.GetComponent<PlayerAvatarRig>();
-        if (rig == null)
-            rig = playerObject.AddComponent<PlayerAvatarRig>();
-
-        rig.Bind(movement, visualRoot);
-    }
-
-    bool BindModelAnimator(GameObject playerObject, PlayerMovement movement, Transform visualRoot, Animator modelAnimator)
-    {
-        if (!HasWorkingAnimator(modelAnimator))
-        {
-            RemoveAvatarRig(playerObject);
-            return false;
-        }
-
-        RemoveAvatarRig(playerObject);
-
-        if (movement != null)
-            movement.BindAnimator(modelAnimator);
-
-        if (playerObject != null)
-            BindProceduralAnimator(playerObject.transform, modelAnimator);
-
-        PlayerAnimator playerAnimator = modelAnimator.GetComponent<PlayerAnimator>();
-        if (playerAnimator == null)
-            playerAnimator = modelAnimator.gameObject.AddComponent<PlayerAnimator>();
-
-        playerAnimator.BindMovement(movement);
-        return true;
-    }
-
-    static bool HasWorkingAnimator(Animator animator)
-    {
-        if (animator == null || animator.avatar == null)
-            return false;
-
-        RuntimeAnimatorController controller = animator.runtimeAnimatorController;
-        if (controller == null)
-            return false;
-
-        AnimationClip[] clips = controller.animationClips;
-        return clips != null && clips.Length > 0;
     }
 
     static Animator FindBestAnimator(GameObject root)
@@ -775,18 +768,8 @@ public partial class PlayerManager : MonoBehaviour
 
             int score = 0;
 
-            if (candidate.runtimeAnimatorController != null)
-                score += 100;
-
             if (candidate.avatar != null)
-                score += 25;
-
-            AnimationClip[] clips = candidate.runtimeAnimatorController != null
-                ? candidate.runtimeAnimatorController.animationClips
-                : null;
-
-            if (clips != null)
-                score += clips.Length;
+                score += 100;
 
             if (score > bestScore)
             {
@@ -808,152 +791,7 @@ public partial class PlayerManager : MonoBehaviour
             return;
 
         rig.enabled = false;
-        Destroy(rig);
-    }
-
-    bool TryUseExistingFixieVisual(Transform playerRoot, PlayerMovement movement, int slotIndex)
-    {
-        Renderer[] existingRenderers = playerRoot.GetComponentsInChildren<Renderer>(true);
-        bool hasVisibleAvatar = false;
-
-        foreach (Renderer renderer in existingRenderers)
-        {
-            if (renderer == null)
-                continue;
-
-            if (renderer.transform == playerRoot && renderer is MeshRenderer)
-                continue;
-
-            hasVisibleAvatar = true;
-            break;
-        }
-
-        if (!hasVisibleAvatar)
-            return false;
-
-        if (slotIndex != 0)
-        {
-            DisableExistingAvatarRenderers(playerRoot);
-            return false;
-        }
-
-        MeshRenderer rootCapsule = playerRoot.GetComponent<MeshRenderer>();
-        if (rootCapsule != null)
-            rootCapsule.enabled = false;
-
-        Transform visualRoot = FindPrimaryVisualRoot(playerRoot);
-        if (visualRoot != null)
-        {
-            NormalizeVisualScale(playerRoot, visualRoot);
-            AlignVisualToPlayer(playerRoot, visualRoot);
-            ForceRenderersVisible(visualRoot);
-        }
-
-        Animator existingAnimator = FindBestAnimator(playerRoot.gameObject);
-        if (movement != null)
-            movement.BindAnimator(existingAnimator);
-
-        if (existingAnimator != null)
-        {
-            PlayerAnimator playerAnimator = existingAnimator.GetComponent<PlayerAnimator>();
-            if (playerAnimator == null)
-                playerAnimator = existingAnimator.gameObject.AddComponent<PlayerAnimator>();
-
-            playerAnimator.BindMovement(movement);
-        }
-
-        if (debugLog)
-            Debug.Log($"[PlayerManager] Using existing Fixie prefab as player visual for slot {slotIndex}.");
-
-        return true;
-    }
-
-    void DisableExistingAvatarRenderers(Transform playerRoot)
-    {
-        if (playerRoot == null)
-            return;
-
-        foreach (Renderer renderer in playerRoot.GetComponentsInChildren<Renderer>(true))
-        {
-            if (renderer == null)
-                continue;
-
-            if (renderer.transform == playerRoot && renderer is MeshRenderer)
-                continue;
-
-            renderer.enabled = false;
-        }
-    }
-
-    void AttachFixieModel(Transform playerRoot, PlayerMovement movement, int slotIndex)
-    {
-        GameObject modelPrefab = GetFixiePrefabForSlot(slotIndex);
-
-        if (modelPrefab == null)
-        {
-            if (debugLog)
-                Debug.LogWarning($"[PlayerManager] No Fixie model assigned for slot {slotIndex}. Assign Fixie prefabs in the Inspector.");
-            return;
-        }
-
-        Transform modelRoot = playerRoot.Find("ModelRoot");
-        if (modelRoot == null)
-        {
-            var go = new GameObject("ModelRoot");
-            go.transform.SetParent(playerRoot);
-            go.transform.localPosition = Vector3.zero;
-            go.transform.localRotation = Quaternion.identity;
-            modelRoot = go.transform;
-        }
-
-        MeshRenderer capsuleMesh = playerRoot.GetComponent<MeshRenderer>();
-
-        GameObject model = Instantiate(modelPrefab, modelRoot);
-        model.transform.localPosition = Vector3.zero;
-        model.transform.localRotation = Quaternion.identity;
-        model.transform.localScale = Vector3.one;
-
-        SetLayerRecursively(model.transform, playerRoot.gameObject.layer);
-        NormalizeVisualScale(playerRoot, model.transform);
-        AlignVisualToPlayer(playerRoot, model.transform);
-        ForceRenderersVisible(model.transform);
-
-        Animator modelAnimator = FindBestAnimator(model);
-        if (movement != null)
-            movement.BindAnimator(modelAnimator);
-
-        // Add PlayerAnimator to drive Animator from movement state
-        if (modelAnimator != null)
-        {
-            PlayerAnimator playerAnimator = modelAnimator.GetComponent<PlayerAnimator>();
-            if (playerAnimator == null)
-                playerAnimator = modelAnimator.gameObject.AddComponent<PlayerAnimator>();
-
-            playerAnimator.BindMovement(movement);
-        }
-
-        Renderer[] modelRenderers = model.GetComponentsInChildren<Renderer>(true);
-        bool hasVisibleRenderer = modelRenderers != null && modelRenderers.Length > 0;
-
-        if (capsuleMesh != null)
-            capsuleMesh.enabled = !hasVisibleRenderer;
-
-        // Fixie prefabs are visual-only children. Strip any physics or movement
-        // components that Unity auto-added (e.g. Rigidbody via [RequireComponent])
-        // — a second Rigidbody nested under the player's own causes chaotic physics.
-        StripRuntimeComponents(model, preserveAnimator: true);
-
-        if (!hasVisibleRenderer)
-        {
-            Debug.LogWarning($"[PlayerManager] Fixie '{modelPrefab.name}' spawned with no visible renderers. Keeping fallback capsule visible.");
-        }
-        else if (debugLog)
-            Debug.Log($"[PlayerManager] Attached Fixie model '{modelPrefab.name}' to player slot {slotIndex}.");
-    }
-
-    GameObject GetFixiePrefabForSlot(int slotIndex)
-    {
-        return null;
+        DestroyRuntimeObject(rig);
     }
 
     void StripRuntimeComponents(GameObject model, bool preserveAnimator = false)
@@ -975,13 +813,13 @@ public partial class PlayerManager : MonoBehaviour
         foreach (PlayerInput input in model.GetComponentsInChildren<PlayerInput>(true))
         {
             input.enabled = false;
-            Destroy(input);
+            DestroyRuntimeObject(input);
         }
 
         foreach (PlayerMovement movement in model.GetComponentsInChildren<PlayerMovement>(true))
         {
             movement.enabled = false;
-            Destroy(movement);
+            DestroyRuntimeObject(movement);
         }
 
         foreach (Rigidbody body in model.GetComponentsInChildren<Rigidbody>(true))
@@ -989,13 +827,13 @@ public partial class PlayerManager : MonoBehaviour
             body.isKinematic = true;
             body.useGravity = false;
             body.detectCollisions = false;
-            Destroy(body);
+            DestroyRuntimeObject(body);
         }
 
         foreach (Collider collider in model.GetComponentsInChildren<Collider>(true))
         {
             collider.enabled = false;
-            Destroy(collider);
+            DestroyRuntimeObject(collider);
         }
     }
 
@@ -1070,112 +908,6 @@ public partial class PlayerManager : MonoBehaviour
             proceduralAnimator.BindVisual(visualRoot);
     }
 
-    void BindProceduralAnimator(Transform playerRoot, Animator targetAnimator)
-    {
-        if (playerRoot == null)
-            return;
-
-        FixieProceduralAnimator proceduralAnimator = playerRoot.GetComponent<FixieProceduralAnimator>();
-        if (proceduralAnimator != null)
-            proceduralAnimator.BindAnimator(targetAnimator);
-    }
-
-    [System.Diagnostics.Conditional("UNITY_EDITOR")]
-    static void ClearEditorConsoleForAnimationDebug()
-    {
-#if UNITY_EDITOR
-        System.Type logEntriesType = System.Type.GetType("UnityEditor.LogEntries, UnityEditor.dll");
-        System.Reflection.MethodInfo clearMethod = logEntriesType?.GetMethod(
-            "Clear",
-            System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public);
-
-        clearMethod?.Invoke(null, null);
-#endif
-    }
-
-    static void InstallAnimationLogFilter()
-    {
-        if (animationLogFilterInstalled)
-            return;
-
-        originalLogHandler = Debug.unityLogger.logHandler;
-        animationOnlyLogHandler = new AnimationOnlyLogHandler(originalLogHandler);
-        Debug.unityLogger.logHandler = animationOnlyLogHandler;
-        animationLogFilterInstalled = true;
-    }
-
-    static void RestoreAnimationLogFilter()
-    {
-        if (!animationLogFilterInstalled)
-            return;
-
-        if (ReferenceEquals(Debug.unityLogger.logHandler, animationOnlyLogHandler) && originalLogHandler != null)
-            Debug.unityLogger.logHandler = originalLogHandler;
-
-        animationOnlyLogHandler = null;
-        originalLogHandler = null;
-        animationLogFilterInstalled = false;
-    }
-
-    sealed class AnimationOnlyLogHandler : ILogHandler
-    {
-        private readonly ILogHandler innerHandler;
-
-        public AnimationOnlyLogHandler(ILogHandler targetHandler)
-        {
-            innerHandler = targetHandler;
-        }
-
-        public void LogFormat(LogType logType, UnityEngine.Object context, string format, params object[] args)
-        {
-            if (!ContainsAnimationDebugPrefix(format, args))
-                return;
-
-            innerHandler?.LogFormat(logType, context, format, args);
-        }
-
-        public void LogException(System.Exception exception, UnityEngine.Object context)
-        {
-            if (exception == null)
-                return;
-
-            if (!ContainsAnimationDebugPrefix(exception.Message, null) &&
-                !ContainsAnimationDebugPrefix(exception.StackTrace, null))
-            {
-                return;
-            }
-
-            innerHandler?.LogException(exception, context);
-        }
-
-        static bool ContainsAnimationDebugPrefix(string message, object[] args)
-        {
-            if (!string.IsNullOrEmpty(message) &&
-                message.IndexOf(AnimationDebugPrefix, System.StringComparison.Ordinal) >= 0)
-            {
-                return true;
-            }
-
-            if (args == null)
-                return false;
-
-            for (int i = 0; i < args.Length; i++)
-            {
-                if (args[i] == null)
-                    continue;
-
-                string value = args[i].ToString();
-                if (!string.IsNullOrEmpty(value) &&
-                    value.IndexOf(AnimationDebugPrefix, System.StringComparison.Ordinal) >= 0)
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-    }
-
     void ForceRenderersVisible(Transform visualRoot)
     {
         if (visualRoot == null)
@@ -1197,29 +929,6 @@ public partial class PlayerManager : MonoBehaviour
                 skinned.updateWhenOffscreen = true;
             }
         }
-    }
-
-    Transform FindPrimaryVisualRoot(Transform playerRoot)
-    {
-        if (playerRoot == null)
-            return null;
-
-        foreach (Renderer renderer in playerRoot.GetComponentsInChildren<Renderer>(true))
-        {
-            if (renderer == null)
-                continue;
-
-            if (renderer.transform == playerRoot && renderer is MeshRenderer)
-                continue;
-
-            Transform current = renderer.transform;
-            while (current.parent != null && current.parent != playerRoot)
-                current = current.parent;
-
-            return current;
-        }
-
-        return playerRoot;
     }
 
     float GetPlayerBottomOffset(Transform playerRoot)
@@ -1299,61 +1008,4 @@ public partial class PlayerManager : MonoBehaviour
         }
     }
 
-    GameObject GetPlayerPrefabForSlot(int slotIndex)
-    {
-        if (playerPrefabsBySlot == null || playerPrefabsBySlot.Length == 0)
-        {
-            Debug.LogWarning("[PlayerManager] No playerPrefabsBySlot assigned. Using PlayerInputManager prefab.");
-            return playerInputManager.playerPrefab;
-        }
-
-        if (slotIndex < 0 || slotIndex >= playerPrefabsBySlot.Length || playerPrefabsBySlot[slotIndex] == null)
-        {
-            Debug.LogWarning($"[PlayerManager] No prefab assigned for slot {slotIndex}. Using PlayerInputManager prefab.");
-            return playerInputManager.playerPrefab;
-        }
-
-        Debug.Log($"[PlayerManager] Slot {slotIndex} will use prefab: {playerPrefabsBySlot[slotIndex].name}");
-
-        return playerPrefabsBySlot[slotIndex];
-    }
-
-    GameObject GetPlayerPrefabForEntry(LobbyPlayerSessionEntry entry)
-    {
-        if (entry == null)
-        {
-            Debug.LogWarning("[PlayerManager] Lobby entry is null. Using default prefab.");
-            return playerInputManager.playerPrefab;
-        }
-
-        return GetPlayerPrefabForSlot(entry.PlayerIndex);
-    }
-
-    void SetPlayerInputManagerPrefab(int index)
-    {
-        if (playerInputManager == null)
-            return;
-
-        if (playerPrefabsBySlot == null || playerPrefabsBySlot.Length == 0)
-        {
-            Debug.LogWarning("[PlayerManager] No prefabs assigned in playerPrefabsBySlot.");
-            return;
-        }
-
-        if (index < 0 || index >= playerPrefabsBySlot.Length)
-        {
-            Debug.Log("[PlayerManager] No more unique prefabs to assign.");
-            return;
-        }
-
-        if (playerPrefabsBySlot[index] == null)
-        {
-            Debug.LogWarning($"[PlayerManager] Element {index} is null.");
-            return;
-        }
-
-        playerInputManager.playerPrefab = playerPrefabsBySlot[index];
-
-        Debug.Log($"[PlayerManager] PlayerInputManager will now use: {playerPrefabsBySlot[index].name}");
-    }
 }

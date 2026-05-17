@@ -1,11 +1,13 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.Playables;
 
 public class StabilitySmokeTests
 {
@@ -105,6 +107,116 @@ public class StabilitySmokeTests
     }
 
     [Test]
+    public void PlayerManager_HardcodedFixieAnimationRefsAreBuildSafe()
+    {
+        string scenePath = "Assets/Scenes/03_Gameplay.unity";
+        string visualPath = "Assets/Art/Characters/Fixies/Prefabs/Fixie_P1.prefab";
+        string animationSourcePath = "Assets/Art/Models/Astronaut_FinnTheFrog.fbx";
+
+        var sourceImporter = AssetImporter.GetAtPath(animationSourcePath) as ModelImporter;
+        Assert.That(sourceImporter, Is.Not.Null, animationSourcePath);
+        Assert.That(sourceImporter.importAnimation, Is.True);
+
+        Assert.That(AssetDatabase.LoadAssetAtPath<GameObject>(visualPath), Is.Not.Null, visualPath);
+
+        AssertUsableClip(animationSourcePath, "CharacterArmature|Idle");
+        AssertUsableClip(animationSourcePath, "CharacterArmature|Walk");
+        AssertUsableClip(animationSourcePath, "CharacterArmature|Run");
+        AssertUsableClip(animationSourcePath, "CharacterArmature|Jump");
+        AssertUsableClip(animationSourcePath, "CharacterArmature|Jump_Idle");
+
+        string sceneYaml = System.IO.File.ReadAllText(scenePath);
+        Assert.That(sceneYaml, Does.Contain("fixieVisualPrefabs"));
+        Assert.That(sceneYaml, Does.Contain("guid: 891e50ae3d48543e58d8c685f03ea703"), "Fixie_P1 must be in fixieVisualPrefabs");
+        Assert.That(sceneYaml, Does.Contain("guid: c9d59fcfd6a2141f0880bd5190f93365"), "Fixie_P2 must be in fixieVisualPrefabs");
+        Assert.That(sceneYaml, Does.Contain("guid: 9cba2cedafdb645ca8fbf0e0095a4ed3"), "Fixie_P3 must be in fixieVisualPrefabs");
+        Assert.That(sceneYaml, Does.Contain("idleClip"));
+        Assert.That(sceneYaml, Does.Contain("walkClip"));
+        Assert.That(sceneYaml, Does.Contain("runClip"));
+        Assert.That(sceneYaml, Does.Contain("jumpClip"));
+        Assert.That(sceneYaml, Does.Contain("fallClip"));
+
+        string playerPrefabYaml = System.IO.File.ReadAllText("Assets/Prefabs/Players/Player.prefab");
+        Assert.That(playerPrefabYaml, Does.Contain("HardcodedFixieVisual"));
+        Assert.That(playerPrefabYaml, Does.Contain("guid: 891e50ae3d48543e58d8c685f03ea703"));
+    }
+
+    [Test]
+    public void FixieAnimationSets_AreLoadableFromResourcesAndComplete()
+    {
+        string[] expectedSets = { "Fixie_P1", "Fixie_P2", "Fixie_P3" };
+        Type animationSetType = GetGameType("FixieAnimationSet");
+
+        foreach (string setName in expectedSets)
+        {
+            UnityEngine.Object set = Resources.Load($"FixieAnimations/{setName}", animationSetType);
+
+            Assert.That(set, Is.Not.Null, setName);
+            Assert.That(GetProperty<string>(set, "SetId"), Is.EqualTo(setName));
+            Assert.That(GetProperty<GameObject>(set, "VisualPrefab"), Is.Not.Null, $"{setName} visual prefab must be referenced by the Resources asset");
+            Assert.That(GetProperty<Avatar>(set, "Avatar"), Is.Not.Null, $"{setName} avatar");
+            Assert.That(GetProperty<AnimationClip>(set, "IdleClip"), Is.Not.Null, $"{setName} idle");
+            Assert.That(GetProperty<AnimationClip>(set, "WalkClip"), Is.Not.Null, $"{setName} walk");
+            Assert.That(GetProperty<AnimationClip>(set, "RunClip"), Is.Not.Null, $"{setName} run");
+            Assert.That(GetProperty<AnimationClip>(set, "JumpClip"), Is.Not.Null, $"{setName} jump");
+            Assert.That(GetProperty<AnimationClip>(set, "FallClip"), Is.Not.Null, $"{setName} fall");
+            Assert.That(GetProperty<bool>(set, "IsValid"), Is.True, $"{setName} must be complete for build runtime");
+        }
+    }
+
+    [Test]
+    public void PlayerManager_RebuildPlayerVisual_UsesRuntimeAnimationSet()
+    {
+        GameObject playerPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Players/Player.prefab");
+        Assert.That(playerPrefab, Is.Not.Null);
+
+        GameObject managerObject = new GameObject("PlayerManager_Test");
+        createdObjects.Add(managerObject);
+        Component manager = managerObject.AddComponent(GetGameType("PlayerManager"));
+
+        GameObject player = UnityEngine.Object.Instantiate(playerPrefab);
+        createdObjects.Add(player);
+
+        Component movement = player.GetComponent(GetGameType("PlayerMovement"));
+        Assert.That(movement, Is.Not.Null);
+
+        InvokeInstance(manager, "RebuildPlayerVisual", player.transform, movement, 0);
+
+        Transform modelRoot = player.transform.Find("ModelRoot");
+        Assert.That(modelRoot, Is.Not.Null);
+        Assert.That(modelRoot.childCount, Is.EqualTo(1), "PlayerManager should replace prefab preview visuals with one runtime visual");
+
+        Component runtime = modelRoot.GetComponentInChildren(GetGameType("FixieAnimationRuntime"), true);
+        Assert.That(runtime, Is.Not.Null);
+        Assert.That(((Behaviour)runtime).enabled, Is.True);
+
+        PlayableGraph graph = GetPrivateField<PlayableGraph>(runtime, "graph");
+        Assert.That(graph.IsValid(), Is.True);
+        Assert.That(graph.IsPlaying(), Is.True);
+
+        Animator[] activeAnimators = modelRoot.GetComponentsInChildren<Animator>(true)
+            .Where(animator => animator != null && animator.enabled)
+            .ToArray();
+        Assert.That(activeAnimators.Length, Is.EqualTo(1), "Exactly one Animator should remain enabled");
+        Animator activeAnimator = activeAnimators[0];
+        Assert.That(activeAnimator.runtimeAnimatorController, Is.Null, "PlayableGraph must be the only animation driver");
+        Assert.That(activeAnimator.cullingMode, Is.EqualTo(AnimatorCullingMode.AlwaysAnimate));
+
+        Renderer[] renderers = modelRoot.GetComponentsInChildren<Renderer>(true);
+        foreach (Renderer renderer in renderers)
+        {
+            Assert.That(renderer.enabled, Is.True, renderer.name);
+            Assert.That(renderer.forceRenderingOff, Is.False, renderer.name);
+
+            if (renderer is SkinnedMeshRenderer skin)
+            {
+                Assert.That(skin.updateWhenOffscreen, Is.True, skin.name);
+                Assert.That(skin.quality, Is.EqualTo(SkinQuality.Bone4), skin.name);
+            }
+        }
+    }
+
+    [Test]
     public void LobbyPlayerSessionData_RejectsDuplicateKeyboardSchemesAndMaxesAtFourPlayers()
     {
         Type sessionType = GetGameType("LobbyPlayerSessionData");
@@ -125,6 +237,16 @@ public class StabilitySmokeTests
 
         Assert.That(GetProperty<int>(gamepad1, "PlayerIndex"), Is.EqualTo(1));
         Assert.That(GetStaticProperty<int>(sessionType, "Count"), Is.EqualTo(GetStaticField<int>(sessionType, "MaxPlayers")));
+    }
+
+    static void AssertUsableClip(string assetPath, string clipName)
+    {
+        AnimationClip clip = AssetDatabase.LoadAllAssetsAtPath(assetPath)
+            .OfType<AnimationClip>()
+            .FirstOrDefault(candidate => candidate.name == clipName);
+
+        Assert.That(clip, Is.Not.Null, clipName);
+        Assert.That(clip.empty, Is.False, $"{clipName} must contain animation data");
     }
 
     Component CreateComponent(string name, Type componentType)
@@ -160,6 +282,13 @@ public class StabilitySmokeTests
         MethodInfo method = target.GetType().GetMethod(methodName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
         Assert.That(method, Is.Not.Null, methodName);
         return method.Invoke(target, args);
+    }
+
+    static T GetPrivateField<T>(object target, string fieldName)
+    {
+        FieldInfo field = target.GetType().GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.That(field, Is.Not.Null, fieldName);
+        return (T)field.GetValue(target);
     }
 
     static object InvokeStatic(Type type, string methodName, params object[] args)

@@ -36,12 +36,6 @@ public static class FixieAnimatorRebuilder
         "Assets/Art/Models/Astronaut_BarbaraTheBee.fbx",
     };
 
-    [InitializeOnLoadMethod]
-    private static void WarnIfManualRepairIsNeededOnLoad()
-    {
-        EditorApplication.delayCall += WarnIfManualRebuildIsNeeded;
-    }
-
     [MenuItem("Tools/Fixies/Rebuild Animator From Imported FBX")]
     public static void RebuildFromImportedFbx()
     {
