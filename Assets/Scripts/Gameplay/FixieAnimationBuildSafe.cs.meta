@@ -1,0 +1,19 @@
+fileFormatVersion: 2
+guid: 0a72b50c81fd4694aaba63082fdf3654
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences:
+  - movement: {instanceID: 0}
+  - animator: {instanceID: 0}
+  - avatar: {fileID: 9000000, guid: 73e3d6d0fdcfc1d4483701317ca34665, type: 3}
+  - idleClip: {instanceID: 0}
+  - walkClip: {instanceID: 0}
+  - runClip: {instanceID: 0}
+  - jumpClip: {instanceID: 0}
+  - fallClip: {instanceID: 0}
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

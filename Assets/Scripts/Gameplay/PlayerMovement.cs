@@ -4,60 +4,33 @@ using UnityEngine;
 [RequireComponent(typeof(Rigidbody))]
 public class PlayerMovement : MonoBehaviour
 {
-    private static readonly int SpeedHash = Animator.StringToHash("Speed");
-    private static readonly int IsGroundedHash = Animator.StringToHash("IsGrounded");
-
     [Header("Runtime Info (debug)")]
     [SerializeField] private int playerIndex;
     [SerializeField] private bool initialized;
-
-    [Header("Animation")]
-    [SerializeField] private Animator animator;
-
-    [SerializeField] private float minAnimMoveSpeed = 0.1f;
-
-    // Deben coincidir con los Thresholds de tu Blend Tree
-    [SerializeField] private float idleAnimValue = 0f;
-    [SerializeField] private float walkAnimValue = 2.2f;
-    [SerializeField] private float runAnimValue = 5.2f;
-
-    [SerializeField] private float animationDampTime = 0.05f;
-
-    // Nombre EXACTO del estado naranja en tu Animator
-    [SerializeField] private string locomotionStateName = "Locomotion";
-
-    [Header("Smooth Full Loop Fix")]
-    [SerializeField] private bool forceSmoothLoop = true;
-
-    // Velocidad general del loop
-    [SerializeField] private float manualLoopSpeed = 1f;
-
-    // Ajustes separados para walk y run
-    [SerializeField] private float walkLoopSpeed = 1f;
-    [SerializeField] private float runLoopSpeed = 1f;
-
-    private float locomotionLoopTime = 0f;
-    private bool wasMovingLastFrame = false;
 
     [Header("Runtime Motion")]
     [SerializeField] private bool externalControlEnabled = true;
     [SerializeField] private bool isGrounded;
     [SerializeField] private bool allowImpactReactions = false;
 
+    [Header("Ground Check")]
+    [SerializeField] private float groundProbePadding = 0.06f;
+    [SerializeField] private float groundMaxSlope = 55f;
+
     public bool IsInitialized => initialized;
     public int PlayerIndex => playerIndex;
     public Rigidbody RB => rb;
     public bool IsGrounded => isGrounded;
-
-    public float SpeedNormalized => rb != null && data != null
-        ? Mathf.Clamp01(PlanarSpeed / data.maxSpeed)
-        : 0f;
 
     public float PlanarSpeed => rb != null
         ? new Vector3(rb.velocity.x, 0f, rb.velocity.z).magnitude
         : 0f;
 
     public float VerticalVelocity => rb != null ? rb.velocity.y : 0f;
+
+    public float SpeedNormalized => rb != null && data != null
+        ? Mathf.Clamp01(PlanarSpeed / Mathf.Max(0.01f, data.maxSpeed * speedMultiplier * tempBoostMultiplier))
+        : 0f;
 
     private PlayerData data;
     private Rigidbody rb;
@@ -73,16 +46,12 @@ public class PlayerMovement : MonoBehaviour
     private Coroutine boostCoroutine;
 
     private const float CoyoteTime = 0.1f;
-    private const float GroundProbePadding = 0.06f;
-    private const float GroundMaxSlope = 55f;
 
     private void Awake()
     {
         rb = GetComponent<Rigidbody>();
         capsule = GetComponent<CapsuleCollider>();
         playerLayer = LayerMask.NameToLayer("Player");
-
-        ResolveAnimatorReference();
     }
 
     public void Initialize(int index, PlayerData playerData, Transform cam)
@@ -115,7 +84,6 @@ public class PlayerMovement : MonoBehaviour
         jumpQueued = false;
 
         CheckGround();
-        ResolveAnimatorReference();
 
         initialized = true;
     }
@@ -142,11 +110,6 @@ public class PlayerMovement : MonoBehaviour
         {
             jumpQueued = false;
             moveInput = Vector2.zero;
-            wasMovingLastFrame = false;
-            locomotionLoopTime = 0f;
-
-            if (animator != null)
-                animator.SetFloat(SpeedHash, idleAnimValue);
         }
     }
 
@@ -156,7 +119,6 @@ public class PlayerMovement : MonoBehaviour
             return;
 
         CheckGround();
-        UpdateAnimator();
     }
 
     private void FixedUpdate()
@@ -188,6 +150,7 @@ public class PlayerMovement : MonoBehaviour
     {
         Vector3 planarVelocity = new Vector3(rb.velocity.x, 0f, rb.velocity.z);
         Vector3 targetVelocity = Vector3.zero;
+
         bool hasInput = moveInput.sqrMagnitude >= 0.01f;
 
         if (hasInput)
@@ -255,35 +218,6 @@ public class PlayerMovement : MonoBehaviour
         rb.AddForce(Vector3.up * data.jumpForce, ForceMode.Impulse);
     }
 
-    private void OnCollisionEnter(Collision collision)
-    {
-        if (!allowImpactReactions)
-            return;
-
-        if (!initialized || rb == null)
-            return;
-
-        if (collision.contactCount == 0)
-            return;
-
-        Vector3 normal = collision.GetContact(0).normal;
-
-        if (Vector3.Angle(normal, Vector3.up) < 45f)
-            return;
-
-        float impact = collision.relativeVelocity.magnitude;
-
-        if (impact < 3f)
-            return;
-
-        Vector3 bumpDir = (transform.position - collision.GetContact(0).point).normalized;
-        bumpDir.y = Mathf.Max(bumpDir.y, 0.15f);
-        bumpDir.Normalize();
-
-        float bumpForce = Mathf.Min(impact * 0.25f, 5f);
-        rb.AddForce(bumpDir * bumpForce, ForceMode.Impulse);
-    }
-
     private void ApplyDrag()
     {
         rb.drag = 0f;
@@ -298,7 +232,7 @@ public class PlayerMovement : MonoBehaviour
 
         Vector3 origin = transform.position + Vector3.up * 0.2f;
         float radius = 0.2f;
-        float distance = data.groundCheckDistance + GroundProbePadding;
+        float distance = data.groundCheckDistance + groundProbePadding;
 
         if (capsule != null)
         {
@@ -310,8 +244,8 @@ public class PlayerMovement : MonoBehaviour
             float halfHeight = Mathf.Max(radius, capsule.height * heightScale * 0.5f);
             Vector3 worldCenter = transform.TransformPoint(capsule.center);
 
-            origin = worldCenter - Vector3.up * Mathf.Max(0f, halfHeight - radius - GroundProbePadding);
-            distance = data.groundCheckDistance + GroundProbePadding * 2f;
+            origin = worldCenter - Vector3.up * Mathf.Max(0f, halfHeight - radius - groundProbePadding);
+            distance = data.groundCheckDistance + groundProbePadding * 2f;
         }
 
         bool foundGround = HasGroundHit(origin, radius, distance, mask);
@@ -351,7 +285,7 @@ public class PlayerMovement : MonoBehaviour
             if (playerLayer >= 0 && hit.collider.gameObject.layer == playerLayer)
                 continue;
 
-            if (Vector3.Angle(hit.normal, Vector3.up) > GroundMaxSlope)
+            if (Vector3.Angle(hit.normal, Vector3.up) > groundMaxSlope)
                 continue;
 
             return true;
@@ -378,110 +312,33 @@ public class PlayerMovement : MonoBehaviour
         return dir.sqrMagnitude > 0.001f ? dir.normalized : Vector3.zero;
     }
 
-    private void UpdateAnimator()
+    private void OnCollisionEnter(Collision collision)
     {
-        if (animator == null || rb == null || animator.runtimeAnimatorController == null)
+        if (!allowImpactReactions)
             return;
 
-        bool hasInput = moveInput.sqrMagnitude >= 0.01f && externalControlEnabled;
-        bool hasVelocity = PlanarSpeed > minAnimMoveSpeed;
-        bool isMoving = hasInput || hasVelocity;
-
-        float targetAnimSpeed = idleAnimValue;
-
-        if (isMoving)
-        {
-            float maxPossibleSpeed = 1f;
-
-            if (data != null)
-                maxPossibleSpeed = Mathf.Max(0.01f, data.maxSpeed * speedMultiplier * tempBoostMultiplier);
-
-            float speedPercent = Mathf.Clamp01(PlanarSpeed / maxPossibleSpeed);
-
-            targetAnimSpeed = Mathf.Lerp(walkAnimValue, runAnimValue, speedPercent);
-        }
-
-        animator.SetFloat(SpeedHash, targetAnimSpeed, animationDampTime, Time.deltaTime);
-        animator.SetBool(IsGroundedHash, isGrounded);
-
-        if (forceSmoothLoop)
-            ForceFullLocomotionLoop(isMoving, targetAnimSpeed);
-
-        wasMovingLastFrame = isMoving;
-    }
-
-    private void ForceFullLocomotionLoop(bool isMoving, float targetAnimSpeed)
-    {
-        if (!isMoving || targetAnimSpeed <= idleAnimValue + 0.01f)
-        {
-            locomotionLoopTime = 0f;
-            return;
-        }
-
-        AnimatorStateInfo stateInfo = animator.GetCurrentAnimatorStateInfo(0);
-
-        if (!stateInfo.IsName(locomotionStateName))
+        if (!initialized || rb == null)
             return;
 
-        if (!wasMovingLastFrame)
-        {
-            float currentTime = stateInfo.normalizedTime;
-            locomotionLoopTime = currentTime - Mathf.Floor(currentTime);
-        }
-
-        float speedPercent = Mathf.InverseLerp(walkAnimValue, runAnimValue, targetAnimSpeed);
-
-        float selectedLoopSpeed = Mathf.Lerp(walkLoopSpeed, runLoopSpeed, speedPercent);
-        float finalLoopSpeed = selectedLoopSpeed * manualLoopSpeed;
-
-        locomotionLoopTime += Time.deltaTime * finalLoopSpeed;
-
-        // Esto deja que la animación llegue al final completo.
-        // En cuanto pasa de 1, vuelve inmediatamente a 0.
-        locomotionLoopTime = Mathf.Repeat(locomotionLoopTime, 1f);
-
-        animator.Play(locomotionStateName, 0, locomotionLoopTime);
-    }
-
-    public void BindAnimator(Animator targetAnimator)
-    {
-        animator = targetAnimator;
-
-        if (animator != null)
-        {
-            animator.enabled = true;
-            animator.applyRootMotion = false;
-            animator.cullingMode = AnimatorCullingMode.AlwaysAnimate;
-
-            if (animator.runtimeAnimatorController != null)
-            {
-                animator.SetFloat(SpeedHash, idleAnimValue);
-                animator.SetBool(IsGroundedHash, true);
-                animator.Rebind();
-                animator.Update(0f);
-            }
-        }
-    }
-
-    private void ResolveAnimatorReference()
-    {
-        if (animator != null)
+        if (collision.contactCount == 0)
             return;
 
-        animator = GetComponentInChildren<Animator>(true);
+        Vector3 normal = collision.GetContact(0).normal;
 
-        if (animator != null)
-        {
-            animator.enabled = true;
-            animator.applyRootMotion = false;
-            animator.cullingMode = AnimatorCullingMode.AlwaysAnimate;
+        if (Vector3.Angle(normal, Vector3.up) < 45f)
+            return;
 
-            if (animator.runtimeAnimatorController != null)
-            {
-                animator.SetFloat(SpeedHash, idleAnimValue);
-                animator.SetBool(IsGroundedHash, true);
-            }
-        }
+        float impact = collision.relativeVelocity.magnitude;
+
+        if (impact < 3f)
+            return;
+
+        Vector3 bumpDir = (transform.position - collision.GetContact(0).point).normalized;
+        bumpDir.y = Mathf.Max(bumpDir.y, 0.15f);
+        bumpDir.Normalize();
+
+        float bumpForce = Mathf.Min(impact * 0.25f, 5f);
+        rb.AddForce(bumpDir * bumpForce, ForceMode.Impulse);
     }
 
     public void AddImpactForce(Vector3 force, ForceMode mode = ForceMode.Impulse)
@@ -515,12 +372,23 @@ public class PlayerMovement : MonoBehaviour
         boostCoroutine = null;
     }
 
+    // Lo dejo para que otros scripts no truene si todavía llaman BindAnimator().
+    // Pero este PlayerMovement ya NO controla animaciones.
+    public void BindAnimator(Animator targetAnimator)
+    {
+        if (targetAnimator == null)
+            return;
+
+        targetAnimator.applyRootMotion = false;
+        targetAnimator.cullingMode = AnimatorCullingMode.AlwaysAnimate;
+    }
+
     private void OnDrawGizmosSelected()
     {
         float rayDistance = 0.65f;
 
         if (data != null)
-            rayDistance = data.groundCheckDistance + GroundProbePadding * 2f;
+            rayDistance = data.groundCheckDistance + groundProbePadding * 2f;
 
         Gizmos.color = isGrounded ? Color.green : Color.red;
 
