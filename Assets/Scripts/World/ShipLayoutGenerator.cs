@@ -917,6 +917,7 @@ public class ShipLayoutGenerator : MonoBehaviour
             {
                 station.transform.position = moduleInst.transform.position + Vector3.up;
                 station.SetGeneratedLocationLabel(moduleInst.name);
+                WireRoomModule(moduleInst, station);
                 Log($"RepairStation {station.Type} → {moduleInst.name} (fallback center)");
                 continue;
             }
@@ -931,6 +932,7 @@ public class ShipLayoutGenerator : MonoBehaviour
             {
                 station.transform.position = targets[0].position + Vector3.up * 0.5f;
                 station.SetGeneratedLocationLabel(moduleInst.name);
+                WireRoomModule(moduleInst, station);
                 Log($"RepairStation {station.Type} → {moduleInst.name} (fallback target)");
                 continue;
             }
@@ -945,7 +947,18 @@ public class ShipLayoutGenerator : MonoBehaviour
                 renderers,
                 moduleInst.name);
 
+            WireRoomModule(moduleInst, station);
             Log($"RepairStation {station.Type} → {moduleInst.name} ({targetDescription})");
+        }
+    }
+
+    void WireRoomModule(GameObject moduleInst, RepairStation station)
+    {
+        var roomModule = moduleInst.GetComponentInChildren<RoomModule>(true);
+        if (roomModule != null)
+        {
+            roomModule.WireStation(station);
+            Log($"RoomModule wired to {station.Type} in {moduleInst.name}");
         }
     }
 

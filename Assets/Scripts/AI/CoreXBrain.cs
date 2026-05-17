@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.AI;
 
 /// <summary>
 /// Core-X: Adaptive AI director for We Can Fix This!
@@ -83,6 +84,8 @@ public class CoreXBrain : MonoBehaviour
 
     private void Start()
     {
+        RuntimeShipNavMesh.EnsureExists();
+
         allStations    = GetRegisteredStations();
         gameStartTime  = Time.time;
 
@@ -177,25 +180,26 @@ public class CoreXBrain : MonoBehaviour
             return;
         }
 
-        // Use phase spawn points; if none, fall back to ShipRoom
-        Transform[] spawnPoints = (phase.npcSpawnPoints != null && phase.npcSpawnPoints.Length > 0)
-            ? phase.npcSpawnPoints
-            : GatherShipSpawnPoints();
+        RuntimeShipNavMesh.EnsureExists();
 
-        if (spawnPoints == null || spawnPoints.Length == 0)
+        Vector3[] spawnPositions = GatherSpawnPositions(phase);
+        if (spawnPositions == null || spawnPositions.Length == 0)
         {
             Debug.LogWarning("[CoreX] No spawn points available for NPCs.");
             return;
         }
 
-        for (int i = 0; i < spawnPoints.Length; i++)
+        for (int i = 0; i < spawnPositions.Length; i++)
         {
-            if (spawnPoints[i] == null) continue;
-
             var prefab = phase.npcPrefabs[i % phase.npcPrefabs.Length];
             if (prefab == null) continue;
 
-            var npc = Instantiate(prefab, spawnPoints[i].position, spawnPoints[i].rotation);
+            Vector3 spawnPosition = NavMeshSpawnUtility.ResolvePosition(spawnPositions[i], 5f);
+            var npc = Instantiate(prefab, spawnPosition, Quaternion.identity);
+            NavMeshAgent agent = npc.GetComponent<NavMeshAgent>();
+            if (agent != null)
+                NavMeshSpawnUtility.TryWarpToNearest(agent, spawnPosition, 5f);
+
             spawnedNPCs.Add(npc);
         }
 
@@ -210,27 +214,51 @@ public class CoreXBrain : MonoBehaviour
         spawnedNPCs.Clear();
     }
 
+    private Vector3[] GatherSpawnPositions(CoreXPhase phase)
+    {
+        if (phase.npcSpawnPoints != null && phase.npcSpawnPoints.Length > 0)
+        {
+            var configured = new List<Vector3>();
+            foreach (Transform spawnPoint in phase.npcSpawnPoints)
+            {
+                if (spawnPoint != null)
+                    configured.Add(spawnPoint.position);
+            }
+
+            if (configured.Count > 0)
+                return configured.ToArray();
+        }
+
+        return GatherShipSpawnPositions();
+    }
+
     /// <summary>
     /// Recolecta spawn points como fallback:
-    /// primero de ShipRoom, luego de ShipAssembler.
+    /// primero de ShipRoom, luego de ShipLayoutGenerator y por último de ShipAssembler.
     /// </summary>
-    private Transform[] GatherShipSpawnPoints()
+    private Vector3[] GatherShipSpawnPositions()
     {
-        var points = new List<Transform>();
+        var points = new List<Vector3>();
 
         // Intentar desde ShipRoom
         foreach (var room in FindObjectsOfType<ShipRoom>())
         {
             if (room.spawnPoints == null) continue;
             foreach (var sp in room.spawnPoints)
-                if (sp != null) points.Add(sp);
+                if (sp != null) points.Add(sp.position);
+        }
+
+        if (points.Count == 0 && ShipLayoutGenerator.RoomCenters != null)
+        {
+            foreach (Vector3 center in ShipLayoutGenerator.RoomCenters.Values)
+                points.Add(center);
         }
 
         // Si ShipRoom no tiene puntos, usar los generados por ShipAssembler
         if (points.Count == 0 && ShipAssembler.NPCSpawnPoints != null)
         {
             foreach (var sp in ShipAssembler.NPCSpawnPoints)
-                if (sp != null) points.Add(sp);
+                if (sp != null) points.Add(sp.position);
         }
 
         return points.ToArray();

@@ -16,7 +16,8 @@ MonoBehaviour:
   aliases:
   - Fixie_P3
   - Astronaut_BarbaraTheBee
-  visualPrefab: {fileID: 4684386058763366323, guid: 9cba2cedafdb645ca8fbf0e0095a4ed3, type: 3}
+  visualPrefab: {fileID: 4684386058763366323, guid: 9cba2cedafdb645ca8fbf0e0095a4ed3,
+    type: 3}
   avatar: {fileID: 9000000, guid: ed513c654e2a347d6bfda5bb291b4513, type: 3}
   idleClip: {fileID: 110800006, guid: 5fc10614fb9f24f94b0c2f1ead07f5ba, type: 3}
   walkClip: {fileID: 110800026, guid: 5fc10614fb9f24f94b0c2f1ead07f5ba, type: 3}
