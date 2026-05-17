@@ -57,6 +57,8 @@ public class PlayerMovement : MonoBehaviour
         ? new Vector3(rb.velocity.x, 0f, rb.velocity.z).magnitude
         : 0f;
 
+    public float VerticalVelocity => rb != null ? rb.velocity.y : 0f;
+
     private PlayerData data;
     private Rigidbody rb;
     private CapsuleCollider capsule;

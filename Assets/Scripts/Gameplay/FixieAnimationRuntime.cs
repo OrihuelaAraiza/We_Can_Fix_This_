@@ -11,7 +11,8 @@ public class FixieAnimationRuntime : MonoBehaviour
         Idle,
         Walk,
         Run,
-        Air,
+        Jump,
+        Fall,
     }
 
     private struct HardcodedAnimationData
@@ -22,7 +23,6 @@ public class FixieAnimationRuntime : MonoBehaviour
         public AnimationClip JumpClip;
         public AnimationClip FallClip;
 
-        public AnimationClip AirClip => FallClip != null ? FallClip : JumpClip;
         public bool IsValid => IdleClip != null && WalkClip != null && RunClip != null && JumpClip != null && FallClip != null;
 
         public string DescribeClips()
@@ -54,7 +54,8 @@ public class FixieAnimationRuntime : MonoBehaviour
     [SerializeField] private float blendSpeed = 8f;
     [SerializeField] private bool animationDebugLogs = false;
 
-    private readonly float[] currentWeights = new float[4];
+    // 0=Idle, 1=Walk, 2=Run, 3=Jump, 4=Fall
+    private readonly float[] currentWeights = new float[5];
 
     private PlayableGraph graph;
     private AnimationMixerPlayable mixer;
@@ -164,7 +165,7 @@ public class FixieAnimationRuntime : MonoBehaviour
 
             BuildGraph();
             enabled = true;
-            LogInfo($"slot={slotIndex} visual='{debugSourceName}' animator='{animator.name}' avatar='{(animator.avatar != null ? animator.avatar.name : "none")}' {animationData.DescribeClips()}");
+            Debug.Log($"[FixieAnimation] Bind OK slot={slotIndex} visual='{debugSourceName}' animator='{animator.name}' avatar='{(animator.avatar != null ? animator.avatar.name : "NONE — animation will T-pose!")}' {animationData.DescribeClips()}");
         }
         catch (Exception exception)
         {
@@ -184,17 +185,27 @@ public class FixieAnimationRuntime : MonoBehaviour
 
             float speed = Mathf.Clamp01(movement.SpeedNormalized);
             bool grounded = movement.IsGrounded;
+            float verticalVelocity = movement.VerticalVelocity;
 
             float targetIdle = 0f;
             float targetWalk = 0f;
             float targetRun = 0f;
-            float targetAir = 0f;
+            float targetJump = 0f;
+            float targetFall = 0f;
             AnimationState nextState;
 
             if (!grounded)
             {
-                targetAir = 1f;
-                nextState = AnimationState.Air;
+                if (verticalVelocity > 0.5f)
+                {
+                    targetJump = 1f;
+                    nextState = AnimationState.Jump;
+                }
+                else
+                {
+                    targetFall = 1f;
+                    nextState = AnimationState.Fall;
+                }
             }
             else if (speed <= walkThreshold)
             {
@@ -211,12 +222,14 @@ public class FixieAnimationRuntime : MonoBehaviour
                 nextState = t > 0.45f ? AnimationState.Run : AnimationState.Walk;
             }
 
-            currentWeights[0] = Mathf.MoveTowards(currentWeights[0], targetIdle, blendSpeed * Time.deltaTime);
-            currentWeights[1] = Mathf.MoveTowards(currentWeights[1], targetWalk, blendSpeed * Time.deltaTime);
-            currentWeights[2] = Mathf.MoveTowards(currentWeights[2], targetRun, blendSpeed * Time.deltaTime);
-            currentWeights[3] = Mathf.MoveTowards(currentWeights[3], targetAir, blendSpeed * Time.deltaTime);
+            float step = blendSpeed * Time.deltaTime;
+            currentWeights[0] = Mathf.MoveTowards(currentWeights[0], targetIdle, step);
+            currentWeights[1] = Mathf.MoveTowards(currentWeights[1], targetWalk, step);
+            currentWeights[2] = Mathf.MoveTowards(currentWeights[2], targetRun, step);
+            currentWeights[3] = Mathf.MoveTowards(currentWeights[3], targetJump, step);
+            currentWeights[4] = Mathf.MoveTowards(currentWeights[4], targetFall, step);
 
-            float totalWeight = currentWeights[0] + currentWeights[1] + currentWeights[2] + currentWeights[3];
+            float totalWeight = currentWeights[0] + currentWeights[1] + currentWeights[2] + currentWeights[3] + currentWeights[4];
             if (totalWeight <= 0.0001f)
             {
                 currentWeights[0] = 1f;
@@ -229,7 +242,8 @@ public class FixieAnimationRuntime : MonoBehaviour
             if (nextState != currentState)
             {
                 currentState = nextState;
-                LogInfo($"state={currentState} grounded={grounded} speed={speed:0.00}");
+                if (animationDebugLogs)
+                    Debug.Log($"[FixieAnimation] state={currentState} grounded={grounded} speed={speed:0.00} vy={verticalVelocity:0.0}");
             }
         }
         catch (Exception exception)
@@ -296,24 +310,28 @@ public class FixieAnimationRuntime : MonoBehaviour
         graph = PlayableGraph.Create($"{name}_FixieHardcodedAnimationGraph");
         graph.SetTimeUpdateMode(DirectorUpdateMode.GameTime);
 
-        mixer = AnimationMixerPlayable.Create(graph, 4);
+        mixer = AnimationMixerPlayable.Create(graph, 5);
         AnimationPlayableOutput output = AnimationPlayableOutput.Create(graph, "FixieHardcodedAnimation", animator);
         output.SetSourcePlayable(mixer);
 
         ConnectClip(0, animationData.IdleClip);
         ConnectClip(1, animationData.WalkClip);
         ConnectClip(2, animationData.RunClip);
-        ConnectClip(3, animationData.AirClip);
+        ConnectClip(3, animationData.JumpClip);
+        ConnectClip(4, animationData.FallClip);
 
         // Start in idle so the character animates from frame 0, not T-pose.
         currentWeights[0] = 1f;
         currentWeights[1] = 0f;
         currentWeights[2] = 0f;
         currentWeights[3] = 0f;
+        currentWeights[4] = 0f;
         mixer.SetInputWeight(0, 1f);
         currentState = AnimationState.None;
 
         graph.Play();
+        // Force the first frame so the character never shows T-pose on spawn.
+        graph.Evaluate(0f);
     }
 
     private void ConnectClip(int index, AnimationClip clip)
@@ -350,12 +368,6 @@ public class FixieAnimationRuntime : MonoBehaviour
         DestroyGraph();
         enabled = false;
         Debug.LogError($"[FixieAnimation] {stage} fallo en '{debugSourceName}': {exception.Message}\n{exception.StackTrace}");
-    }
-
-    private void LogInfo(string message)
-    {
-        if (animationDebugLogs)
-            Debug.Log($"[FixieAnimation] {message}");
     }
 
     private void LogWarning(string message)

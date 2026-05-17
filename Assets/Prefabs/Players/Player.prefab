@@ -251,7 +251,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   playerIndex: 0
-  initialized: 1
+  initialized: 0
   animator: {fileID: 0}
   minAnimMoveSpeed: 0.1
   idleAnimValue: 0

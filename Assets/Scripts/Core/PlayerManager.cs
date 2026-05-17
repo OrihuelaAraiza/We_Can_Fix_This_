@@ -639,9 +639,12 @@ public partial class PlayerManager : MonoBehaviour
 
         StripRuntimeComponents(model, preserveAnimator: modelAnimator != null);
         SetLayerRecursively(model.transform, playerRoot.gameObject.layer);
+        // ForceRenderersVisible must run before NormalizeVisualScale so that
+        // SkinnedMeshRenderer.updateWhenOffscreen = true and bounds are valid
+        // even when the player spawns outside the camera frustum.
+        ForceRenderersVisible(model.transform);
         NormalizeVisualScale(playerRoot, model.transform);
         AlignVisualToPlayer(playerRoot, model.transform);
-        ForceRenderersVisible(model.transform);
 
         BindVisualWobble(playerRoot, model.transform);
         AttachRuntimeFixieAnimation(playerRoot.gameObject, movement, model.transform, modelAnimator, animationSet, slotIndex);
