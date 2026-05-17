@@ -24,6 +24,12 @@ public class RepairStation : MonoBehaviour, IInteractable
     [SerializeField] private Color colorRepairing  = Color.yellow;
     [SerializeField] private Color colorFixed      = Color.cyan;
 
+    [Header("Indicator Light")]
+    [SerializeField] private Light stationLight;
+    [SerializeField] private float lightRangeBroken    = 5f;
+    [SerializeField] private float lightIntensityBroken = 2.5f;
+    [SerializeField] private float lightFlickerSpeed   = 6f;
+
     [Header("UI")]
     [SerializeField] private bool autoCreateWorldStatusUI = true;
 
@@ -41,6 +47,7 @@ public class RepairStation : MonoBehaviour, IInteractable
     private Renderer[] stationRenderers;
     private readonly Dictionary<Renderer, Material[]> runtimeMaterials = new Dictionary<Renderer, Material[]>();
     private PlayerMovement repairingPlayer;
+    private float lightFlickerTimer;
 
     public StationState State => state;
     public StationType Type => stationType;
@@ -49,9 +56,36 @@ public class RepairStation : MonoBehaviour, IInteractable
 
     private void Awake()
     {
+        EnsureIndicatorLight();
         RefreshVisualBindings();
         ApplyStateVisual();
         EnsureWorldStatusUI();
+    }
+
+    private void Update()
+    {
+        if (stationLight == null || !stationLight.enabled) return;
+        if (state != StationState.Broken && state != StationState.Repairing) return;
+
+        lightFlickerTimer += Time.deltaTime * lightFlickerSpeed;
+        stationLight.intensity = lightIntensityBroken * (0.6f + 0.4f * Mathf.Sin(lightFlickerTimer));
+    }
+
+    private void EnsureIndicatorLight()
+    {
+        if (stationLight != null) return;
+
+        var go = new GameObject("IndicatorLight");
+        go.transform.SetParent(transform);
+        go.transform.localPosition = Vector3.up * 1.8f;
+
+        stationLight = go.AddComponent<Light>();
+        stationLight.type      = LightType.Point;
+        stationLight.range     = lightRangeBroken;
+        stationLight.color     = colorBroken;
+        stationLight.intensity = lightIntensityBroken;
+        stationLight.shadows   = LightShadows.None;
+        stationLight.enabled   = false;
     }
 
     private void OnEnable()
@@ -169,13 +203,45 @@ public class RepairStation : MonoBehaviour, IInteractable
 
             foreach (Material material in pair.Value)
             {
-                if (material == null || !material.HasProperty("_Color"))
-                    continue;
+                if (material == null) continue;
 
-                material.color = c;
+                if (material.HasProperty("_BaseColor"))
+                    material.SetColor("_BaseColor", c);
+                else if (material.HasProperty("_Color"))
+                    material.SetColor("_Color", c);
             }
 
             pair.Key.materials = pair.Value;
+        }
+
+        ApplyIndicatorLight();
+    }
+
+    private void ApplyIndicatorLight()
+    {
+        if (stationLight == null) return;
+
+        switch (state)
+        {
+            case StationState.Broken:
+                lightFlickerTimer     = 0f;
+                stationLight.enabled  = true;
+                stationLight.color    = colorBroken;
+                stationLight.range    = lightRangeBroken;
+                stationLight.intensity = lightIntensityBroken;
+                break;
+            case StationState.Repairing:
+                lightFlickerTimer     = 0f;
+                stationLight.enabled  = true;
+                stationLight.color    = colorRepairing;
+                stationLight.range    = lightRangeBroken * 0.7f;
+                stationLight.intensity = lightIntensityBroken * 0.6f;
+                break;
+            case StationState.Fixed:
+            case StationState.Functional:
+            default:
+                stationLight.enabled = false;
+                break;
         }
     }
 
