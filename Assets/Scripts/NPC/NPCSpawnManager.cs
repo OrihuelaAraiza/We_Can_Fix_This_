@@ -36,9 +36,13 @@ public class NPCSpawnManager : MonoBehaviour
     };
 
     private const string StorageKey = "Extra_Storage";
+    private IReadOnlyDictionary<string, Vector3> pendingCenters;
+    private bool spawned;
 
     private void OnEnable()
     {
+        RuntimeShipNavMesh.EnsureExists();
+
         if (ShipLayoutGenerator.IsReady)
             SpawnAll(ShipLayoutGenerator.RoomCenters);
         else
@@ -48,11 +52,37 @@ public class NPCSpawnManager : MonoBehaviour
     private void OnDisable()
     {
         ShipLayoutGenerator.OnRoomCentersReady -= SpawnAll;
+        RuntimeShipNavMesh.OnReady -= SpawnPending;
     }
 
     private void SpawnAll(IReadOnlyDictionary<string, Vector3> centers)
     {
         ShipLayoutGenerator.OnRoomCentersReady -= SpawnAll;
+
+        if (spawned)
+            return;
+
+        pendingCenters = centers;
+        if (!RuntimeShipNavMesh.IsReady && RequiresNavMesh())
+        {
+            RuntimeShipNavMesh.OnReady -= SpawnPending;
+            RuntimeShipNavMesh.OnReady += SpawnPending;
+            return;
+        }
+
+        SpawnPending();
+    }
+
+    private void SpawnPending()
+    {
+        RuntimeShipNavMesh.OnReady -= SpawnPending;
+
+        if (spawned || pendingCenters == null)
+            return;
+
+        spawned = true;
+        var centers = pendingCenters;
+        pendingCenters = null;
 
         SpawnRoamingNPCs(centers);
         SpawnClank(centers);
@@ -75,6 +105,7 @@ public class NPCSpawnManager : MonoBehaviour
                 if (prefab != null)
                 {
                     Vector3 pos = FindFreeSpot(center, positions, minSpacing);
+                    pos = NavMeshSpawnUtility.ResolvePosition(pos);
                     Instantiate(prefab, pos, RandomYRotation());
                     positions.Add(pos);
                 }
@@ -87,6 +118,7 @@ public class NPCSpawnManager : MonoBehaviour
                 if (prefab != null)
                 {
                     Vector3 pos = FindFreeSpot(center, positions, minSpacing);
+                    pos = NavMeshSpawnUtility.ResolvePosition(pos);
                     Instantiate(prefab, pos, RandomYRotation());
                     positions.Add(pos);
                 }
@@ -115,10 +147,10 @@ public class NPCSpawnManager : MonoBehaviour
 
         // ── Zona de recolección (BoxSpawner) ──────────────────────────
         // Se ubica en el centro de la Storage room; las cajas aparecerán aquí.
-        Transform boxSpawnPoint = CreateAnchor("BoxSpawnPoint", storageCenter + new Vector3(-2f, 0f, 0f));
+        Transform boxSpawnPoint = CreateAnchor("BoxSpawnPoint", ResolveClankPoint(storageCenter + new Vector3(-2f, 0f, 0f)));
 
         GameObject boxSpawnerGO = new GameObject("Clank_BoxSpawner");
-        boxSpawnerGO.transform.position = storageCenter;
+        boxSpawnerGO.transform.position = boxSpawnPoint.position;
         var spawner = boxSpawnerGO.AddComponent<BoxSpawner>();
         spawner.boxPrefab             = boxPrefab;
         spawner.spawnPoints           = new Transform[] { boxSpawnPoint };
@@ -128,7 +160,7 @@ public class NPCSpawnManager : MonoBehaviour
 
         // ── Zona de entrega (DropZone) ────────────────────────────────
         // Se ubica al otro lado de la habitación para que Clank haga el recorrido.
-        Vector3 dropPos = storageCenter + new Vector3(2f, 0f, 0f);
+        Vector3 dropPos = ResolveClankPoint(storageCenter + new Vector3(2f, 0f, 0f));
         GameObject dropZoneGO = new GameObject("Clank_DropZone");
         dropZoneGO.transform.position = dropPos;
 
@@ -140,7 +172,7 @@ public class NPCSpawnManager : MonoBehaviour
         col.size      = new Vector3(dropZoneRadius * 2f, 2f, dropZoneRadius * 2f);
 
         // ── Clank ─────────────────────────────────────────────────────
-        Vector3 clankPos = storageCenter + new Vector3(0f, 0f, -1f);
+        Vector3 clankPos = ResolveClankPoint(storageCenter + new Vector3(0f, 0f, -1f));
         var clankGO = Instantiate(clankPrefab, clankPos, Quaternion.identity);
         clankGO.name = "Clank";
 
@@ -191,4 +223,35 @@ public class NPCSpawnManager : MonoBehaviour
 
     private static Quaternion RandomYRotation() =>
         Quaternion.Euler(0f, Random.Range(0f, 360f), 0f);
+
+    private bool RequiresNavMesh()
+    {
+        if (clankPrefab != null && clankPrefab.GetComponent<UnityEngine.AI.NavMeshAgent>() != null)
+            return true;
+
+        return PrefabsRequireNavMesh(blockiePrefabs) || PrefabsRequireNavMesh(smoggosPrefabs);
+    }
+
+    private static bool PrefabsRequireNavMesh(GameObject[] prefabs)
+    {
+        if (prefabs == null)
+            return false;
+
+        foreach (GameObject prefab in prefabs)
+        {
+            if (prefab != null && prefab.GetComponent<UnityEngine.AI.NavMeshAgent>() != null)
+                return true;
+        }
+
+        return false;
+    }
+
+    private static Vector3 ResolveClankPoint(Vector3 requestedPosition)
+    {
+        if (NavMeshSpawnUtility.TrySamplePosition(requestedPosition, out Vector3 navMeshPosition, 6f))
+            return navMeshPosition;
+
+        Debug.LogWarning($"[NPCSpawnManager] Could not project {requestedPosition} to NavMesh; using requested position.");
+        return requestedPosition;
+    }
 }

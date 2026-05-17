@@ -6,6 +6,7 @@ using System.Reflection;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.AI;
 using UnityEngine.InputSystem;
 using UnityEngine.Playables;
 
@@ -237,6 +238,63 @@ public class StabilitySmokeTests
 
         Assert.That(GetProperty<int>(gamepad1, "PlayerIndex"), Is.EqualTo(1));
         Assert.That(GetStaticProperty<int>(sessionType, "Count"), Is.EqualTo(GetStaticField<int>(sessionType, "MaxPlayers")));
+    }
+
+    [Test]
+    public void RuntimeNavMesh_PackageAndScriptsArePresent()
+    {
+        string manifest = System.IO.File.ReadAllText("Packages/manifest.json");
+        Assert.That(manifest, Does.Contain("com.unity.ai.navigation"));
+
+        Assert.That(GetGameType("RuntimeShipNavMesh"), Is.Not.Null);
+        Assert.That(GetGameType("NavMeshSpawnUtility"), Is.Not.Null);
+    }
+
+    [Test]
+    public void ClankPrefab_HasNavMeshAgent()
+    {
+        GameObject clankPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/NPCs/Clank_NPC/Clank_NPC_Prefab.prefab");
+        Assert.That(clankPrefab, Is.Not.Null);
+
+        Assert.That(clankPrefab.GetComponent<NavMeshAgent>(), Is.Not.Null);
+        Assert.That(clankPrefab.GetComponent(GetGameType("Clank_NPC")), Is.Not.Null);
+    }
+
+    [Test]
+    public void BoxSpawner_GuaranteesNavMeshObstacleOnSpawnedBoxes()
+    {
+        GameObject spawnerGO = new GameObject("BoxSpawner_Test");
+        createdObjects.Add(spawnerGO);
+        Component spawner = spawnerGO.AddComponent(GetGameType("BoxSpawner"));
+
+        GameObject boxGO = new GameObject("Box_Test");
+        createdObjects.Add(boxGO);
+        var collider = boxGO.AddComponent<BoxCollider>();
+        collider.size = new Vector3(1.25f, 1.5f, 1.25f);
+        collider.center = new Vector3(0f, 0.75f, 0f);
+
+        InvokeInstance(spawner, "EnsureObstacle", boxGO);
+
+        NavMeshObstacle obstacle = boxGO.GetComponent<NavMeshObstacle>();
+        Assert.That(obstacle, Is.Not.Null);
+        Assert.That(obstacle.carving, Is.True);
+        Assert.That(obstacle.carveOnlyStationary, Is.True);
+        Assert.That(obstacle.shape, Is.EqualTo(NavMeshObstacleShape.Box));
+        Assert.That(obstacle.size, Is.EqualTo(collider.size));
+        Assert.That(obstacle.center, Is.EqualTo(collider.center));
+    }
+
+    [Test]
+    public void NPCSpawning_UsesRuntimeNavMeshAndProceduralFallbacks()
+    {
+        string spawnManagerSource = System.IO.File.ReadAllText("Assets/Scripts/NPC/NPCSpawnManager.cs");
+        Assert.That(spawnManagerSource, Does.Contain("RuntimeShipNavMesh.EnsureExists"));
+        Assert.That(spawnManagerSource, Does.Contain("RuntimeShipNavMesh.OnReady"));
+        Assert.That(spawnManagerSource, Does.Contain("NavMeshSpawnUtility.ResolvePosition"));
+
+        string coreXSource = System.IO.File.ReadAllText("Assets/Scripts/AI/CoreXBrain.cs");
+        Assert.That(coreXSource, Does.Contain("ShipLayoutGenerator.RoomCenters"));
+        Assert.That(coreXSource, Does.Contain("NavMeshSpawnUtility.TryWarpToNearest"));
     }
 
     static void AssertUsableClip(string assetPath, string clipName)

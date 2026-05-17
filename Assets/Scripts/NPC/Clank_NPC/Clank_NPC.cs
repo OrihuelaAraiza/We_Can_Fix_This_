@@ -29,6 +29,7 @@ public class Clank_NPC : NPCBehaviourBase
 
     private float chaosTimer = 0f;
     private bool waiting = false;
+    private bool warnedMissingNavMesh = false;
 
     private BoxItem targetBox;
     private BoxItem carriedBox;
@@ -52,14 +53,17 @@ public class Clank_NPC : NPCBehaviourBase
     {
         if (agent != null)
         {
-            agent.isStopped = true;
-            agent.ResetPath();
+            if (agent.isOnNavMesh)
+            {
+                agent.isStopped = true;
+                agent.ResetPath();
+            }
         }
     }
 
     protected override void OnEnabled()
     {
-        if (agent != null)
+        if (agent != null && agent.isOnNavMesh)
             agent.isStopped = false;
     }
 
@@ -67,6 +71,7 @@ public class Clank_NPC : NPCBehaviourBase
     {
         if (IsDisabled) return;
         if (waiting) return;
+        if (!EnsureAgentOnNavMesh()) return;
 
         if (chaosTimer > 0)
             chaosTimer -= Time.deltaTime;
@@ -93,8 +98,10 @@ public class Clank_NPC : NPCBehaviourBase
 
         if (targetBox != null)
         {
-            agent.SetDestination(GetBoxPosition(targetBox));
-            state = State.GoingToBox;
+            if (TrySetDestination(GetBoxPosition(targetBox)))
+                state = State.GoingToBox;
+            else
+                targetBox = null;
         }
     }
 
@@ -106,7 +113,12 @@ public class Clank_NPC : NPCBehaviourBase
             return;
         }
 
-        agent.SetDestination(GetBoxPosition(targetBox));
+        if (!TrySetDestination(GetBoxPosition(targetBox)))
+        {
+            targetBox = null;
+            state = State.SearchingBox;
+            return;
+        }
 
         if (!HasArrived()) return;
 
@@ -118,8 +130,10 @@ public class Clank_NPC : NPCBehaviourBase
             return;
         }
 
-        agent.SetDestination(dropPoint.position);
-        state = State.GoingToDropZone;
+        if (TrySetDestination(dropPoint.position))
+            state = State.GoingToDropZone;
+        else
+            state = State.SearchingBox;
     }
 
     void GoToDrop()
@@ -130,7 +144,11 @@ public class Clank_NPC : NPCBehaviourBase
             return;
         }
 
-        agent.SetDestination(dropPoint.position);
+        if (!TrySetDestination(dropPoint.position))
+        {
+            state = State.SearchingBox;
+            return;
+        }
 
         if (!HasArrived()) return;
 
@@ -161,21 +179,27 @@ public class Clank_NPC : NPCBehaviourBase
     {
         waiting = true;
 
-        agent.isStopped = true;
-        agent.ResetPath();
+        if (agent != null && agent.isOnNavMesh)
+        {
+            agent.isStopped = true;
+            agent.ResetPath();
 
-        if (backOffDistance > 0)
-            agent.Move(-transform.forward * backOffDistance);
+            if (backOffDistance > 0)
+                agent.Move(-transform.forward * backOffDistance);
+        }
 
         yield return new WaitForSeconds(waitAfterDropSeconds);
 
-        agent.isStopped = false;
+        if (agent != null && agent.isOnNavMesh)
+            agent.isStopped = false;
+
         waiting = false;
         state = State.SearchingBox;
     }
 
     bool HasArrived()
     {
+        if (agent == null || !agent.enabled || !agent.isOnNavMesh) return false;
         if (agent.pathPending) return false;
         return agent.remainingDistance <= arriveDistance;
     }
@@ -194,7 +218,10 @@ public class Clank_NPC : NPCBehaviourBase
             if (box.blocked) continue;
             if (box.IsOnCooldown()) continue;
 
-            float distance = Vector3.Distance(transform.position, box.transform.position);
+            if (!TryGetBoxDestination(box, out Vector3 destination))
+                continue;
+
+            float distance = Vector3.Distance(transform.position, destination);
 
             if (distance < bestDistance)
             {
@@ -214,8 +241,20 @@ public class Clank_NPC : NPCBehaviourBase
         return box.transform.position;
     }
 
+    bool TryGetBoxDestination(BoxItem box, out Vector3 destination)
+    {
+        destination = default;
+        if (box == null)
+            return false;
+
+        return NavMeshSpawnUtility.TrySamplePosition(GetBoxPosition(box), out destination, 3f);
+    }
+
     void PickUpBox(BoxItem box)
     {
+        if (holdPoint == null)
+            holdPoint = transform;
+
         carriedBox = box;
         targetBox = null;
 
@@ -245,7 +284,7 @@ public class Clank_NPC : NPCBehaviourBase
         Transform t = carriedBox.transform;
 
         t.SetParent(null);
-        t.position = dropPoint.position + dropPoint.forward;
+        t.position = NavMeshSpawnUtility.ResolvePosition(dropPoint.position + dropPoint.forward, 2f);
 
         carriedBox.delivered = true;
         carriedBox.pickedUp = false;
@@ -296,5 +335,50 @@ public class Clank_NPC : NPCBehaviourBase
 
         carriedBox = null;
         state = State.SearchingBox;
+    }
+
+    bool EnsureAgentOnNavMesh()
+    {
+        if (agent == null)
+        {
+            if (!warnedMissingNavMesh)
+            {
+                warnedMissingNavMesh = true;
+                Debug.LogWarning("[Clank_NPC] Missing NavMeshAgent; Clank navigation is disabled.", this);
+            }
+
+            return false;
+        }
+
+        if (!agent.enabled)
+            return false;
+
+        if (agent.isOnNavMesh)
+            return true;
+
+        if (NavMeshSpawnUtility.TryWarpToNearest(agent, transform.position, 6f))
+            return true;
+
+        if (!warnedMissingNavMesh)
+        {
+            warnedMissingNavMesh = true;
+            Debug.LogWarning("[Clank_NPC] Could not place Clank on a NavMesh. Ensure RuntimeShipNavMesh builds before Clank spawns.", this);
+        }
+
+        return false;
+    }
+
+    bool TrySetDestination(Vector3 destination)
+    {
+        if (NavMeshSpawnUtility.TrySetDestination(agent, destination, 4f))
+            return true;
+
+        if (!warnedMissingNavMesh)
+        {
+            warnedMissingNavMesh = true;
+            Debug.LogWarning($"[Clank_NPC] Could not set NavMesh destination near {destination}.", this);
+        }
+
+        return false;
     }
 }

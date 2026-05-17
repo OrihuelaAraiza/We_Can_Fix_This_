@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.AI;
 
 public class BoxSpawner : MonoBehaviour
 {
@@ -42,10 +43,13 @@ public class BoxSpawner : MonoBehaviour
         if (currentBoxes >= maxBoxesAlive) return;
 
         Transform sp = spawnPoints[Random.Range(0, spawnPoints.Length)];
-        GameObject go = Instantiate(boxPrefab, sp.position, sp.rotation);
+        Vector3 spawnPosition = NavMeshSpawnUtility.ResolvePosition(sp.position, 3f);
+        GameObject go = Instantiate(boxPrefab, spawnPosition, sp.rotation);
 
         BoxItem box = go.GetComponent<BoxItem>();
         if (box == null) box = go.AddComponent<BoxItem>();
+
+        EnsureObstacle(go);
 
         if (createPickUpSnapIfMissing && box.pickUpSnap == null)
         {
@@ -62,6 +66,30 @@ public class BoxSpawner : MonoBehaviour
             {
                 box.pickUpSnap = t;
             }
+        }
+    }
+
+    void EnsureObstacle(GameObject boxObject)
+    {
+        if (boxObject == null)
+            return;
+
+        NavMeshObstacle obstacle = boxObject.GetComponent<NavMeshObstacle>();
+        if (obstacle == null)
+            obstacle = boxObject.AddComponent<NavMeshObstacle>();
+
+        obstacle.enabled = true;
+        obstacle.carving = true;
+        obstacle.carveOnlyStationary = true;
+        obstacle.carvingMoveThreshold = 0.25f;
+        obstacle.carvingTimeToStationary = 0.2f;
+
+        BoxCollider boxCollider = boxObject.GetComponent<BoxCollider>();
+        if (boxCollider != null)
+        {
+            obstacle.shape = NavMeshObstacleShape.Box;
+            obstacle.center = boxCollider.center;
+            obstacle.size = boxCollider.size;
         }
     }
 }
