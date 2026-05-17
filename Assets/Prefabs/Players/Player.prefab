@@ -52,6 +52,8 @@ GameObject:
   - component: {fileID: 4326680441929717812}
   - component: {fileID: -4772575905378689548}
   - component: {fileID: 1634038345236166600}
+  - component: {fileID: 4122147647896465803}
+  - component: {fileID: -3197424656436586343}
   m_Layer: 0
   m_Name: Player
   m_TagString: Untagged
@@ -252,20 +254,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   playerIndex: 0
   initialized: 0
-  animator: {fileID: 0}
-  minAnimMoveSpeed: 0.1
-  idleAnimValue: 0
-  walkAnimValue: 2.2
-  runAnimValue: 5.2
-  animationDampTime: 0.05
-  locomotionStateName: Locomotion
-  forceSmoothLoop: 1
-  manualLoopSpeed: 1
-  walkLoopSpeed: 1
-  runLoopSpeed: 1
   externalControlEnabled: 1
   isGrounded: 0
   allowImpactReactions: 0
+  groundProbePadding: 0.06
+  groundMaxSlope: 55
 --- !u!114 &4326680441929717812
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -324,6 +317,57 @@ MonoBehaviour:
   impactTiltMultiplier: 1.5
   impactRecoverySpeed: 6
   maxImpactTilt: 25
+--- !u!114 &4122147647896465803
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4108714465431096865}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0a72b50c81fd4694aaba63082fdf3654, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  movement: {fileID: 0}
+  animator: {fileID: 0}
+  avatar: {fileID: 0}
+  idleClip: {fileID: 9061338213343248790, guid: 5fc10614fb9f24f94b0c2f1ead07f5ba,
+    type: 3}
+  walkClip: {fileID: -5599002979973759676, guid: 5fc10614fb9f24f94b0c2f1ead07f5ba,
+    type: 3}
+  runClip: {fileID: 1395189703230314720, guid: 9e8e963790e274e41941f0bc7e7eccd4, type: 3}
+  jumpClip: {fileID: 1395189703230314720, guid: 9e8e963790e274e41941f0bc7e7eccd4,
+    type: 3}
+  fallClip: {fileID: 0}
+  walkThreshold: 0.45
+  blendSpeed: 10
+  idleSpeed: 1
+  walkSpeed: 1
+  runSpeed: 1
+  jumpSpeed: 1
+  fallSpeed: 1
+  showDebugOnScreen: 0
+--- !u!114 &-3197424656436586343
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4108714465431096865}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9595364effaa2ef47af4aa6dbb582338, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  movement: {fileID: 0}
+  animationRuntime: {fileID: 0}
+  visualRoot: {fileID: 0}
+  animator: {fileID: 0}
+  animationSet: {fileID: 0}
+  slotIndex: 0
+  maxWaitTime: 5
+  showBuildDebug: 1
 --- !u!1001 &1200000000000000001
 PrefabInstance:
   m_ObjectHideFlags: 0
