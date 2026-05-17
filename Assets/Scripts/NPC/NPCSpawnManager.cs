@@ -226,10 +226,27 @@ public class NPCSpawnManager : MonoBehaviour
 
     private bool RequiresNavMesh()
     {
+        if (HasAnyPrefab(blockiePrefabs) || HasAnyPrefab(smoggosPrefabs))
+            return true;
+
         if (clankPrefab != null && clankPrefab.GetComponent<UnityEngine.AI.NavMeshAgent>() != null)
             return true;
 
         return PrefabsRequireNavMesh(blockiePrefabs) || PrefabsRequireNavMesh(smoggosPrefabs);
+    }
+
+    private static bool HasAnyPrefab(GameObject[] prefabs)
+    {
+        if (prefabs == null)
+            return false;
+
+        foreach (GameObject prefab in prefabs)
+        {
+            if (prefab != null)
+                return true;
+        }
+
+        return false;
     }
 
     private static bool PrefabsRequireNavMesh(GameObject[] prefabs)

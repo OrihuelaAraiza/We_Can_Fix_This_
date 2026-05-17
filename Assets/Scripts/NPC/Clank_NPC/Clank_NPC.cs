@@ -7,6 +7,12 @@ public class Clank_NPC : NPCBehaviourBase
     [Header("Agent")]
     public NavMeshAgent agent;
     public float arriveDistance = 0.8f;
+    public float destinationRefreshInterval = 0.35f;
+    public float destinationRefreshDistance = 0.6f;
+    public float targetSearchInterval = 0.5f;
+    public float stuckSeconds = 1.6f;
+    public float stuckMoveDistance = 0.12f;
+    public float navMeshSampleRadius = 4f;
 
     [Header("References")]
     public Transform holdPoint;
@@ -30,6 +36,11 @@ public class Clank_NPC : NPCBehaviourBase
     private float chaosTimer = 0f;
     private bool waiting = false;
     private bool warnedMissingNavMesh = false;
+    private float nextDestinationRefreshTime;
+    private float nextTargetSearchTime;
+    private Vector3 lastDestination;
+    private Vector3 lastProgressPosition;
+    private float stuckTimer;
 
     private BoxItem targetBox;
     private BoxItem carriedBox;
@@ -47,6 +58,9 @@ public class Clank_NPC : NPCBehaviourBase
     {
         if (agent == null)
             agent = GetComponent<NavMeshAgent>();
+
+        lastDestination = transform.position;
+        lastProgressPosition = transform.position;
     }
 
     protected override void OnDisabled()
@@ -76,6 +90,9 @@ public class Clank_NPC : NPCBehaviourBase
         if (chaosTimer > 0)
             chaosTimer -= Time.deltaTime;
 
+        if (NavMeshSpawnUtility.UpdateStuckTimer(agent, ref lastProgressPosition, ref stuckTimer, stuckMoveDistance, stuckSeconds))
+            RecoverFromStuck();
+
         switch (state)
         {
             case State.SearchingBox:
@@ -94,11 +111,15 @@ public class Clank_NPC : NPCBehaviourBase
 
     void SearchBox()
     {
+        if (Time.time < nextTargetSearchTime)
+            return;
+
+        nextTargetSearchTime = Time.time + targetSearchInterval;
         targetBox = FindClosestBox();
 
         if (targetBox != null)
         {
-            if (TrySetDestination(GetBoxPosition(targetBox)))
+            if (TryMoveTo(GetBoxPosition(targetBox), true))
                 state = State.GoingToBox;
             else
                 targetBox = null;
@@ -113,7 +134,7 @@ public class Clank_NPC : NPCBehaviourBase
             return;
         }
 
-        if (!TrySetDestination(GetBoxPosition(targetBox)))
+        if (!TryMoveTo(GetBoxPosition(targetBox), false))
         {
             targetBox = null;
             state = State.SearchingBox;
@@ -130,7 +151,7 @@ public class Clank_NPC : NPCBehaviourBase
             return;
         }
 
-        if (TrySetDestination(dropPoint.position))
+        if (TryMoveTo(dropPoint.position, true))
             state = State.GoingToDropZone;
         else
             state = State.SearchingBox;
@@ -144,7 +165,7 @@ public class Clank_NPC : NPCBehaviourBase
             return;
         }
 
-        if (!TrySetDestination(dropPoint.position))
+        if (!TryMoveTo(dropPoint.position, false))
         {
             state = State.SearchingBox;
             return;
@@ -199,9 +220,7 @@ public class Clank_NPC : NPCBehaviourBase
 
     bool HasArrived()
     {
-        if (agent == null || !agent.enabled || !agent.isOnNavMesh) return false;
-        if (agent.pathPending) return false;
-        return agent.remainingDistance <= arriveDistance;
+        return NavMeshSpawnUtility.HasArrived(agent, arriveDistance);
     }
 
     BoxItem FindClosestBox()
@@ -221,7 +240,8 @@ public class Clank_NPC : NPCBehaviourBase
             if (!TryGetBoxDestination(box, out Vector3 destination))
                 continue;
 
-            float distance = Vector3.Distance(transform.position, destination);
+            if (!NavMeshSpawnUtility.TryGetCompletePathLength(agent, destination, out float distance, navMeshSampleRadius))
+                continue;
 
             if (distance < bestDistance)
             {
@@ -247,7 +267,7 @@ public class Clank_NPC : NPCBehaviourBase
         if (box == null)
             return false;
 
-        return NavMeshSpawnUtility.TrySamplePosition(GetBoxPosition(box), out destination, 3f);
+        return NavMeshSpawnUtility.TrySamplePosition(GetBoxPosition(box), out destination, navMeshSampleRadius);
     }
 
     void PickUpBox(BoxItem box)
@@ -284,7 +304,7 @@ public class Clank_NPC : NPCBehaviourBase
         Transform t = carriedBox.transform;
 
         t.SetParent(null);
-        t.position = NavMeshSpawnUtility.ResolvePosition(dropPoint.position + dropPoint.forward, 2f);
+        t.position = NavMeshSpawnUtility.ResolvePosition(dropPoint.position + dropPoint.forward, navMeshSampleRadius);
 
         carriedBox.delivered = true;
         carriedBox.pickedUp = false;
@@ -356,7 +376,7 @@ public class Clank_NPC : NPCBehaviourBase
         if (agent.isOnNavMesh)
             return true;
 
-        if (NavMeshSpawnUtility.TryWarpToNearest(agent, transform.position, 6f))
+        if (NavMeshSpawnUtility.TryWarpToNearest(agent, transform.position, navMeshSampleRadius + 2f))
             return true;
 
         if (!warnedMissingNavMesh)
@@ -368,10 +388,22 @@ public class Clank_NPC : NPCBehaviourBase
         return false;
     }
 
-    bool TrySetDestination(Vector3 destination)
+    bool TryMoveTo(Vector3 destination, bool forceRefresh)
     {
-        if (NavMeshSpawnUtility.TrySetDestination(agent, destination, 4f))
+        if (!forceRefresh && agent.hasPath && agent.pathStatus == NavMeshPathStatus.PathComplete && Time.time < nextDestinationRefreshTime)
             return true;
+
+        if (!forceRefresh && agent.hasPath && agent.pathStatus == NavMeshPathStatus.PathComplete && Vector3.Distance(destination, lastDestination) < destinationRefreshDistance)
+            return true;
+
+        if (NavMeshSpawnUtility.TrySetReachableDestination(agent, destination, out Vector3 resolvedDestination, navMeshSampleRadius))
+        {
+            lastDestination = resolvedDestination;
+            nextDestinationRefreshTime = Time.time + destinationRefreshInterval;
+            stuckTimer = 0f;
+            lastProgressPosition = transform.position;
+            return true;
+        }
 
         if (!warnedMissingNavMesh)
         {
@@ -380,5 +412,24 @@ public class Clank_NPC : NPCBehaviourBase
         }
 
         return false;
+    }
+
+    void RecoverFromStuck()
+    {
+        stuckTimer = 0f;
+
+        if (agent != null && agent.enabled && agent.isOnNavMesh)
+            agent.ResetPath();
+
+        if (carriedBox != null && dropPoint != null)
+        {
+            TryMoveTo(dropPoint.position, true);
+            state = State.GoingToDropZone;
+            return;
+        }
+
+        targetBox = null;
+        state = State.SearchingBox;
+        nextTargetSearchTime = 0f;
     }
 }

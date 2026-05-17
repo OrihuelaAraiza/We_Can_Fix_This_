@@ -291,10 +291,30 @@ public class StabilitySmokeTests
         Assert.That(spawnManagerSource, Does.Contain("RuntimeShipNavMesh.EnsureExists"));
         Assert.That(spawnManagerSource, Does.Contain("RuntimeShipNavMesh.OnReady"));
         Assert.That(spawnManagerSource, Does.Contain("NavMeshSpawnUtility.ResolvePosition"));
+        Assert.That(spawnManagerSource, Does.Contain("HasAnyPrefab(blockiePrefabs)"));
 
         string coreXSource = System.IO.File.ReadAllText("Assets/Scripts/AI/CoreXBrain.cs");
         Assert.That(coreXSource, Does.Contain("ShipLayoutGenerator.RoomCenters"));
         Assert.That(coreXSource, Does.Contain("NavMeshSpawnUtility.TryWarpToNearest"));
+    }
+
+    [Test]
+    public void RoamingNPCs_UseNavMeshAgentsAndRecovery()
+    {
+        string blockieSource = System.IO.File.ReadAllText("Assets/Scripts/NPC/Blockie_NPC/Blockie_NPC.cs");
+        Assert.That(blockieSource, Does.Contain("NavMeshAgent"));
+        Assert.That(blockieSource, Does.Contain("TryFindReachablePoint"));
+        Assert.That(blockieSource, Does.Contain("UpdateStuckTimer"));
+
+        string smoggosSource = System.IO.File.ReadAllText("Assets/Scripts/NPC/Smoggos_NPC/Smoggos_NPC.cs");
+        Assert.That(smoggosSource, Does.Contain("NavMeshAgent"));
+        Assert.That(smoggosSource, Does.Contain("TryFindReachablePoint"));
+        Assert.That(smoggosSource, Does.Contain("UpdateStuckTimer"));
+
+        string clankSource = System.IO.File.ReadAllText("Assets/Scripts/NPC/Clank_NPC/Clank_NPC.cs");
+        Assert.That(clankSource, Does.Contain("TrySetReachableDestination"));
+        Assert.That(clankSource, Does.Contain("TryGetCompletePathLength"));
+        Assert.That(clankSource, Does.Contain("RecoverFromStuck"));
     }
 
     static void AssertUsableClip(string assetPath, string clipName)
