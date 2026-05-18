@@ -31,6 +31,11 @@ public class PlayerMovement : MonoBehaviour
     public float SpeedNormalized => rb != null && data != null
         ? Mathf.Clamp01(PlanarSpeed / Mathf.Max(0.01f, data.maxSpeed * speedMultiplier * tempBoostMultiplier))
         : 0f;
+    public bool HasMoveInput => moveInput.sqrMagnitude >= 0.01f;
+    public float MoveInputMagnitude => Mathf.Clamp01(moveInput.magnitude);
+    public bool HasJumpQueued => jumpQueued;
+    public float LastJumpRequestedTime => lastJumpRequestedTime;
+    public float LastJumpStartedTime => lastJumpStartedTime;
 
     private PlayerData data;
     private Rigidbody rb;
@@ -42,6 +47,8 @@ public class PlayerMovement : MonoBehaviour
     private float tempBoostMultiplier = 1f;
     private Vector2 moveInput;
     private bool jumpQueued;
+    private float lastJumpRequestedTime = -10f;
+    private float lastJumpStartedTime = -10f;
     private float lastGroundedTime = -10f;
     private Coroutine boostCoroutine;
 
@@ -99,7 +106,10 @@ public class PlayerMovement : MonoBehaviour
             return;
 
         if (isGrounded || Time.time - lastGroundedTime <= CoyoteTime)
+        {
             jumpQueued = true;
+            lastJumpRequestedTime = Time.time;
+        }
     }
 
     public void SetExternalControlEnabled(bool enabled)
@@ -216,6 +226,7 @@ public class PlayerMovement : MonoBehaviour
         rb.velocity = v;
 
         rb.AddForce(Vector3.up * data.jumpForce, ForceMode.Impulse);
+        lastJumpStartedTime = Time.time;
     }
 
     private void ApplyDrag()
@@ -252,6 +263,9 @@ public class PlayerMovement : MonoBehaviour
 
         if (!foundGround && data.groundLayer.value != 0)
             foundGround = HasGroundHit(origin, radius, distance, ~0);
+
+        if (rb != null && rb.velocity.y > 0.15f)
+            foundGround = false;
 
         isGrounded = foundGround;
 
