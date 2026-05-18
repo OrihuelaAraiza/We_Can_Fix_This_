@@ -218,6 +218,38 @@ public class StabilitySmokeTests
     }
 
     [Test]
+    public void PlayerManager_PrepareSpawnedPlayer_PreservesSafeClumsyRagdoll()
+    {
+        GameObject playerPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Players/Player.prefab");
+        Assert.That(playerPrefab, Is.Not.Null);
+
+        GameObject managerObject = new GameObject("PlayerManager_Test");
+        createdObjects.Add(managerObject);
+        Component manager = managerObject.AddComponent(GetGameType("PlayerManager"));
+
+        GameObject player = UnityEngine.Object.Instantiate(playerPrefab);
+        createdObjects.Add(player);
+
+        InvokeInstance(manager, "PrepareSpawnedPlayer", player);
+
+        Component fakeRagdoll = player.GetComponent(GetGameType("FakeRagDoll"));
+        Component wobble = player.GetComponent(GetGameType("PlayerVisualWobble"));
+        Component movement = player.GetComponent(GetGameType("PlayerMovement"));
+
+        Assert.That(fakeRagdoll, Is.Not.Null);
+        Assert.That(wobble, Is.Not.Null);
+        Assert.That(movement, Is.Not.Null);
+        Assert.That(player.GetComponent(GetGameType("PlayerRagdoll")), Is.Null);
+        Assert.That(player.GetComponent(GetGameType("PlayerImpactReaction")), Is.Null);
+
+        Assert.That(GetPrivateField<bool>(movement, "allowImpactReactions"), Is.False);
+        Assert.That(GetPrivateField<float>(fakeRagdoll, "hardHitThreshold"), Is.EqualTo(2.8f).Within(0.001f));
+        Assert.That(GetPrivateField<float>(fakeRagdoll, "impactCooldown"), Is.EqualTo(0.35f).Within(0.001f));
+        Assert.That(GetPrivateField<float>(fakeRagdoll, "maxTiltAmount"), Is.EqualTo(34f).Within(0.001f));
+        Assert.That(GetPrivateField<float>(fakeRagdoll, "stunDuration"), Is.EqualTo(0.28f).Within(0.001f));
+    }
+
+    [Test]
     public void LobbyPlayerSessionData_RejectsDuplicateKeyboardSchemesAndMaxesAtFourPlayers()
     {
         Type sessionType = GetGameType("LobbyPlayerSessionData");

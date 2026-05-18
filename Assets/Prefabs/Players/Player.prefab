@@ -190,10 +190,17 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   ragdollEnabled: 1
-  hardHitThreshold: 5
-  impactCooldown: 0.3
+  hardHitThreshold: 2.8
+  impactCooldown: 0.35
+  minimumPlayerSpeed: 1.25
   tiltAmount: 18
-  impactMultiplier: 0.8
+  impactMultiplier: 0.85
+  maxTiltAmount: 34
+  basePushForce: 1.8
+  impactPushMultiplier: 0.32
+  maxPushForce: 4.2
+  upwardLift: 0.18
+  stunDuration: 0.28
   ignoreLayers:
     serializedVersion: 2
     m_Bits: 0
