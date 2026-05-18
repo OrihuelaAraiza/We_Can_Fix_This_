@@ -63,6 +63,7 @@ public class AudioManager : MonoBehaviour
 
     bool isPlayingIntense;
     bool shipCriticalMusic;
+    bool stationEmergencyMusic;
     bool timeCriticalMusic;
     bool bossModeMusic;
     Coroutine musicTransition;
@@ -109,9 +110,11 @@ public class AudioManager : MonoBehaviour
             case "03_Gameplay":
                 isPlayingIntense = false;
                 shipCriticalMusic = false;
+                stationEmergencyMusic = HasEmergencyStations();
                 timeCriticalMusic = false;
                 bossModeMusic = false;
                 PlayMusic(gameplayMusic, loop: true);
+                UpdateGameplayMusicState(0.25f);
                 PlayRandomAmbient();
                 break;
 
@@ -125,10 +128,16 @@ public class AudioManager : MonoBehaviour
     // ── Event handlers ─────────────────────────────────────────
 
     void OnStationFailed(RepairStation _)
-        => PlaySFX(stationDamagedClip);
+    {
+        PlaySFX(stationDamagedClip);
+        RefreshStationEmergencyMusic();
+    }
 
     void OnStationRepaired(RepairStation _)
-        => PlaySFX(stationHealthyClip);
+    {
+        PlaySFX(stationHealthyClip);
+        RefreshStationEmergencyMusic();
+    }
 
     void OnStationStateChanged(RepairStation station,
         RepairStation.StationState prev,
@@ -139,6 +148,8 @@ public class AudioManager : MonoBehaviour
         {
             PlayRandomSFX(stationRepairClips);
         }
+
+        RefreshStationEmergencyMusic();
     }
 
     void OnGameOver()
@@ -208,7 +219,7 @@ public class AudioManager : MonoBehaviour
 
     void UpdateGameplayMusicState(float crossfadeDuration)
     {
-        bool shouldPlayIntense = shipCriticalMusic || timeCriticalMusic || bossModeMusic;
+        bool shouldPlayIntense = shipCriticalMusic || stationEmergencyMusic || timeCriticalMusic || bossModeMusic;
 
         if (shouldPlayIntense == isPlayingIntense)
             return;
@@ -219,6 +230,27 @@ public class AudioManager : MonoBehaviour
 
         isPlayingIntense = shouldPlayIntense;
         StartMusicTransition(CrossfadeMusic(targetClip, crossfadeDuration));
+    }
+
+    void RefreshStationEmergencyMusic()
+    {
+        stationEmergencyMusic = HasEmergencyStations();
+        UpdateGameplayMusicState(2f);
+    }
+
+    static bool HasEmergencyStations()
+    {
+        foreach (RepairStation station in RepairStation.ActiveStations)
+        {
+            if (station == null)
+                continue;
+
+            if (station.State == RepairStation.StationState.Broken
+                || station.State == RepairStation.StationState.Repairing)
+                return true;
+        }
+
+        return false;
     }
 
     void StopMusic()

@@ -102,11 +102,6 @@ public class EmergencyLightController : MonoBehaviour
         RepairStation.StationState previousState,
         RepairStation.StationState nextState)
     {
-        bool wasEmergency = IsStationEmergency(previousState);
-        bool isEmergency = IsStationEmergency(nextState);
-        if (wasEmergency == isEmergency)
-            return;
-
         RefreshStationEmergency();
         ApplyCurrentState();
     }
