@@ -129,6 +129,7 @@ public class StabilitySmokeTests
         Assert.That(audioManagerSource, Does.Contain("UpdateGameplayMusicState"));
         Assert.That(audioManagerSource, Does.Contain("stationEmergencyMusic"));
         Assert.That(audioManagerSource, Does.Contain("HasEmergencyStations"));
+        Assert.That(audioManagerSource, Does.Contain("SceneManager.GetActiveScene().name"));
     }
 
     [Test]
@@ -382,6 +383,7 @@ public class StabilitySmokeTests
         Assert.That(emergencySource, Does.Contain("RepairStation.OnStateChanged"));
         Assert.That(emergencySource, Does.Contain("stationEmergencyActive"));
         Assert.That(emergencySource, Does.Contain("IsStationEmergency"));
+        Assert.That(emergencySource, Does.Contain("ApplyNormal();"));
         Assert.That(emergencySource, Does.Not.Contain("wasEmergency == isEmergency"));
 
         string ambientSource = System.IO.File.ReadAllText("Assets/Scripts/World/ShipAmbientLightInjector.cs");

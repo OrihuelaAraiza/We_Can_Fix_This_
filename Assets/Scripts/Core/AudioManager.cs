@@ -68,6 +68,19 @@ public class AudioManager : MonoBehaviour
     bool bossModeMusic;
     Coroutine musicTransition;
 
+    void Update()
+    {
+        if (SceneManager.GetActiveScene().name != "03_Gameplay")
+            return;
+
+        bool hasStationEmergency = HasEmergencyStations();
+        if (stationEmergencyMusic == hasStationEmergency)
+            return;
+
+        stationEmergencyMusic = hasStationEmergency;
+        UpdateGameplayMusicState(0.75f);
+    }
+
     void OnEnable()
     {
         SceneManager.sceneLoaded        += OnSceneLoaded;

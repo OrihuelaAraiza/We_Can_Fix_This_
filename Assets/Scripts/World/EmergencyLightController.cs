@@ -57,7 +57,20 @@ public class EmergencyLightController : MonoBehaviour
 
     void Update()
     {
-        if (!shipCritical && !stationEmergencyActive) return;
+        bool hadStationEmergency = stationEmergencyActive;
+        RefreshStationEmergency();
+
+        if (hadStationEmergency != stationEmergencyActive)
+            ApplyCurrentState();
+
+        if (!shipCritical && !stationEmergencyActive)
+        {
+            if (!shipDestroyed)
+                ApplyNormal();
+
+            return;
+        }
+
         flickerTimer += Time.deltaTime * flickerSpeed;
         float f = 0.6f + 0.4f * Mathf.Sin(flickerTimer);
         ApplyEmergencyIntensity(f);
