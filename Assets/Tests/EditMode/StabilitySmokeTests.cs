@@ -191,6 +191,36 @@ public class StabilitySmokeTests
     }
 
     [Test]
+    public void PlayerInputHandler_SharedKeyboardInteractFallbackMapsBothKeyboardPlayers()
+    {
+        Type inputHandlerType = GetGameType("PlayerInputHandler");
+
+        Assert.That(InvokeStatic(inputHandlerType, "GetKeyboardInteractKeyName", "KeyboardP1", 0), Is.EqualTo("e"));
+        Assert.That(InvokeStatic(inputHandlerType, "GetKeyboardInteractKeyName", "KeyboardP2", 1), Is.EqualTo("numpad1"));
+        Assert.That(InvokeStatic(inputHandlerType, "GetKeyboardInteractKeyName", "", 0), Is.EqualTo("e"));
+        Assert.That(InvokeStatic(inputHandlerType, "GetKeyboardInteractKeyName", "", 1), Is.EqualTo("numpad1"));
+        Assert.That(InvokeStatic(inputHandlerType, "GetKeyboardInteractKeyName", "Gamepad", 2), Is.Null);
+    }
+
+    [Test]
+    public void PlayerManager_RuntimeAnimationSetsCycleThroughAvailableAvatars()
+    {
+        GameObject managerObject = new GameObject("PlayerManager_Test");
+        createdObjects.Add(managerObject);
+        Component manager = managerObject.AddComponent(GetGameType("PlayerManager"));
+
+        object slot0 = InvokeInstance(manager, "GetAnimationSetForSlot", 0);
+        object slot1 = InvokeInstance(manager, "GetAnimationSetForSlot", 1);
+        object slot2 = InvokeInstance(manager, "GetAnimationSetForSlot", 2);
+        object slot3 = InvokeInstance(manager, "GetAnimationSetForSlot", 3);
+
+        Assert.That(GetProperty<string>(slot0, "SetId"), Is.EqualTo("Fixie_P1"));
+        Assert.That(GetProperty<string>(slot1, "SetId"), Is.EqualTo("Fixie_P2"));
+        Assert.That(GetProperty<string>(slot2, "SetId"), Is.EqualTo("Fixie_P3"));
+        Assert.That(GetProperty<string>(slot3, "SetId"), Is.EqualTo("Fixie_P1"));
+    }
+
+    [Test]
     public void PlayerManager_RebuildPlayerVisual_UsesRuntimeAnimationSet()
     {
         GameObject playerPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Players/Player.prefab");
