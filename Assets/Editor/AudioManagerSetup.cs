@@ -31,7 +31,8 @@ public static class AudioManagerSetup
         SerializedObject so = new SerializedObject(manager);
 
         AssignClip(so, "lobbyMusic",          AudioFolder + "/Lobby.mp3");
-        AssignClip(so, "gameplayMusic",       AudioFolder + "/GameplayIntense.mp3");
+        AssignClip(so, "gameplayMusic",       AudioFolder + "/GameplayMusic.ogg");
+        AssignClip(so, "gameplayIntenseMusic", AudioFolder + "/GameplayIntense.mp3");
         AssignClip(so, "failStateMusic",      AudioFolder + "/FailState.mp3");
         AssignClip(so, "playerWalkingClip",   AudioFolder + "/PlayerWalking.mp3");
         AssignClip(so, "stationDamagedClip",  AudioFolder + "/StationDamaged.wav");

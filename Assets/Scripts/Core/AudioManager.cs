@@ -16,6 +16,7 @@ public class AudioManager : MonoBehaviour
     [Header("Music")]
     [SerializeField] AudioClip lobbyMusic;
     [SerializeField] AudioClip gameplayMusic;
+    [SerializeField] AudioClip gameplayIntenseMusic;
     [SerializeField] AudioClip failStateMusic;
 
     // ── Ambient (one chosen at random per session) ─────────────
@@ -61,6 +62,10 @@ public class AudioManager : MonoBehaviour
     }
 
     bool isPlayingIntense;
+    bool shipCriticalMusic;
+    bool timeCriticalMusic;
+    bool bossModeMusic;
+    Coroutine musicTransition;
 
     void OnEnable()
     {
@@ -73,6 +78,7 @@ public class AudioManager : MonoBehaviour
         CoreXBrain.OnBossModeActivated  += OnBossModeActivated;
         ShipHealth.OnShipCritical       += OnShipCritical;
         ShipHealth.OnShipRecovered      += OnShipRecovered;
+        SurvivalTimerUI.OnTimeCritical  += OnTimeCritical;
     }
 
     void OnDisable()
@@ -86,6 +92,7 @@ public class AudioManager : MonoBehaviour
         CoreXBrain.OnBossModeActivated  -= OnBossModeActivated;
         ShipHealth.OnShipCritical       -= OnShipCritical;
         ShipHealth.OnShipRecovered      -= OnShipRecovered;
+        SurvivalTimerUI.OnTimeCritical  -= OnTimeCritical;
     }
 
     // ── Scene routing ──────────────────────────────────────────
@@ -101,7 +108,10 @@ public class AudioManager : MonoBehaviour
 
             case "03_Gameplay":
                 isPlayingIntense = false;
-                StopMusic();
+                shipCriticalMusic = false;
+                timeCriticalMusic = false;
+                bossModeMusic = false;
+                PlayMusic(gameplayMusic, loop: true);
                 PlayRandomAmbient();
                 break;
 
@@ -145,25 +155,26 @@ public class AudioManager : MonoBehaviour
 
     void OnBossModeActivated()
     {
-        if (gameplayMusic != null && !isPlayingIntense)
-        {
-            isPlayingIntense = true;
-            StartCoroutine(CrossfadeMusic(gameplayMusic, 1.5f));
-        }
+        bossModeMusic = true;
+        UpdateGameplayMusicState(1.5f);
     }
 
     void OnShipCritical()
     {
-        if (isPlayingIntense || gameplayMusic == null) return;
-        isPlayingIntense = true;
-        StartCoroutine(CrossfadeMusic(gameplayMusic, 2f));
+        shipCriticalMusic = true;
+        UpdateGameplayMusicState(2f);
+    }
+
+    void OnTimeCritical()
+    {
+        timeCriticalMusic = true;
+        UpdateGameplayMusicState(2f);
     }
 
     void OnShipRecovered()
     {
-        if (!isPlayingIntense) return;
-        isPlayingIntense = false;
-        StartCoroutine(CrossfadeToStop(2f));
+        shipCriticalMusic = false;
+        UpdateGameplayMusicState(2f);
     }
 
     // ── Public API ─────────────────────────────────────────────
@@ -188,14 +199,31 @@ public class AudioManager : MonoBehaviour
         if (clip == null || musicSource == null) return;
         if (musicSource.clip == clip && musicSource.isPlaying) return;
 
+        StopMusicTransition();
         musicSource.loop = loop;
         musicSource.clip = clip;
         musicSource.volume = musicVolume;
         musicSource.Play();
     }
 
+    void UpdateGameplayMusicState(float crossfadeDuration)
+    {
+        bool shouldPlayIntense = shipCriticalMusic || timeCriticalMusic || bossModeMusic;
+
+        if (shouldPlayIntense == isPlayingIntense)
+            return;
+
+        AudioClip targetClip = shouldPlayIntense ? gameplayIntenseMusic : gameplayMusic;
+        if (targetClip == null)
+            return;
+
+        isPlayingIntense = shouldPlayIntense;
+        StartMusicTransition(CrossfadeMusic(targetClip, crossfadeDuration));
+    }
+
     void StopMusic()
     {
+        StopMusicTransition();
         if (musicSource != null)
             musicSource.Stop();
     }
@@ -222,6 +250,9 @@ public class AudioManager : MonoBehaviour
 
     IEnumerator CrossfadeMusic(AudioClip newClip, float duration)
     {
+        if (newClip == null || musicSource == null)
+            yield break;
+
         float startVol = musicSource.volume;
         float t = 0f;
 
@@ -244,6 +275,7 @@ public class AudioManager : MonoBehaviour
         }
 
         musicSource.volume = musicVolume;
+        musicTransition = null;
     }
 
     IEnumerator CrossfadeToStop(float duration)
@@ -261,6 +293,22 @@ public class AudioManager : MonoBehaviour
         musicSource.Stop();
         musicSource.clip = null;
         musicSource.volume = musicVolume;
+        musicTransition = null;
+    }
+
+    void StartMusicTransition(IEnumerator transition)
+    {
+        StopMusicTransition();
+        musicTransition = StartCoroutine(transition);
+    }
+
+    void StopMusicTransition()
+    {
+        if (musicTransition == null)
+            return;
+
+        StopCoroutine(musicTransition);
+        musicTransition = null;
     }
 
     void BuildAudioSources()

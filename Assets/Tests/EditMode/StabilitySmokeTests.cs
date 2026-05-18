@@ -108,6 +108,28 @@ public class StabilitySmokeTests
     }
 
     [Test]
+    public void AudioManager_GameplayMusicUsesNormalAndIntenseTracks()
+    {
+        GameObject audioPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Audio/AudioManager.prefab");
+        Assert.That(audioPrefab, Is.Not.Null);
+
+        Component audioManager = audioPrefab.GetComponent(GetGameType("AudioManager"));
+        Assert.That(audioManager, Is.Not.Null);
+
+        AudioClip gameplayMusic = GetPrivateField<AudioClip>(audioManager, "gameplayMusic");
+        AudioClip gameplayIntenseMusic = GetPrivateField<AudioClip>(audioManager, "gameplayIntenseMusic");
+
+        Assert.That(gameplayMusic, Is.Not.Null);
+        Assert.That(gameplayMusic.name, Is.EqualTo("GameplayMusic"));
+        Assert.That(gameplayIntenseMusic, Is.Not.Null);
+        Assert.That(gameplayIntenseMusic.name, Is.EqualTo("GameplayIntense"));
+
+        string audioManagerSource = System.IO.File.ReadAllText("Assets/Scripts/Core/AudioManager.cs");
+        Assert.That(audioManagerSource, Does.Contain("SurvivalTimerUI.OnTimeCritical"));
+        Assert.That(audioManagerSource, Does.Contain("UpdateGameplayMusicState"));
+    }
+
+    [Test]
     public void PlayerManager_HardcodedFixieAnimationRefsAreBuildSafe()
     {
         string scenePath = "Assets/Scenes/03_Gameplay.unity";
@@ -283,6 +305,27 @@ public class StabilitySmokeTests
     }
 
     [Test]
+    public void RuntimeNavMesh_BuildVolumeUsesColliderCenterForAsymmetricLayouts()
+    {
+        var navObject = new GameObject("RuntimeShipNavMesh_Test");
+        navObject.SetActive(false);
+        createdObjects.Add(navObject);
+        Component navMesh = navObject.AddComponent(GetGameType("RuntimeShipNavMesh"));
+
+        var shipInterior = new GameObject("ShipInterior_Test");
+        createdObjects.Add(shipInterior);
+
+        CreateNavFloor("FarStorageFloor", shipInterior.transform, new Vector3(-40f, 0f, 0f));
+        CreateNavFloor("BridgeFloor", shipInterior.transform, new Vector3(10f, 0f, 0f));
+
+        Bounds buildBounds = (Bounds)InvokeInstance(navMesh, "ComputeWorldBuildBounds", shipInterior.transform);
+
+        Assert.That(buildBounds.center.x, Is.EqualTo(-15f).Within(0.001f));
+        Assert.That(buildBounds.min.x, Is.LessThanOrEqualTo(-45f));
+        Assert.That(buildBounds.max.x, Is.GreaterThanOrEqualTo(15f));
+    }
+
+    [Test]
     public void ClankPrefab_HasNavMeshAgent()
     {
         GameObject clankPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/NPCs/Clank_NPC/Clank_NPC_Prefab.prefab");
@@ -382,6 +425,16 @@ public class StabilitySmokeTests
         var go = new GameObject(name);
         createdObjects.Add(go);
         return go.AddComponent(componentType);
+    }
+
+    static void CreateNavFloor(string name, Transform parent, Vector3 position)
+    {
+        var floor = new GameObject(name);
+        floor.transform.SetParent(parent, false);
+        floor.transform.localPosition = position;
+        var collider = floor.AddComponent<BoxCollider>();
+        collider.size = new Vector3(10f, 0.2f, 10f);
+        collider.center = Vector3.zero;
     }
 
     InputDevice AddGamepad(string name)
