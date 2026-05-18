@@ -123,6 +123,7 @@ public class LobbyManager : MonoBehaviour
     {
         // Guardar roles seleccionados para que GameManager los aplique
         RoleSelectionData.Save(selectedRoles);
+        LevelProgression.Reset();
         SceneLoader.LoadScene(GameConfig.SCENE_GAMEPLAY);
     }
 }

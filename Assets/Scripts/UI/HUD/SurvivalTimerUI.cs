@@ -1,6 +1,7 @@
 using UnityEngine;
 using TMPro;
 using System;
+using Wcft.Core;
 
 public class SurvivalTimerUI : MonoBehaviour
 {
@@ -20,6 +21,7 @@ public class SurvivalTimerUI : MonoBehaviour
 
     void Start()
     {
+        survivalDuration = LevelProgression.Current.DurationSeconds;
         _timeRemaining = survivalDuration;
         _running       = true;
         _criticalRaised = false;

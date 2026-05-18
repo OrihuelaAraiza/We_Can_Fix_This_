@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.AI;
+using Wcft.Core;
 
 /// <summary>
 /// Core-X: Adaptive AI director for We Can Fix This!
@@ -82,6 +83,12 @@ public class CoreXBrain : MonoBehaviour
         FailureSystem.OnStationFailed   -= HandleStationFailed;
     }
 
+    private void OnDestroy()
+    {
+        if (Instance == this)
+            Instance = null;
+    }
+
     private void Start()
     {
         RuntimeShipNavMesh.EnsureExists();
@@ -118,7 +125,7 @@ public class CoreXBrain : MonoBehaviour
     {
         while (!coreXDefeated)
         {
-            float interval = CurrentPhaseData?.tickInterval ?? 8f;
+            float interval = GetScaledInterval(CurrentPhaseData?.tickInterval ?? 8f);
             yield return new WaitForSeconds(interval);
 
             if (coreXDefeated) yield break;
@@ -137,7 +144,7 @@ public class CoreXBrain : MonoBehaviour
             }
 
             // Advance to next phase if time has elapsed
-            float phaseDuration = CurrentPhaseData?.phaseDuration ?? 120f;
+            float phaseDuration = GetScaledPhaseDuration(CurrentPhaseData?.phaseDuration ?? 120f);
             if (phaseTimer >= phaseDuration && currentPhaseIndex < (phases?.Length ?? 1) - 1)
             {
                 phaseTimer = 0f;
@@ -145,7 +152,7 @@ public class CoreXBrain : MonoBehaviour
             }
 
             // Additional strategic sabotage (on top of FailureSystem)
-            float sabotageInterval = CurrentPhaseData?.sabotageInterval ?? 15f;
+            float sabotageInterval = GetScaledInterval(CurrentPhaseData?.sabotageInterval ?? 15f);
             if (phaseTimer % sabotageInterval < interval)
                 TriggerStrategicSabotage();
         }
@@ -159,8 +166,7 @@ public class CoreXBrain : MonoBehaviour
         currentPhaseIndex = index;
         var phase = phases[index];
 
-        if (FailureSystem.Instance != null)
-            FailureSystem.Instance.SetFailureRate(phase.failureRate);
+        ApplyPhaseDifficulty(phase);
 
         // Replace NPCs from the previous phase with those from the new phase
         DespawnAllNPCs();
@@ -168,6 +174,33 @@ public class CoreXBrain : MonoBehaviour
 
         OnPhaseChanged?.Invoke(index);
         Debug.Log($"[CoreX] Phase {index} ({phase.phaseName}) activated | failures/min={phase.failureRate}");
+    }
+
+    void ApplyPhaseDifficulty(CoreXPhase phase)
+    {
+        if (FailureSystem.Instance == null || phase == null)
+            return;
+
+        LevelDefinition level = LevelProgression.Current;
+        float multiplier = Mathf.Max(0.01f, level.FailureRateMultiplier);
+        FailureSystem.Instance.SetFailureRate(phase.failureRate * multiplier);
+        FailureSystem.Instance.SetMaxSimultaneousBroken(Mathf.Max(
+            level.MaxSimultaneousFailures,
+            phase.maxSimultaneousFails));
+    }
+
+    float GetScaledInterval(float seconds)
+    {
+        float multiplier = Mathf.Max(0.01f, LevelProgression.Current.FailureRateMultiplier);
+        return Mathf.Max(1f, seconds / multiplier);
+    }
+
+    float GetScaledPhaseDuration(float configuredDuration)
+    {
+        int phaseCount = Mathf.Max(1, phases?.Length ?? 1);
+        float demoPhaseDuration = LevelProgression.Current.DurationSeconds / phaseCount;
+        float baseDuration = Mathf.Min(configuredDuration, demoPhaseDuration);
+        return Mathf.Max(20f, baseDuration / Mathf.Sqrt(Mathf.Max(0.01f, LevelProgression.Current.FailureRateMultiplier)));
     }
 
     // ── NPC Spawning ──────────────────────────────────────────
@@ -362,6 +395,16 @@ public class CoreXBrain : MonoBehaviour
         OnCoreXDefeated?.Invoke();
         GameManager.Instance?.TriggerVictory();
         Debug.Log("[CoreX] Deactivated — players won!");
+    }
+
+    public void StopDirector()
+    {
+        if (coreXDefeated) return;
+        coreXDefeated = true;
+        bossActivated = false;
+        StopAllCoroutines();
+        DespawnAllNPCs();
+        Debug.Log("[CoreX] Stopped for level transition.");
     }
 
     // ── Event handlers ────────────────────────────────────────

@@ -25,6 +25,12 @@ public class GameManager : MonoBehaviour
         Instance = this;
     }
 
+    void OnDestroy()
+    {
+        if (Instance == this)
+            Instance = null;
+    }
+
     // Roles are applied primarily in PlayerManager.OnPlayerJoined().
     // ApplySelectedRoles() acts as a diagnostic fallback.
 
@@ -87,6 +93,7 @@ public class GameManager : MonoBehaviour
     {
         if (gameOver) return;
         gameOver = true;
+        LevelProgression.Reset();
         OnGameOver?.Invoke();
         Debug.Log("[GameManager] GAME OVER");
         Invoke(nameof(RestartScene), restartDelay);
@@ -110,8 +117,28 @@ public class GameManager : MonoBehaviour
     /// <summary>Called by SurvivalTimerUI when the timer runs out.</summary>
     public void OnTimerExpired()
     {
-        Debug.Log("[GameManager] Timer expired — DEFEAT!");
-        HandleGameOver();
+        if (gameOver || gameWon) return;
+
+        LevelDefinition currentLevel = LevelProgression.Current;
+        Debug.Log($"[GameManager] Timer expired on {currentLevel.Name} ({currentLevel.Index}/{LevelProgression.LevelCount})");
+
+        StopGameplaySystems();
+
+        if (LevelProgression.AdvanceOrComplete())
+        {
+            Debug.Log($"[GameManager] Timer expired — advancing to {LevelProgression.Current.Name}");
+            SceneLoader.ReloadActiveScene();
+            return;
+        }
+
+        Debug.Log("[GameManager] Final demo timer expired — VICTORY!");
+        HandleGameWon();
+    }
+
+    void StopGameplaySystems()
+    {
+        FailureSystem.Instance?.SetActive(false);
+        CoreXBrain.Instance?.StopDirector();
     }
 
     void RestartScene()

@@ -21,6 +21,7 @@ public class ShipLayoutGeneratorTests
 
     static Type GeneratorType => Type.GetType("ShipLayoutGenerator, Assembly-CSharp");
     static Type PlayerManagerType => Type.GetType("PlayerManager, Assembly-CSharp");
+    static Type LevelProgressionType => Type.GetType("Wcft.Core.LevelProgression, Assembly-CSharp");
     static Type DirType => GeneratorType.GetNestedType("Dir", BindingFlags.NonPublic);
     static Type VariantSlotType => GeneratorType.GetNestedType("ModuleVariantSlot", BindingFlags.NonPublic);
     static Type ModuleSetType => GeneratorType.GetNestedType("ModuleSet", BindingFlags.Public);
@@ -30,9 +31,11 @@ public class ShipLayoutGeneratorTests
     {
         Assert.That(GeneratorType, Is.Not.Null, "ShipLayoutGenerator type");
         Assert.That(PlayerManagerType, Is.Not.Null, "PlayerManager type");
+        Assert.That(LevelProgressionType, Is.Not.Null, "LevelProgression type");
         Assert.That(DirType, Is.Not.Null, "ShipLayoutGenerator.Dir type");
         Assert.That(VariantSlotType, Is.Not.Null, "ShipLayoutGenerator.ModuleVariantSlot type");
         Assert.That(ModuleSetType, Is.Not.Null, "ShipLayoutGenerator.ModuleSet type");
+        ResetLevelProgression();
     }
 
     [TearDown]
@@ -46,6 +49,7 @@ public class ShipLayoutGeneratorTests
 
         createdRoots.Clear();
         SetStaticProperty(PlayerManagerType, "Instance", null);
+        ResetLevelProgression();
     }
 
     [Test]
@@ -192,6 +196,13 @@ public class ShipLayoutGeneratorTests
             Assert.That(names, Does.Contain("Extra_GunStation"), $"Seed {seed}");
             Assert.That(names, Does.Contain("Extra_Storage"), $"Seed {seed}");
         }
+    }
+
+    [Test]
+    public void GenerateLayout_LevelTwoAndThree_AddConfiguredExtraRooms()
+    {
+        AssertGeneratedModuleCountForLevel(2, expectedModules: 10);
+        AssertGeneratedModuleCountForLevel(3, expectedModules: 12);
     }
 
     [Test]
@@ -435,6 +446,21 @@ public class ShipLayoutGeneratorTests
         return result;
     }
 
+    void AssertGeneratedModuleCountForLevel(int levelIndex, int expectedModules)
+    {
+        SetCurrentLevelForTesting(levelIndex);
+        Component generator = CreateConfiguredGenerator();
+        Assert.That(GenerateLayout(generator, 101, out string failureReason), Is.True, $"Level {levelIndex}: {failureReason}");
+        Assert.That(ValidateLayout(generator, out failureReason), Is.True, $"Level {levelIndex}: {failureReason}");
+
+        List<object> modules = GetObjects(generator, "DebugPlacedModules");
+        string[] names = modules.Select(module => Get<string>(module, "Name")).ToArray();
+
+        Assert.That(modules.Count, Is.EqualTo(expectedModules), $"Level {levelIndex}");
+        Assert.That(names, Does.Contain("Extra_Storage"), $"Level {levelIndex}");
+        Assert.That(names.Count(name => name.StartsWith("Extra_", StringComparison.Ordinal)), Is.EqualTo(expectedModules - 5), $"Level {levelIndex}");
+    }
+
     static bool ValidateLayout(Component generator, out string failureReason)
     {
         MethodInfo method = GetInstanceMethod(generator, "ValidateGeneratedLayout");
@@ -662,6 +688,23 @@ public class ShipLayoutGeneratorTests
         MethodInfo setter = property.GetSetMethod(true);
         Assert.That(setter, Is.Not.Null, propertyName + " setter");
         setter.Invoke(null, new[] { value });
+    }
+
+    static void ResetLevelProgression()
+    {
+        InvokeLevelProgressionStatic("Reset");
+    }
+
+    static void SetCurrentLevelForTesting(int levelIndex)
+    {
+        InvokeLevelProgressionStatic("SetCurrentLevelForTesting", levelIndex);
+    }
+
+    static object InvokeLevelProgressionStatic(string methodName, params object[] args)
+    {
+        MethodInfo method = LevelProgressionType.GetMethod(methodName, BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
+        Assert.That(method, Is.Not.Null, methodName);
+        return method.Invoke(null, args);
     }
 
     static MethodInfo GetStaticMethod(string methodName)

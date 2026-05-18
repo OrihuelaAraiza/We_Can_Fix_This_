@@ -404,6 +404,8 @@ public class StabilitySmokeTests
         string coreXSource = System.IO.File.ReadAllText("Assets/Scripts/AI/CoreXBrain.cs");
         Assert.That(coreXSource, Does.Contain("ShipLayoutGenerator.RoomCenters"));
         Assert.That(coreXSource, Does.Contain("NavMeshSpawnUtility.TryWarpToNearest"));
+        Assert.That(coreXSource, Does.Contain("phase.maxSimultaneousFails"));
+        Assert.That(coreXSource, Does.Contain("SetMaxSimultaneousBroken"));
     }
 
     [Test]

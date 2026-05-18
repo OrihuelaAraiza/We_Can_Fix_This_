@@ -114,11 +114,13 @@ public class WinLoseUI : MonoBehaviour
 
     void OnRestart()
     {
+        LevelProgression.Reset();
         SceneLoader.ReloadActiveScene();
     }
 
     void OnLobby()
     {
+        LevelProgression.Reset();
         SceneLoader.LoadScene(GameConfig.SCENE_LOBBY);
     }
 

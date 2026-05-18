@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using Wcft.Core;
 
 /// <summary>
 /// Spawnea los NPCs basándose en el mapa generado por ShipLayoutGenerator.
@@ -93,13 +94,14 @@ public class NPCSpawnManager : MonoBehaviour
     private void SpawnRoamingNPCs(IReadOnlyDictionary<string, Vector3> centers)
     {
         var positions = new List<Vector3>();
+        int spawnMultiplier = Mathf.Max(1, Mathf.RoundToInt(LevelProgression.Current.NpcMultiplier));
 
         foreach (var key in RepairRoomKeys)
         {
             if (!centers.TryGetValue(key, out Vector3 center)) continue;
 
             // Un Blockie por sala de reparación (si hay prefab asignado)
-            if (blockiePrefabs != null && blockiePrefabs.Length > 0)
+            for (int i = 0; i < spawnMultiplier && blockiePrefabs != null && blockiePrefabs.Length > 0; i++)
             {
                 var prefab = blockiePrefabs[Random.Range(0, blockiePrefabs.Length)];
                 if (prefab != null)
@@ -112,7 +114,7 @@ public class NPCSpawnManager : MonoBehaviour
             }
 
             // Un Smoggos por sala de reparación (si hay prefab asignado)
-            if (smoggosPrefabs != null && smoggosPrefabs.Length > 0)
+            for (int i = 0; i < spawnMultiplier && smoggosPrefabs != null && smoggosPrefabs.Length > 0; i++)
             {
                 var prefab = smoggosPrefabs[Random.Range(0, smoggosPrefabs.Length)];
                 if (prefab != null)
@@ -154,7 +156,9 @@ public class NPCSpawnManager : MonoBehaviour
         var spawner = boxSpawnerGO.AddComponent<BoxSpawner>();
         spawner.boxPrefab             = boxPrefab;
         spawner.spawnPoints           = new Transform[] { boxSpawnPoint };
-        spawner.spawnIntervalSeconds  = boxSpawnInterval;
+        spawner.spawnIntervalSeconds  = LevelProgression.Current.ClankBoxIntervalSeconds > 0f
+            ? LevelProgression.Current.ClankBoxIntervalSeconds
+            : boxSpawnInterval;
         spawner.maxBoxesAlive         = maxBoxes;
         spawner.spawnOnStart          = true;
 

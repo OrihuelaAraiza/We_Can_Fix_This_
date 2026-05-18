@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
+using Wcft.Core;
 
 /// <summary>
 /// Variant-aware ship layout generator.
@@ -467,33 +468,18 @@ public class ShipLayoutGenerator : MonoBehaviour
         for (int i = 0; i < repairDefs.Length; i++)
             dirToRepair[dirs[i]] = (repairDefs[i].set, repairDefs[i].type);
 
-        var extraModuleSets = new List<(string name, ModuleSet set)>();
-        if (HasAnyVariant(setCrewBunks)) extraModuleSets.Add(("CrewBunks", setCrewBunks));
-        if (HasAnyVariant(setGunStation)) extraModuleSets.Add(("GunStation", setGunStation));
-        if (HasAnyVariant(setStorage)) extraModuleSets.Add(("Storage", setStorage));
-
-        if (extraModuleSets.Count > AllDirs.Length)
-        {
-            failureReason = $"too many extra room sets configured ({extraModuleSets.Count}) for {AllDirs.Length} repair directions";
-            return false;
-        }
-
-        Shuffle(extraModuleSets);
-
-        var extraByDir = new Dictionary<Dir, (string name, ModuleSet set)>();
-        if (extraModuleSets.Count > 0)
-        {
-            var shuffledDirs = new List<Dir>(dirs);
-            Shuffle(shuffledDirs);
-            for (int i = 0; i < extraModuleSets.Count; i++)
-                extraByDir[shuffledDirs[i]] = extraModuleSets[i];
-        }
+        var extraCatalog = BuildExtraRoomCatalog();
+        int requestedExtraRoomCount = extraCatalog.Count > 0
+            ? Mathf.Max(extraCatalog.Count, LevelProgression.Current.ExtraRoomBudget)
+            : 0;
+        var extraChainsByDir = BuildExtraRoomChains(extraCatalog, requestedExtraRoomCount, LevelProgression.Current.ExtraRoomChainDepth, dirs);
 
         var repairOpenings = new Dictionary<Dir, HashSet<Dir>>();
         foreach (var dir in AllDirs)
         {
             var openings = new HashSet<Dir> { Opposite(dir) };
-            if (extraByDir.ContainsKey(dir)) openings.Add(dir);
+            if (extraChainsByDir.TryGetValue(dir, out var chain) && chain.Count > 0)
+                openings.Add(dir);
             repairOpenings[dir] = openings;
         }
 
@@ -506,6 +492,7 @@ public class ShipLayoutGenerator : MonoBehaviour
 
         Log("Bridge placed via prefab bounds/sockets");
 
+        var extraNameOccurrences = new Dictionary<string, int>();
         foreach (var dir in dirs)
         {
             var (set, stationType) = dirToRepair[dir];
@@ -531,34 +518,45 @@ public class ShipLayoutGenerator : MonoBehaviour
 
             repairInstances[stationType] = repairPlaced.Instance;
 
-            if (!extraByDir.TryGetValue(dir, out var extraDef))
+            if (!extraChainsByDir.TryGetValue(dir, out var extraChain) || extraChain.Count == 0)
                 continue;
 
-            var extraOpenings = new HashSet<Dir> { Opposite(dir) };
-
-            if (!TrySelectVariant(extraDef.set, extraOpenings, out GameObject extraPrefab, out float extraRotY, out variantFailure))
+            PlacedModule parent = repairPlaced;
+            for (int extraIndex = 0; extraIndex < extraChain.Count; extraIndex++)
             {
-                failureReason = $"extra room {extraDef.name} on {dir} variant selection failed: {variantFailure}";
-                return false;
-            }
+                var extraDef = extraChain[extraIndex];
+                bool terminalRoom = extraIndex == extraChain.Count - 1;
+                var extraOpenings = new HashSet<Dir> { Opposite(dir) };
+                if (!terminalRoom)
+                    extraOpenings.Add(dir);
 
-            if (!TryPlaceConnectedModule(
-                    parent: repairPlaced,
-                    outwardDir: dir,
-                    modulePrefab: extraPrefab,
-                    moduleName: $"Extra_{extraDef.name}",
-                    openings: extraOpenings,
-                    rotationY: extraRotY,
-                    out PlacedModule extraPlaced,
-                    out placementFailure))
-            {
-                failureReason = $"extra room {extraDef.name} on {dir} placement failed: {placementFailure}";
-                return false;
+                if (!TrySelectVariant(extraDef.set, extraOpenings, out GameObject extraPrefab, out float extraRotY, out variantFailure))
+                {
+                    failureReason = $"extra room {extraDef.name} on {dir} variant selection failed: {variantFailure}";
+                    return false;
+                }
+
+                string extraModuleName = BuildExtraModuleName(extraDef.name, extraNameOccurrences);
+                if (!TryPlaceConnectedModule(
+                        parent: parent,
+                        outwardDir: dir,
+                        modulePrefab: extraPrefab,
+                        moduleName: extraModuleName,
+                        openings: extraOpenings,
+                        rotationY: extraRotY,
+                        out PlacedModule extraPlaced,
+                        out placementFailure))
+                {
+                    failureReason = $"extra room {extraDef.name} on {dir} placement failed: {placementFailure}";
+                    return false;
+                }
+
+                parent = extraPlaced;
             }
 
         }
 
-        int expectedModuleCount = 1 + repairDefs.Length + extraModuleSets.Count;
+        int expectedModuleCount = 1 + repairDefs.Length + requestedExtraRoomCount;
         if (placedModules.Count != expectedModuleCount)
         {
             failureReason = $"required rooms missing | expected {expectedModuleCount} modules, got {placedModules.Count}";
@@ -567,6 +565,61 @@ public class ShipLayoutGenerator : MonoBehaviour
 
         Physics.SyncTransforms();
         return ValidateLayout(out failureReason);
+    }
+
+    List<(string name, ModuleSet set)> BuildExtraRoomCatalog()
+    {
+        var extraModuleSets = new List<(string name, ModuleSet set)>();
+        if (HasAnyVariant(setCrewBunks)) extraModuleSets.Add(("CrewBunks", setCrewBunks));
+        if (HasAnyVariant(setGunStation)) extraModuleSets.Add(("GunStation", setGunStation));
+        if (HasAnyVariant(setStorage)) extraModuleSets.Add(("Storage", setStorage));
+        return extraModuleSets;
+    }
+
+    Dictionary<Dir, List<(string name, ModuleSet set)>> BuildExtraRoomChains(
+        List<(string name, ModuleSet set)> extraCatalog,
+        int requestedExtraRoomCount,
+        int maxChainDepth,
+        List<Dir> shuffledDirs)
+    {
+        var chains = AllDirs.ToDictionary(dir => dir, _ => new List<(string name, ModuleSet set)>());
+        if (extraCatalog == null || extraCatalog.Count == 0 || requestedExtraRoomCount <= 0)
+            return chains;
+
+        int chainDepth = Mathf.Max(1, maxChainDepth);
+        int catalogIndex = 0;
+        while (catalogIndex < requestedExtraRoomCount)
+        {
+            bool placedThisPass = false;
+            foreach (Dir dir in shuffledDirs)
+            {
+                if (catalogIndex >= requestedExtraRoomCount)
+                    break;
+
+                if (chains[dir].Count >= chainDepth)
+                    continue;
+
+                chains[dir].Add(extraCatalog[catalogIndex % extraCatalog.Count]);
+                catalogIndex++;
+                placedThisPass = true;
+            }
+
+            if (!placedThisPass)
+                break;
+        }
+
+        return chains;
+    }
+
+    static string BuildExtraModuleName(string baseName, Dictionary<string, int> occurrences)
+    {
+        if (!occurrences.TryGetValue(baseName, out int count))
+            count = 0;
+
+        count++;
+        occurrences[baseName] = count;
+
+        return count == 1 ? $"Extra_{baseName}" : $"Extra_{baseName}_{count}";
     }
 
     bool TryPlaceConnectedModule(

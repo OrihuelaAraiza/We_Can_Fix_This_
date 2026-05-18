@@ -144,12 +144,14 @@ public class PauseMenuUI : MonoBehaviour
     void RestartScene()
     {
         ExitPauseState();
+        LevelProgression.Reset();
         SceneLoader.ReloadActiveScene();
     }
 
     void GoToMainMenu()
     {
         ExitPauseState();
+        LevelProgression.Reset();
         SceneLoader.LoadScene(GameConfig.SCENE_MAIN_MENU);
     }
 
