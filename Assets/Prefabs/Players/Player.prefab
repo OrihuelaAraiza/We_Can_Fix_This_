@@ -374,7 +374,6 @@ MonoBehaviour:
   animationSet: {fileID: 0}
   slotIndex: 0
   maxWaitTime: 5
-  showBuildDebug: 1
 --- !u!1001 &1200000000000000001
 PrefabInstance:
   m_ObjectHideFlags: 0
