@@ -1,4 +1,5 @@
-using System.Collections;
+﻿using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.AI;
 
@@ -45,6 +46,11 @@ public class Clank_NPC : NPCBehaviourBase
     private BoxItem targetBox;
     private BoxItem carriedBox;
 
+    // NUEVO:
+    // Diccionario compartido por todos los Clanks.
+    // Sirve para que una caja solo pueda ser objetivo de un Clank a la vez.
+    private static readonly Dictionary<BoxItem, Clank_NPC> reservedBoxes = new Dictionary<BoxItem, Clank_NPC>();
+
     private enum State
     {
         SearchingBox,
@@ -63,8 +69,15 @@ public class Clank_NPC : NPCBehaviourBase
         lastProgressPosition = transform.position;
     }
 
+    private void OnDestroy()
+    {
+        ReleaseTargetBox();
+    }
+
     protected override void OnDisabled()
     {
+        ReleaseTargetBox();
+
         if (agent != null)
         {
             if (agent.isOnNavMesh)
@@ -115,14 +128,24 @@ public class Clank_NPC : NPCBehaviourBase
             return;
 
         nextTargetSearchTime = Time.time + targetSearchInterval;
+
+        ReleaseTargetBox();
+
         targetBox = FindClosestBox();
 
         if (targetBox != null)
         {
+            ReserveBox(targetBox);
+
             if (TryMoveTo(GetBoxPosition(targetBox), true))
+            {
                 state = State.GoingToBox;
+            }
             else
+            {
+                ReleaseTargetBox();
                 targetBox = null;
+            }
         }
     }
 
@@ -130,12 +153,34 @@ public class Clank_NPC : NPCBehaviourBase
     {
         if (targetBox == null)
         {
+            ReleaseTargetBox();
+            state = State.SearchingBox;
+            return;
+        }
+
+        // NUEVO:
+        // Si por alguna razón la caja ya no está disponible,
+        // este Clank la suelta como objetivo.
+        if (targetBox.delivered || targetBox.pickedUp || targetBox.blocked || targetBox.IsOnCooldown())
+        {
+            ReleaseTargetBox();
+            targetBox = null;
+            state = State.SearchingBox;
+            return;
+        }
+
+        // NUEVO:
+        // Si otro Clank la reservó, ya no vamos por ella.
+        if (IsReservedByOtherClank(targetBox))
+        {
+            targetBox = null;
             state = State.SearchingBox;
             return;
         }
 
         if (!TryMoveTo(GetBoxPosition(targetBox), false))
         {
+            ReleaseTargetBox();
             targetBox = null;
             state = State.SearchingBox;
             return;
@@ -232,10 +277,16 @@ public class Clank_NPC : NPCBehaviourBase
 
         foreach (BoxItem box in boxes)
         {
+            if (box == null) continue;
+
             if (box.delivered) continue;
             if (box.pickedUp) continue;
             if (box.blocked) continue;
             if (box.IsOnCooldown()) continue;
+
+            // NUEVO:
+            // Si otro Clank ya la eligió, este Clank no la toma.
+            if (IsReservedByOtherClank(box)) continue;
 
             if (!TryGetBoxDestination(box, out Vector3 destination))
                 continue;
@@ -264,6 +315,7 @@ public class Clank_NPC : NPCBehaviourBase
     bool TryGetBoxDestination(BoxItem box, out Vector3 destination)
     {
         destination = default;
+
         if (box == null)
             return false;
 
@@ -272,10 +324,36 @@ public class Clank_NPC : NPCBehaviourBase
 
     void PickUpBox(BoxItem box)
     {
+        if (box == null)
+            return;
+
+        // NUEVO:
+        // Seguridad extra: si la caja ya fue tomada por otro,
+        // este Clank no la recoge.
+        if (box.pickedUp || box.delivered || box.blocked)
+        {
+            ReleaseTargetBox();
+            targetBox = null;
+            state = State.SearchingBox;
+            return;
+        }
+
+        if (IsReservedByOtherClank(box))
+        {
+            targetBox = null;
+            state = State.SearchingBox;
+            return;
+        }
+
         if (holdPoint == null)
             holdPoint = transform;
 
         carriedBox = box;
+
+        // NUEVO:
+        // Ya no necesita estar reservada porque ahora oficialmente está cargada.
+        ReleaseSpecificBox(box);
+
         targetBox = null;
 
         carriedBox.pickedUp = true;
@@ -325,6 +403,8 @@ public class Clank_NPC : NPCBehaviourBase
 
     void DropAndThrow(Collision collision)
     {
+        if (carriedBox == null) return;
+
         Transform t = carriedBox.transform;
 
         t.SetParent(null);
@@ -428,8 +508,62 @@ public class Clank_NPC : NPCBehaviourBase
             return;
         }
 
+        ReleaseTargetBox();
         targetBox = null;
         state = State.SearchingBox;
         nextTargetSearchTime = 0f;
+    }
+
+    // ─────────────────────────────────────────────
+    // NUEVO: SISTEMA DE RESERVACIÓN DE CAJAS
+    // ─────────────────────────────────────────────
+
+    void ReserveBox(BoxItem box)
+    {
+        if (box == null)
+            return;
+
+        if (!reservedBoxes.ContainsKey(box))
+            reservedBoxes.Add(box, this);
+        else
+            reservedBoxes[box] = this;
+    }
+
+    void ReleaseTargetBox()
+    {
+        if (targetBox == null)
+            return;
+
+        ReleaseSpecificBox(targetBox);
+        targetBox = null;
+    }
+
+    void ReleaseSpecificBox(BoxItem box)
+    {
+        if (box == null)
+            return;
+
+        if (reservedBoxes.TryGetValue(box, out Clank_NPC owner))
+        {
+            if (owner == this)
+                reservedBoxes.Remove(box);
+        }
+    }
+
+    bool IsReservedByOtherClank(BoxItem box)
+    {
+        if (box == null)
+            return false;
+
+        if (!reservedBoxes.TryGetValue(box, out Clank_NPC owner))
+            return false;
+
+        if (owner == null)
+        {
+            reservedBoxes.Remove(box);
+            return false;
+        }
+
+        return owner != this;
     }
 }

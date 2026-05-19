@@ -143,13 +143,13 @@ CapsuleCollider:
     m_Bits: 0
   m_LayerOverridePriority: 0
   m_IsTrigger: 0
-  m_ProvidesContacts: 0
+  m_ProvidesContacts: 1
   m_Enabled: 1
   serializedVersion: 2
-  m_Radius: 0.7
-  m_Height: 2
+  m_Radius: 0.8021529
+  m_Height: 2.9271557
   m_Direction: 1
-  m_Center: {x: 0, y: 0, z: 0}
+  m_Center: {x: -0.013479948, y: 1.3593804, z: 0}
 --- !u!54 &3030904454574547433
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -262,7 +262,7 @@ MonoBehaviour:
   playerIndex: 0
   initialized: 0
   externalControlEnabled: 1
-  isGrounded: 1
+  isGrounded: 0
   allowImpactReactions: 0
   groundProbePadding: 0.06
   groundMaxSlope: 55

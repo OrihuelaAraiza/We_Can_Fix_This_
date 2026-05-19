@@ -4,39 +4,51 @@ using UnityEngine;
 using Wcft.Core;
 
 /// <summary>
-/// Spawnea los NPCs basándose en el mapa generado por ShipLayoutGenerator.
+/// Spawnea NPCs basándose en el mapa generado por ShipLayoutGenerator.
 ///
-/// - Blockie / Smoggos → se distribuyen en las habitaciones de reparación del ship.
-/// - Clank            → se spawnea en la Storage room.
-///                      Se crea automáticamente un BoxSpawner (zona de recolección)
-///                      y un DropZone (zona de entrega) dentro de la misma habitación.
-///
-/// Adjunta este componente al mismo GameObject que ShipLayoutGenerator (o cualquiera
-/// que exista en la escena). Asigna los prefabs desde el Inspector.
+/// - Blockie / Smoggos se distribuyen en habitaciones de reparación.
+/// - Clank se spawnea en Storage o Bridge.
+/// - Se crean BoxSpawners y DropZones en módulos diferentes de la nave.
+/// - Ningún BoxSpawner se genera en el mismo módulo que una DropZone.
+/// - Los Blockies tienen límite total para que no se generen demasiados.
 /// </summary>
 public class NPCSpawnManager : MonoBehaviour
 {
     [Header("NPCs")]
     [SerializeField] private GameObject[] blockiePrefabs;
     [SerializeField] private GameObject[] smoggosPrefabs;
-    [SerializeField] private GameObject   clankPrefab;
+    [SerializeField] private GameObject clankPrefab;
 
     [Header("Clank — Box System")]
     [SerializeField] private GameObject boxPrefab;
-    [SerializeField] private float      boxSpawnInterval  = 25f;
-    [SerializeField] private int        maxBoxes          = 8;
-    [SerializeField] private float      dropZoneRadius    = 1.5f;
+    [SerializeField] private float boxSpawnInterval = 25f;
+    [SerializeField] private int maxBoxes = 8;
+    [SerializeField] private float dropZoneRadius = 1.5f;
+
+    [Header("BoxSpawner / DropZone Amount")]
+    [SerializeField] private int boxSpawnerCount = 2;
+    [SerializeField] private int dropZoneCount = 2;
+
+    [Header("Blockie Limit")]
+    [SerializeField] private int maxBlockiesTotal = 2;
 
     [Header("Spawn Config")]
-    [Tooltip("Minimum spacing between NPCs of the same type (in units).")]
+    [Tooltip("Minimum spacing between NPCs of the same type.")]
     [SerializeField] private float minSpacing = 3f;
 
-    // Rooms de reparación en las que se spawnean Blockie/Smoggos
-    private static readonly string[] RepairRoomKeys = {
-        "Repair_Energy", "Repair_Communications", "Repair_Gravity", "Repair_Hull"
+    [Tooltip("Distancia mínima entre un BoxSpawner y una DropZone.")]
+    [SerializeField] private float minDistanceBetweenBoxAndDrop = 8f;
+
+    private static readonly string[] RepairRoomKeys =
+    {
+        "Repair_Energy",
+        "Repair_Communications",
+        "Repair_Gravity",
+        "Repair_Hull"
     };
 
     private const string StorageKey = "Extra_Storage";
+
     private IReadOnlyDictionary<string, Vector3> pendingCenters;
     private bool spawned;
 
@@ -64,6 +76,7 @@ public class NPCSpawnManager : MonoBehaviour
             return;
 
         pendingCenters = centers;
+
         if (!RuntimeShipNavMesh.IsReady && RequiresNavMesh())
         {
             RuntimeShipNavMesh.OnReady -= SpawnPending;
@@ -82,11 +95,12 @@ public class NPCSpawnManager : MonoBehaviour
             return;
 
         spawned = true;
+
         var centers = pendingCenters;
         pendingCenters = null;
 
         SpawnRoamingNPCs(centers);
-        SpawnClank(centers);
+        SpawnClankAndDistributedBoxSystem(centers);
     }
 
     // ── Blockie y Smoggos ─────────────────────────────────────────────
@@ -94,120 +108,319 @@ public class NPCSpawnManager : MonoBehaviour
     private void SpawnRoamingNPCs(IReadOnlyDictionary<string, Vector3> centers)
     {
         var positions = new List<Vector3>();
+
         int spawnMultiplier = Mathf.Max(1, Mathf.RoundToInt(LevelProgression.Current.NpcMultiplier));
+
+        int blockiesSpawned = 0;
+        int smoggosSpawned = 0;
 
         foreach (var key in RepairRoomKeys)
         {
-            if (!centers.TryGetValue(key, out Vector3 center)) continue;
+            if (!centers.TryGetValue(key, out Vector3 center))
+                continue;
 
-            // Un Blockie por sala de reparación (si hay prefab asignado)
+            // ── BLOCKIES CON LÍMITE TOTAL ─────────────────────────
             for (int i = 0; i < spawnMultiplier && blockiePrefabs != null && blockiePrefabs.Length > 0; i++)
             {
-                var prefab = blockiePrefabs[Random.Range(0, blockiePrefabs.Length)];
+                if (blockiesSpawned >= maxBlockiesTotal)
+                    break;
+
+                GameObject prefab = blockiePrefabs[Random.Range(0, blockiePrefabs.Length)];
+
                 if (prefab != null)
                 {
                     Vector3 pos = FindFreeSpot(center, positions, minSpacing);
                     pos = NavMeshSpawnUtility.ResolvePosition(pos);
-                    Instantiate(prefab, pos, RandomYRotation());
+
+                    GameObject blockie = Instantiate(prefab, pos, RandomYRotation());
+                    blockie.name = $"Blockie_{blockiesSpawned + 1}";
+
                     positions.Add(pos);
+                    blockiesSpawned++;
                 }
             }
 
-            // Un Smoggos por sala de reparación (si hay prefab asignado)
+            // ── SMOGGOS SE QUEDAN COMO ESTABAN ─────────────────────
             for (int i = 0; i < spawnMultiplier && smoggosPrefabs != null && smoggosPrefabs.Length > 0; i++)
             {
-                var prefab = smoggosPrefabs[Random.Range(0, smoggosPrefabs.Length)];
+                GameObject prefab = smoggosPrefabs[Random.Range(0, smoggosPrefabs.Length)];
+
                 if (prefab != null)
                 {
                     Vector3 pos = FindFreeSpot(center, positions, minSpacing);
                     pos = NavMeshSpawnUtility.ResolvePosition(pos);
-                    Instantiate(prefab, pos, RandomYRotation());
+
+                    GameObject smoggo = Instantiate(prefab, pos, RandomYRotation());
+                    smoggo.name = $"Smoggo_{smoggosSpawned + 1}";
+
                     positions.Add(pos);
+                    smoggosSpawned++;
                 }
             }
         }
 
-        Debug.Log($"[NPCSpawnManager] {positions.Count} roaming NPCs spawned.");
+        Debug.Log($"[NPCSpawnManager] {blockiesSpawned} Blockies spawned. {smoggosSpawned} Smoggos spawned.");
     }
 
-    // ── Clank ─────────────────────────────────────────────────────────
+    // ── Clank + BoxSpawners + DropZones distribuidos ─────────────────
 
-    private void SpawnClank(IReadOnlyDictionary<string, Vector3> centers)
+    private void SpawnClankAndDistributedBoxSystem(IReadOnlyDictionary<string, Vector3> centers)
     {
-        if (clankPrefab == null) return;
-
-        // Si no hay Storage room, usar Bridge como fallback
-        if (!centers.TryGetValue(StorageKey, out Vector3 storageCenter))
+        if (centers == null || centers.Count == 0)
         {
-            if (!centers.TryGetValue("Bridge", out storageCenter))
-            {
-                Debug.LogWarning("[NPCSpawnManager] No Storage or Bridge found for Clank.");
-                return;
-            }
-            Debug.LogWarning("[NPCSpawnManager] Extra_Storage not found in map; Clank will use Bridge.");
+            Debug.LogWarning("[NPCSpawnManager] No room centers found.");
+            return;
         }
 
-        // ── Zona de recolección (BoxSpawner) ──────────────────────────
-        // Se ubica en el centro de la Storage room; las cajas aparecerán aquí.
-        Transform boxSpawnPoint = CreateAnchor("BoxSpawnPoint", ResolveClankPoint(storageCenter + new Vector3(-2f, 0f, 0f)));
+        Vector3 clankCenter = GetClankSpawnCenter(centers);
 
-        GameObject boxSpawnerGO = new GameObject("Clank_BoxSpawner");
-        boxSpawnerGO.transform.position = boxSpawnPoint.position;
-        var spawner = boxSpawnerGO.AddComponent<BoxSpawner>();
-        spawner.boxPrefab             = boxPrefab;
-        spawner.spawnPoints           = new Transform[] { boxSpawnPoint };
-        spawner.spawnIntervalSeconds  = LevelProgression.Current.ClankBoxIntervalSeconds > 0f
-            ? LevelProgression.Current.ClankBoxIntervalSeconds
-            : boxSpawnInterval;
-        spawner.maxBoxesAlive         = maxBoxes;
-        spawner.spawnOnStart          = true;
+        List<RoomPoint> roomPoints = GetRoomPoints(centers);
 
-        // ── Zona de entrega (DropZone) ────────────────────────────────
-        // Se ubica al otro lado de la habitación para que Clank haga el recorrido.
-        Vector3 dropPos = ResolveClankPoint(storageCenter + new Vector3(2f, 0f, 0f));
-        GameObject dropZoneGO = new GameObject("Clank_DropZone");
-        dropZoneGO.transform.position = dropPos;
+        if (roomPoints.Count < 4)
+        {
+            Debug.LogWarning("[NPCSpawnManager] Not enough rooms to distribute BoxSpawners and DropZones. Using available rooms anyway.");
+        }
 
-        var dropZone = dropZoneGO.AddComponent<DropZone>();
+        List<RoomPoint> boxRooms = PickSpreadRooms(roomPoints, boxSpawnerCount, null);
+        List<RoomPoint> dropRooms = PickSpreadRoomsFarFromBoxRooms(roomPoints, dropZoneCount, boxRooms);
 
-        // Collider trigger para que DropZone funcione
-        var col = dropZoneGO.AddComponent<BoxCollider>();
-        col.isTrigger = true;
-        col.size      = new Vector3(dropZoneRadius * 2f, 2f, dropZoneRadius * 2f);
+        List<Transform> dropZones = CreateDropZones(dropRooms);
+        List<Transform> boxSpawnPoints = CreateBoxSpawners(boxRooms);
 
-        // ── Clank ─────────────────────────────────────────────────────
-        Vector3 clankPos = ResolveClankPoint(storageCenter + new Vector3(0f, 0f, -1f));
-        var clankGO = Instantiate(clankPrefab, clankPos, Quaternion.identity);
+        SpawnClank(clankCenter, dropZones);
+
+        Debug.Log($"[NPCSpawnManager] Created {boxSpawnPoints.Count} BoxSpawners and {dropZones.Count} DropZones in different modules.");
+    }
+
+    private Vector3 GetClankSpawnCenter(IReadOnlyDictionary<string, Vector3> centers)
+    {
+        if (centers.TryGetValue(StorageKey, out Vector3 storageCenter))
+            return storageCenter;
+
+        if (centers.TryGetValue("Bridge", out Vector3 bridgeCenter))
+        {
+            Debug.LogWarning("[NPCSpawnManager] Extra_Storage not found; Clank will use Bridge.");
+            return bridgeCenter;
+        }
+
+        foreach (var pair in centers)
+            return pair.Value;
+
+        return Vector3.zero;
+    }
+
+    private List<RoomPoint> GetRoomPoints(IReadOnlyDictionary<string, Vector3> centers)
+    {
+        List<RoomPoint> rooms = new List<RoomPoint>();
+
+        foreach (var pair in centers)
+        {
+            rooms.Add(new RoomPoint(pair.Key, pair.Value));
+        }
+
+        return rooms;
+    }
+
+    private List<RoomPoint> PickSpreadRooms(List<RoomPoint> rooms, int amount, List<RoomPoint> forbiddenRooms)
+    {
+        List<RoomPoint> selected = new List<RoomPoint>();
+
+        int targetAmount = Mathf.Max(1, amount);
+
+        foreach (RoomPoint room in rooms)
+        {
+            if (IsForbiddenRoom(room, forbiddenRooms))
+                continue;
+
+            selected.Add(room);
+            break;
+        }
+
+        while (selected.Count < targetAmount)
+        {
+            RoomPoint bestRoom = null;
+            float bestDistance = -1f;
+
+            foreach (RoomPoint candidate in rooms)
+            {
+                if (ContainsRoom(selected, candidate))
+                    continue;
+
+                if (IsForbiddenRoom(candidate, forbiddenRooms))
+                    continue;
+
+                float nearestDistance = GetNearestDistance(candidate.position, selected);
+
+                if (nearestDistance > bestDistance)
+                {
+                    bestDistance = nearestDistance;
+                    bestRoom = candidate;
+                }
+            }
+
+            if (bestRoom == null)
+                break;
+
+            selected.Add(bestRoom);
+        }
+
+        return selected;
+    }
+
+    private List<RoomPoint> PickSpreadRoomsFarFromBoxRooms(List<RoomPoint> rooms, int amount, List<RoomPoint> boxRooms)
+    {
+        List<RoomPoint> selected = new List<RoomPoint>();
+
+        int targetAmount = Mathf.Max(1, amount);
+
+        while (selected.Count < targetAmount)
+        {
+            RoomPoint bestRoom = null;
+            float bestScore = -1f;
+
+            foreach (RoomPoint candidate in rooms)
+            {
+                if (ContainsRoom(selected, candidate))
+                    continue;
+
+                if (ContainsRoom(boxRooms, candidate))
+                    continue;
+
+                float distanceToNearestBox = GetNearestDistance(candidate.position, boxRooms);
+
+                if (distanceToNearestBox < minDistanceBetweenBoxAndDrop)
+                    continue;
+
+                float distanceToSelectedDrops = selected.Count > 0
+                    ? GetNearestDistance(candidate.position, selected)
+                    : distanceToNearestBox;
+
+                float score = distanceToNearestBox + distanceToSelectedDrops;
+
+                if (score > bestScore)
+                {
+                    bestScore = score;
+                    bestRoom = candidate;
+                }
+            }
+
+            if (bestRoom == null)
+            {
+                foreach (RoomPoint candidate in rooms)
+                {
+                    if (ContainsRoom(selected, candidate))
+                        continue;
+
+                    if (ContainsRoom(boxRooms, candidate))
+                        continue;
+
+                    float distanceToNearestBox = GetNearestDistance(candidate.position, boxRooms);
+
+                    if (distanceToNearestBox > bestScore)
+                    {
+                        bestScore = distanceToNearestBox;
+                        bestRoom = candidate;
+                    }
+                }
+            }
+
+            if (bestRoom == null)
+                break;
+
+            selected.Add(bestRoom);
+        }
+
+        return selected;
+    }
+
+    private List<Transform> CreateBoxSpawners(List<RoomPoint> boxRooms)
+    {
+        List<Transform> boxSpawnPoints = new List<Transform>();
+
+        for (int i = 0; i < boxRooms.Count; i++)
+        {
+            Vector3 boxPos = ResolveClankPoint(boxRooms[i].position);
+
+            Transform boxSpawnPoint = CreateAnchor($"BoxSpawnPoint_{i + 1}_{boxRooms[i].key}", boxPos);
+            boxSpawnPoints.Add(boxSpawnPoint);
+
+            GameObject boxSpawnerGO = new GameObject($"Clank_BoxSpawner_{i + 1}_{boxRooms[i].key}");
+            boxSpawnerGO.transform.position = boxPos;
+
+            BoxSpawner spawner = boxSpawnerGO.AddComponent<BoxSpawner>();
+            spawner.boxPrefab = boxPrefab;
+            spawner.spawnPoints = new Transform[] { boxSpawnPoint };
+            spawner.spawnIntervalSeconds = LevelProgression.Current.ClankBoxIntervalSeconds > 0f
+                ? LevelProgression.Current.ClankBoxIntervalSeconds
+                : boxSpawnInterval;
+            spawner.maxBoxesAlive = maxBoxes;
+            spawner.spawnOnStart = true;
+        }
+
+        return boxSpawnPoints;
+    }
+
+    private List<Transform> CreateDropZones(List<RoomPoint> dropRooms)
+    {
+        List<Transform> dropZones = new List<Transform>();
+
+        for (int i = 0; i < dropRooms.Count; i++)
+        {
+            Vector3 dropPos = ResolveClankPoint(dropRooms[i].position);
+
+            GameObject dropZoneGO = new GameObject($"Clank_DropZone_{i + 1}_{dropRooms[i].key}");
+            dropZoneGO.transform.position = dropPos;
+
+            dropZoneGO.AddComponent<DropZone>();
+
+            BoxCollider col = dropZoneGO.AddComponent<BoxCollider>();
+            col.isTrigger = true;
+            col.size = new Vector3(dropZoneRadius * 2f, 2f, dropZoneRadius * 2f);
+
+            dropZones.Add(dropZoneGO.transform);
+        }
+
+        return dropZones;
+    }
+
+    private void SpawnClank(Vector3 center, List<Transform> dropZones)
+    {
+        if (clankPrefab == null)
+            return;
+
+        Vector3 clankPos = ResolveClankPoint(center);
+
+        GameObject clankGO = Instantiate(clankPrefab, clankPos, Quaternion.identity);
         clankGO.name = "Clank";
 
-        var clank = clankGO.GetComponent<Clank_NPC>();
+        Clank_NPC clank = clankGO.GetComponent<Clank_NPC>();
+
         if (clank != null)
         {
-            clank.dropPoint = dropZoneGO.transform;
-            // holdPoint se asigna desde el prefab; si no existe, usar el propio transform
+            if (dropZones != null && dropZones.Count > 0)
+                clank.dropPoint = dropZones[0];
+
             if (clank.holdPoint == null)
                 clank.holdPoint = clankGO.transform;
         }
-
-        Debug.Log($"[NPCSpawnManager] Clank spawned in Storage ({storageCenter}).");
     }
 
     // ── Helpers ───────────────────────────────────────────────────────
 
     private Transform CreateAnchor(string name, Vector3 worldPos)
     {
-        var go = new GameObject(name);
+        GameObject go = new GameObject(name);
         go.transform.position = worldPos;
         return go.transform;
     }
 
     private Vector3 FindFreeSpot(Vector3 center, List<Vector3> occupied, float minDist)
     {
-        // Intentar hasta 8 offsets aleatorios; si ninguno sirve, devolver el centro
         for (int attempt = 0; attempt < 8; attempt++)
         {
             Vector2 rand = Random.insideUnitCircle * minDist;
             Vector3 candidate = center + new Vector3(rand.x, 0f, rand.y);
+
             bool tooClose = false;
 
             foreach (var p in occupied)
@@ -219,14 +432,63 @@ public class NPCSpawnManager : MonoBehaviour
                 }
             }
 
-            if (!tooClose) return candidate;
+            if (!tooClose)
+                return candidate;
         }
 
         return center;
     }
 
-    private static Quaternion RandomYRotation() =>
-        Quaternion.Euler(0f, Random.Range(0f, 360f), 0f);
+    private float GetNearestDistance(Vector3 position, List<RoomPoint> points)
+    {
+        if (points == null || points.Count == 0)
+            return 9999f;
+
+        float nearest = float.MaxValue;
+
+        foreach (RoomPoint point in points)
+        {
+            float distance = Vector3.Distance(position, point.position);
+
+            if (distance < nearest)
+                nearest = distance;
+        }
+
+        return nearest;
+    }
+
+    private bool ContainsRoom(List<RoomPoint> rooms, RoomPoint target)
+    {
+        if (rooms == null)
+            return false;
+
+        foreach (RoomPoint room in rooms)
+        {
+            if (room.key == target.key)
+                return true;
+        }
+
+        return false;
+    }
+
+    private bool IsForbiddenRoom(RoomPoint room, List<RoomPoint> forbiddenRooms)
+    {
+        if (forbiddenRooms == null)
+            return false;
+
+        foreach (RoomPoint forbidden in forbiddenRooms)
+        {
+            if (forbidden.key == room.key)
+                return true;
+        }
+
+        return false;
+    }
+
+    private static Quaternion RandomYRotation()
+    {
+        return Quaternion.Euler(0f, Random.Range(0f, 360f), 0f);
+    }
 
     private bool RequiresNavMesh()
     {
@@ -274,5 +536,17 @@ public class NPCSpawnManager : MonoBehaviour
 
         Debug.LogWarning($"[NPCSpawnManager] Could not project {requestedPosition} to NavMesh; using requested position.");
         return requestedPosition;
+    }
+
+    private class RoomPoint
+    {
+        public string key;
+        public Vector3 position;
+
+        public RoomPoint(string key, Vector3 position)
+        {
+            this.key = key;
+            this.position = position;
+        }
     }
 }
