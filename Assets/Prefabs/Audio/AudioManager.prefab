@@ -142,7 +142,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   lobbyMusic: {fileID: 8300000, guid: 023948a5c8f9d42149869bcb1806aa37, type: 3}
-  gameplayMusic: {fileID: 8300000, guid: 97691721b90e74fcf80d95121998e382, type: 3}
+  gameplayMusic: {fileID: 8300000, guid: a072a299abbb5429194a32db7b97b482, type: 3}
+  gameplayIntenseMusic: {fileID: 8300000, guid: 97691721b90e74fcf80d95121998e382, type: 3}
   failStateMusic: {fileID: 8300000, guid: c5f7646435bd74cd7acf435b5384af96, type: 3}
   shipAmbientClips:
   - {fileID: 8300000, guid: 28c841485b51d4b998f03dbff3317799, type: 3}

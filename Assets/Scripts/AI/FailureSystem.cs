@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using Wcft.Core;
 
 public class FailureSystem : MonoBehaviour
 {
@@ -22,6 +23,7 @@ public class FailureSystem : MonoBehaviour
 
     public int TotalFailures => totalFailures;
     public float CurrentInterval => currentInterval;
+    public int MaxSimultaneousBroken => maxSimultaneousBroken;
 
     public static event System.Action<RepairStation> OnStationFailed;
     public static event System.Action<RepairStation> OnStationRepaired;
@@ -30,7 +32,7 @@ public class FailureSystem : MonoBehaviour
     {
         if (Instance != null && Instance != this) { Destroy(gameObject); return; }
         Instance = this;
-        currentInterval = initialFailureInterval;
+        ApplyCurrentLevelSettings();
     }
 
     private void Start()
@@ -53,6 +55,12 @@ public class FailureSystem : MonoBehaviour
         RepairStation.OnRegistered -= HandleStationRegistered;
         RepairStation.OnUnregistered -= HandleStationUnregistered;
         RepairStation.OnStateChanged -= HandleStationStateChanged;
+    }
+
+    private void OnDestroy()
+    {
+        if (Instance == this)
+            Instance = null;
     }
 
     private void Update()
@@ -111,6 +119,11 @@ public class FailureSystem : MonoBehaviour
     public void SetActive(bool value) => active = value;
     public List<RepairStation> GetAllStations() => allStations;
 
+    public void SetMaxSimultaneousBroken(int value)
+    {
+        maxSimultaneousBroken = Mathf.Max(1, value);
+    }
+
     // Métodos estáticos para que clases externas disparen los eventos sin violar CS0070
     public static void NotifyStationFailed(RepairStation station)   => OnStationFailed?.Invoke(station);
     public static void NotifyStationRepaired(RepairStation station) => OnStationRepaired?.Invoke(station);
@@ -133,6 +146,14 @@ public class FailureSystem : MonoBehaviour
         if (failuresPerMinute <= 0) return;
         currentInterval = Mathf.Max(minimumFailureInterval, 60f / failuresPerMinute);
         Debug.Log($"[FailureSystem] Failure rate -> {failuresPerMinute:F1}/min (interval={currentInterval:F1}s)");
+    }
+
+    void ApplyCurrentLevelSettings()
+    {
+        LevelDefinition level = LevelProgression.Current;
+        maxSimultaneousBroken = Mathf.Max(maxSimultaneousBroken, level.MaxSimultaneousFailures);
+        float multiplier = Mathf.Max(0.01f, level.FailureRateMultiplier);
+        currentInterval = Mathf.Max(minimumFailureInterval, initialFailureInterval / multiplier);
     }
 
     void RefreshStationCache()

@@ -6,15 +6,21 @@ public class EmergencyLightController : MonoBehaviour
     [SerializeField] Light directionalLight;
 
     [Header("Normal State")]
-    [SerializeField] Color normalColor     = new Color(0.4f, 0.5f, 0.8f);
-    [SerializeField] float normalIntensity = 0.8f;
+    [SerializeField] Color normalColor     = new Color(0.55f, 0.66f, 0.95f);
+    [SerializeField] float normalIntensity = 1.05f;
 
     [Header("Critical State")]
     [SerializeField] Color criticalColor     = new Color(0.8f, 0.1f, 0.05f);
     [SerializeField] float criticalIntensity = 1.2f;
     [SerializeField] float flickerSpeed      = 3f;
 
-    bool  isCritical;
+    [Header("Station Emergency")]
+    [SerializeField] Color stationEmergencyColor = new Color(1f, 0.12f, 0.05f);
+    [SerializeField] float stationEmergencyIntensity = 1.35f;
+
+    bool shipCritical;
+    bool shipDestroyed;
+    bool stationEmergencyActive;
     float flickerTimer;
 
     void OnEnable()
@@ -22,6 +28,9 @@ public class EmergencyLightController : MonoBehaviour
         ShipHealth.OnShipCritical  += OnCritical;
         ShipHealth.OnShipDestroyed += OnDestroyed;
         ShipHealth.OnShipRecovered += OnRecovered;
+        RepairStation.OnRegistered += OnStationRegistered;
+        RepairStation.OnUnregistered += OnStationUnregistered;
+        RepairStation.OnStateChanged += OnStationStateChanged;
     }
 
     void OnDisable()
@@ -29,46 +38,142 @@ public class EmergencyLightController : MonoBehaviour
         ShipHealth.OnShipCritical  -= OnCritical;
         ShipHealth.OnShipDestroyed -= OnDestroyed;
         ShipHealth.OnShipRecovered -= OnRecovered;
+        RepairStation.OnRegistered -= OnStationRegistered;
+        RepairStation.OnUnregistered -= OnStationUnregistered;
+        RepairStation.OnStateChanged -= OnStationStateChanged;
     }
 
     void Start()
     {
         if (directionalLight == null)
+#pragma warning disable CS0618
             directionalLight = FindObjectOfType<Light>();
+#pragma warning restore CS0618
+
+        RefreshStationEmergency();
         ApplyNormal();
+        ApplyCurrentState();
     }
 
     void Update()
     {
-        if (!isCritical) return;
+        bool hadStationEmergency = stationEmergencyActive;
+        RefreshStationEmergency();
+
+        if (hadStationEmergency != stationEmergencyActive)
+            ApplyCurrentState();
+
+        if (!shipCritical && !stationEmergencyActive)
+        {
+            if (!shipDestroyed)
+                ApplyNormal();
+
+            return;
+        }
+
         flickerTimer += Time.deltaTime * flickerSpeed;
         float f = 0.6f + 0.4f * Mathf.Sin(flickerTimer);
-        if (directionalLight != null)
-            directionalLight.intensity = criticalIntensity * f;
+        ApplyEmergencyIntensity(f);
     }
 
     void OnCritical()
     {
-        isCritical = true;
-        if (directionalLight != null)
-            directionalLight.color = criticalColor;
+        shipCritical = true;
+        shipDestroyed = false;
+        ApplyCurrentState();
     }
 
     void OnRecovered()
     {
-        isCritical = false;
-        ApplyNormal();
+        shipCritical = false;
+        shipDestroyed = false;
+        ApplyCurrentState();
         Debug.Log("[EmergencyLight] Normal restored");
     }
 
     void OnDestroyed()
     {
-        isCritical = false;
-        if (directionalLight != null)
+        shipCritical = false;
+        shipDestroyed = true;
+        ApplyCurrentState();
+    }
+
+    void OnStationRegistered(RepairStation _)
+    {
+        RefreshStationEmergency();
+        ApplyCurrentState();
+    }
+
+    void OnStationUnregistered(RepairStation _)
+    {
+        RefreshStationEmergency();
+        ApplyCurrentState();
+    }
+
+    void OnStationStateChanged(
+        RepairStation station,
+        RepairStation.StationState previousState,
+        RepairStation.StationState nextState)
+    {
+        RefreshStationEmergency();
+        ApplyCurrentState();
+    }
+
+    void RefreshStationEmergency()
+    {
+        stationEmergencyActive = false;
+        foreach (RepairStation station in RepairStation.ActiveStations)
         {
-            directionalLight.color     = Color.red;
-            directionalLight.intensity = 0.2f;
+            if (station == null)
+                continue;
+
+            if (!IsStationEmergency(station.State))
+                continue;
+
+            stationEmergencyActive = true;
+            return;
         }
+    }
+
+    void ApplyCurrentState()
+    {
+        if (directionalLight == null)
+            return;
+
+        if (shipDestroyed)
+        {
+            directionalLight.color = Color.red;
+            directionalLight.intensity = 0.2f;
+            return;
+        }
+
+        if (shipCritical)
+        {
+            flickerTimer = 0f;
+            directionalLight.color = criticalColor;
+            directionalLight.intensity = criticalIntensity;
+            return;
+        }
+
+        if (stationEmergencyActive)
+        {
+            flickerTimer = 0f;
+            directionalLight.color = stationEmergencyColor;
+            directionalLight.intensity = stationEmergencyIntensity;
+            return;
+        }
+
+        ApplyNormal();
+    }
+
+    void ApplyEmergencyIntensity(float flicker)
+    {
+        if (directionalLight == null || shipDestroyed)
+            return;
+
+        directionalLight.intensity = shipCritical
+            ? criticalIntensity * flicker
+            : stationEmergencyIntensity * flicker;
     }
 
     void ApplyNormal()
@@ -76,5 +181,11 @@ public class EmergencyLightController : MonoBehaviour
         if (directionalLight == null) return;
         directionalLight.color     = normalColor;
         directionalLight.intensity = normalIntensity;
+    }
+
+    static bool IsStationEmergency(RepairStation.StationState state)
+    {
+        return state == RepairStation.StationState.Broken
+            || state == RepairStation.StationState.Repairing;
     }
 }

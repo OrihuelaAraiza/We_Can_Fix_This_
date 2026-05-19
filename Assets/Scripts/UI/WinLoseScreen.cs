@@ -60,12 +60,14 @@ public class WinLoseScreen : MonoBehaviour
     void RestartGame()
     {
         Time.timeScale = 1f;
+        LevelProgression.Reset();
         SceneLoader.ReloadActiveScene();
     }
 
     void GoToLobby()
     {
         Time.timeScale = 1f;
+        LevelProgression.Reset();
         SceneLoader.LoadScene(GameConfig.SCENE_LOBBY);
     }
 }

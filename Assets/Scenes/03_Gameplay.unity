@@ -11928,8 +11928,8 @@ Light:
   serializedVersion: 10
   m_Type: 1
   m_Shape: 0
-  m_Color: {r: 1, g: 0.95686275, b: 0.8392157, a: 1}
-  m_Intensity: 1
+  m_Color: {r: 0.55, g: 0.66, b: 0.95, a: 1}
+  m_Intensity: 1.05
   m_Range: 10
   m_SpotAngle: 30
   m_InnerSpotAngle: 21.80208
@@ -12030,11 +12030,13 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   directionalLight: {fileID: 2127989895}
-  normalColor: {r: 0.4, g: 0.5, b: 0.8, a: 1}
-  normalIntensity: 0.8
+  normalColor: {r: 0.55, g: 0.66, b: 0.95, a: 1}
+  normalIntensity: 1.05
   criticalColor: {r: 0.8, g: 0.1, b: 0.05, a: 1}
   criticalIntensity: 1.2
   flickerSpeed: 3
+  stationEmergencyColor: {r: 1, g: 0.12, b: 0.05, a: 1}
+  stationEmergencyIntensity: 1.35
 --- !u!1 &2139591607
 GameObject:
   m_ObjectHideFlags: 0

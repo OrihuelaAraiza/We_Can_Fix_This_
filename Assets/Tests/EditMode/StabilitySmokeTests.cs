@@ -108,6 +108,31 @@ public class StabilitySmokeTests
     }
 
     [Test]
+    public void AudioManager_GameplayMusicUsesNormalAndIntenseTracks()
+    {
+        GameObject audioPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Audio/AudioManager.prefab");
+        Assert.That(audioPrefab, Is.Not.Null);
+
+        Component audioManager = audioPrefab.GetComponent(GetGameType("AudioManager"));
+        Assert.That(audioManager, Is.Not.Null);
+
+        AudioClip gameplayMusic = GetPrivateField<AudioClip>(audioManager, "gameplayMusic");
+        AudioClip gameplayIntenseMusic = GetPrivateField<AudioClip>(audioManager, "gameplayIntenseMusic");
+
+        Assert.That(gameplayMusic, Is.Not.Null);
+        Assert.That(gameplayMusic.name, Is.EqualTo("GameplayMusic"));
+        Assert.That(gameplayIntenseMusic, Is.Not.Null);
+        Assert.That(gameplayIntenseMusic.name, Is.EqualTo("GameplayIntense"));
+
+        string audioManagerSource = System.IO.File.ReadAllText("Assets/Scripts/Core/AudioManager.cs");
+        Assert.That(audioManagerSource, Does.Contain("SurvivalTimerUI.OnTimeCritical"));
+        Assert.That(audioManagerSource, Does.Contain("UpdateGameplayMusicState"));
+        Assert.That(audioManagerSource, Does.Contain("stationEmergencyMusic"));
+        Assert.That(audioManagerSource, Does.Contain("HasEmergencyStations"));
+        Assert.That(audioManagerSource, Does.Contain("SceneManager.GetActiveScene().name"));
+    }
+
+    [Test]
     public void PlayerManager_HardcodedFixieAnimationRefsAreBuildSafe()
     {
         string scenePath = "Assets/Scenes/03_Gameplay.unity";
@@ -166,6 +191,36 @@ public class StabilitySmokeTests
     }
 
     [Test]
+    public void PlayerInputHandler_SharedKeyboardInteractFallbackMapsBothKeyboardPlayers()
+    {
+        Type inputHandlerType = GetGameType("PlayerInputHandler");
+
+        Assert.That(InvokeStatic(inputHandlerType, "GetKeyboardInteractKeyName", "KeyboardP1", 0), Is.EqualTo("e"));
+        Assert.That(InvokeStatic(inputHandlerType, "GetKeyboardInteractKeyName", "KeyboardP2", 1), Is.EqualTo("numpad1"));
+        Assert.That(InvokeStatic(inputHandlerType, "GetKeyboardInteractKeyName", "", 0), Is.EqualTo("e"));
+        Assert.That(InvokeStatic(inputHandlerType, "GetKeyboardInteractKeyName", "", 1), Is.EqualTo("numpad1"));
+        Assert.That(InvokeStatic(inputHandlerType, "GetKeyboardInteractKeyName", "Gamepad", 2), Is.Null);
+    }
+
+    [Test]
+    public void PlayerManager_RuntimeAnimationSetsCycleThroughAvailableAvatars()
+    {
+        GameObject managerObject = new GameObject("PlayerManager_Test");
+        createdObjects.Add(managerObject);
+        Component manager = managerObject.AddComponent(GetGameType("PlayerManager"));
+
+        object slot0 = InvokeInstance(manager, "GetAnimationSetForSlot", 0);
+        object slot1 = InvokeInstance(manager, "GetAnimationSetForSlot", 1);
+        object slot2 = InvokeInstance(manager, "GetAnimationSetForSlot", 2);
+        object slot3 = InvokeInstance(manager, "GetAnimationSetForSlot", 3);
+
+        Assert.That(GetProperty<string>(slot0, "SetId"), Is.EqualTo("Fixie_P1"));
+        Assert.That(GetProperty<string>(slot1, "SetId"), Is.EqualTo("Fixie_P2"));
+        Assert.That(GetProperty<string>(slot2, "SetId"), Is.EqualTo("Fixie_P3"));
+        Assert.That(GetProperty<string>(slot3, "SetId"), Is.EqualTo("Fixie_P1"));
+    }
+
+    [Test]
     public void PlayerManager_RebuildPlayerVisual_UsesRuntimeAnimationSet()
     {
         GameObject playerPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Players/Player.prefab");
@@ -218,6 +273,38 @@ public class StabilitySmokeTests
     }
 
     [Test]
+    public void PlayerManager_PrepareSpawnedPlayer_PreservesSafeClumsyRagdoll()
+    {
+        GameObject playerPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Players/Player.prefab");
+        Assert.That(playerPrefab, Is.Not.Null);
+
+        GameObject managerObject = new GameObject("PlayerManager_Test");
+        createdObjects.Add(managerObject);
+        Component manager = managerObject.AddComponent(GetGameType("PlayerManager"));
+
+        GameObject player = UnityEngine.Object.Instantiate(playerPrefab);
+        createdObjects.Add(player);
+
+        InvokeInstance(manager, "PrepareSpawnedPlayer", player);
+
+        Component fakeRagdoll = player.GetComponent(GetGameType("FakeRagDoll"));
+        Component wobble = player.GetComponent(GetGameType("PlayerVisualWobble"));
+        Component movement = player.GetComponent(GetGameType("PlayerMovement"));
+
+        Assert.That(fakeRagdoll, Is.Not.Null);
+        Assert.That(wobble, Is.Not.Null);
+        Assert.That(movement, Is.Not.Null);
+        Assert.That(player.GetComponent(GetGameType("PlayerRagdoll")), Is.Null);
+        Assert.That(player.GetComponent(GetGameType("PlayerImpactReaction")), Is.Null);
+
+        Assert.That(GetPrivateField<bool>(movement, "allowImpactReactions"), Is.False);
+        Assert.That(GetPrivateField<float>(fakeRagdoll, "hardHitThreshold"), Is.EqualTo(2.8f).Within(0.001f));
+        Assert.That(GetPrivateField<float>(fakeRagdoll, "impactCooldown"), Is.EqualTo(0.35f).Within(0.001f));
+        Assert.That(GetPrivateField<float>(fakeRagdoll, "maxTiltAmount"), Is.EqualTo(34f).Within(0.001f));
+        Assert.That(GetPrivateField<float>(fakeRagdoll, "stunDuration"), Is.EqualTo(0.28f).Within(0.001f));
+    }
+
+    [Test]
     public void LobbyPlayerSessionData_RejectsDuplicateKeyboardSchemesAndMaxesAtFourPlayers()
     {
         Type sessionType = GetGameType("LobbyPlayerSessionData");
@@ -248,6 +335,27 @@ public class StabilitySmokeTests
 
         Assert.That(GetGameType("RuntimeShipNavMesh"), Is.Not.Null);
         Assert.That(GetGameType("NavMeshSpawnUtility"), Is.Not.Null);
+    }
+
+    [Test]
+    public void RuntimeNavMesh_BuildVolumeUsesColliderCenterForAsymmetricLayouts()
+    {
+        var navObject = new GameObject("RuntimeShipNavMesh_Test");
+        navObject.SetActive(false);
+        createdObjects.Add(navObject);
+        Component navMesh = navObject.AddComponent(GetGameType("RuntimeShipNavMesh"));
+
+        var shipInterior = new GameObject("ShipInterior_Test");
+        createdObjects.Add(shipInterior);
+
+        CreateNavFloor("FarStorageFloor", shipInterior.transform, new Vector3(-40f, 0f, 0f));
+        CreateNavFloor("BridgeFloor", shipInterior.transform, new Vector3(10f, 0f, 0f));
+
+        Bounds buildBounds = (Bounds)InvokeInstance(navMesh, "ComputeWorldBuildBounds", shipInterior.transform);
+
+        Assert.That(buildBounds.center.x, Is.EqualTo(-15f).Within(0.001f));
+        Assert.That(buildBounds.min.x, Is.LessThanOrEqualTo(-45f));
+        Assert.That(buildBounds.max.x, Is.GreaterThanOrEqualTo(15f));
     }
 
     [Test]
@@ -291,10 +399,52 @@ public class StabilitySmokeTests
         Assert.That(spawnManagerSource, Does.Contain("RuntimeShipNavMesh.EnsureExists"));
         Assert.That(spawnManagerSource, Does.Contain("RuntimeShipNavMesh.OnReady"));
         Assert.That(spawnManagerSource, Does.Contain("NavMeshSpawnUtility.ResolvePosition"));
+        Assert.That(spawnManagerSource, Does.Contain("HasAnyPrefab(blockiePrefabs)"));
 
         string coreXSource = System.IO.File.ReadAllText("Assets/Scripts/AI/CoreXBrain.cs");
         Assert.That(coreXSource, Does.Contain("ShipLayoutGenerator.RoomCenters"));
         Assert.That(coreXSource, Does.Contain("NavMeshSpawnUtility.TryWarpToNearest"));
+        Assert.That(coreXSource, Does.Contain("phase.maxSimultaneousFails"));
+        Assert.That(coreXSource, Does.Contain("SetMaxSimultaneousBroken"));
+    }
+
+    [Test]
+    public void EmergencyLighting_TracksStationFailuresAndAmbientInjector()
+    {
+        string emergencySource = System.IO.File.ReadAllText("Assets/Scripts/World/EmergencyLightController.cs");
+        Assert.That(emergencySource, Does.Contain("RepairStation.OnStateChanged"));
+        Assert.That(emergencySource, Does.Contain("stationEmergencyActive"));
+        Assert.That(emergencySource, Does.Contain("IsStationEmergency"));
+        Assert.That(emergencySource, Does.Contain("ApplyNormal();"));
+        Assert.That(emergencySource, Does.Not.Contain("wasEmergency == isEmergency"));
+
+        string ambientSource = System.IO.File.ReadAllText("Assets/Scripts/World/ShipAmbientLightInjector.cs");
+        Assert.That(ambientSource, Does.Contain("SpawnRoomLights"));
+        Assert.That(ambientSource, Does.Contain("SpawnCorridorLights"));
+        Assert.That(ambientSource, Does.Contain("RenderSettings.ambientLight"));
+
+        string layoutSource = System.IO.File.ReadAllText("Assets/Scripts/World/ShipLayoutGenerator.cs");
+        Assert.That(layoutSource, Does.Contain("EnsureAmbientLightInjector"));
+        Assert.That(layoutSource, Does.Contain("AddComponent<ShipAmbientLightInjector>"));
+    }
+
+    [Test]
+    public void RoamingNPCs_UseNavMeshAgentsAndRecovery()
+    {
+        string blockieSource = System.IO.File.ReadAllText("Assets/Scripts/NPC/Blockie_NPC/Blockie_NPC.cs");
+        Assert.That(blockieSource, Does.Contain("NavMeshAgent"));
+        Assert.That(blockieSource, Does.Contain("TryFindReachablePoint"));
+        Assert.That(blockieSource, Does.Contain("UpdateStuckTimer"));
+
+        string smoggosSource = System.IO.File.ReadAllText("Assets/Scripts/NPC/Smoggos_NPC/Smoggos_NPC.cs");
+        Assert.That(smoggosSource, Does.Contain("NavMeshAgent"));
+        Assert.That(smoggosSource, Does.Contain("TryFindReachablePoint"));
+        Assert.That(smoggosSource, Does.Contain("UpdateStuckTimer"));
+
+        string clankSource = System.IO.File.ReadAllText("Assets/Scripts/NPC/Clank_NPC/Clank_NPC.cs");
+        Assert.That(clankSource, Does.Contain("TrySetReachableDestination"));
+        Assert.That(clankSource, Does.Contain("TryGetCompletePathLength"));
+        Assert.That(clankSource, Does.Contain("RecoverFromStuck"));
     }
 
     static void AssertUsableClip(string assetPath, string clipName)
@@ -312,6 +462,16 @@ public class StabilitySmokeTests
         var go = new GameObject(name);
         createdObjects.Add(go);
         return go.AddComponent(componentType);
+    }
+
+    static void CreateNavFloor(string name, Transform parent, Vector3 position)
+    {
+        var floor = new GameObject(name);
+        floor.transform.SetParent(parent, false);
+        floor.transform.localPosition = position;
+        var collider = floor.AddComponent<BoxCollider>();
+        collider.size = new Vector3(10f, 0.2f, 10f);
+        collider.center = Vector3.zero;
     }
 
     InputDevice AddGamepad(string name)

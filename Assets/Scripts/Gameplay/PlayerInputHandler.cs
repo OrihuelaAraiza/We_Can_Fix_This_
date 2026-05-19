@@ -74,6 +74,17 @@ public class PlayerInputHandler : MonoBehaviour
         _abilityAction = null;
     }
 
+    private void Update()
+    {
+        ResolveReferences();
+
+        if (_playerInput == null || _interact == null)
+            return;
+
+        if (TryReadSharedKeyboardInteract(_playerInput, out bool held))
+            _interact.SetInteractHeld(held);
+    }
+
     private void OnMovePerformed(InputAction.CallbackContext ctx)
     {
         ResolveReferences();
@@ -137,5 +148,63 @@ public class PlayerInputHandler : MonoBehaviour
 
         if (_movement == null) Debug.LogError("[Handler] No PlayerMovement!");
         if (_playerInput == null) Debug.LogError("[Handler] No PlayerInput!");
+    }
+
+    static bool TryReadSharedKeyboardInteract(PlayerInput playerInput, out bool held)
+    {
+        held = false;
+
+        Keyboard keyboard = GetPairedKeyboard(playerInput);
+        bool hasKeyboardScheme = IsKeyboardScheme(playerInput.currentControlScheme);
+        if (!hasKeyboardScheme && keyboard == null)
+            return false;
+
+        keyboard ??= Keyboard.current;
+        if (keyboard == null)
+            return false;
+
+        string keyName = GetKeyboardInteractKeyName(playerInput.currentControlScheme, playerInput.playerIndex);
+        if (keyName == null)
+            return false;
+
+        held = keyName switch
+        {
+            "e" => keyboard.eKey.isPressed,
+            "numpad1" => keyboard.numpad1Key.isPressed,
+            _ => false
+        };
+
+        return true;
+    }
+
+    static Keyboard GetPairedKeyboard(PlayerInput playerInput)
+    {
+        if (playerInput != null)
+        {
+            foreach (InputDevice device in playerInput.devices)
+            {
+                if (device is Keyboard keyboard)
+                    return keyboard;
+            }
+        }
+
+        return null;
+    }
+
+    static bool IsKeyboardScheme(string controlScheme)
+    {
+        return controlScheme == "KeyboardP1" || controlScheme == "KeyboardP2";
+    }
+
+    internal static string GetKeyboardInteractKeyName(string controlScheme, int playerIndex)
+    {
+        return controlScheme switch
+        {
+            "KeyboardP1" => "e",
+            "KeyboardP2" => "numpad1",
+            _ when playerIndex == 0 => "e",
+            _ when playerIndex == 1 => "numpad1",
+            _ => null
+        };
     }
 }

@@ -76,6 +76,8 @@ public class MainMenuUI : MonoBehaviour
 
     public void OnPlayClicked()
     {
+        LevelProgression.Reset();
+
         if (SceneExistsInBuild(GameConfig.SCENE_LOBBY))
             SceneLoader.LoadScene(GameConfig.SCENE_LOBBY);
         else

@@ -13,7 +13,6 @@ public class FixieAnimationAutoBinder : MonoBehaviour
     [Header("Settings")]
     [SerializeField] private int slotIndex = 0;
     [SerializeField] private float maxWaitTime = 5f;
-    [SerializeField] private bool showBuildDebug = true;
 
     private bool bound;
     private string status = "Waiting...";
@@ -119,22 +118,5 @@ public class FixieAnimationAutoBinder : MonoBehaviour
 
         if (animator == null)
             animator = GetComponentInChildren<Animator>(true);
-    }
-
-    private void OnGUI()
-    {
-        if (!showBuildDebug)
-            return;
-
-        GUI.Label(
-            new Rect(20, 20, 900, 140),
-            "Fixie Animation AutoBinder\n" +
-            "Status: " + status + "\n" +
-            "Movement: " + (movement != null ? movement.name : "NONE") + "\n" +
-            "Movement Initialized: " + (movement != null ? movement.IsInitialized.ToString() : "false") + "\n" +
-            "Runtime: " + (animationRuntime != null ? animationRuntime.name : "NONE") + "\n" +
-            "Animator: " + (animator != null ? animator.name : "NONE") + "\n" +
-            "AnimationSet: " + (animationSet != null ? animationSet.name : "NONE")
-        );
     }
 }

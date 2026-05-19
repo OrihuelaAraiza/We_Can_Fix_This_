@@ -8,6 +8,7 @@ public class GameManager : MonoBehaviour
 
     [Header("Config")]
     [SerializeField] float restartDelay = 3f;
+    [SerializeField] float levelTransitionDelay = 2.25f;
 
     [Header("Runtime")]
     [SerializeField] bool gameOver = false;
@@ -18,11 +19,20 @@ public class GameManager : MonoBehaviour
 
     public static event System.Action    OnGameOver;
     public static event System.Action    OnGameWon;
+    public static event System.Action<LevelDefinition, LevelDefinition> OnLevelTransitionStarted;
+
+    bool levelTransitioning;
 
     void Awake()
     {
         if (Instance != null && Instance != this) { Destroy(gameObject); return; }
         Instance = this;
+    }
+
+    void OnDestroy()
+    {
+        if (Instance == this)
+            Instance = null;
     }
 
     // Roles are applied primarily in PlayerManager.OnPlayerJoined().
@@ -87,6 +97,7 @@ public class GameManager : MonoBehaviour
     {
         if (gameOver) return;
         gameOver = true;
+        LevelProgression.Reset();
         OnGameOver?.Invoke();
         Debug.Log("[GameManager] GAME OVER");
         Invoke(nameof(RestartScene), restartDelay);
@@ -110,8 +121,41 @@ public class GameManager : MonoBehaviour
     /// <summary>Called by SurvivalTimerUI when the timer runs out.</summary>
     public void OnTimerExpired()
     {
-        Debug.Log("[GameManager] Timer expired — DEFEAT!");
-        HandleGameOver();
+        if (gameOver || gameWon || levelTransitioning) return;
+
+        LevelDefinition currentLevel = LevelProgression.Current;
+        Debug.Log($"[GameManager] Timer expired on {currentLevel.Name} ({currentLevel.Index}/{LevelProgression.LevelCount})");
+
+        StopGameplaySystems();
+
+        if (LevelProgression.AdvanceOrComplete())
+        {
+            LevelDefinition nextLevel = LevelProgression.Current;
+            Debug.Log($"[GameManager] Timer expired — advancing to {nextLevel.Name}");
+            StartCoroutine(AdvanceToNextLevel(currentLevel, nextLevel));
+            return;
+        }
+
+        Debug.Log("[GameManager] Final demo timer expired — VICTORY!");
+        HandleGameWon();
+    }
+
+    IEnumerator AdvanceToNextLevel(LevelDefinition completedLevel, LevelDefinition nextLevel)
+    {
+        levelTransitioning = true;
+        Time.timeScale = 1f;
+        OnLevelTransitionStarted?.Invoke(completedLevel, nextLevel);
+
+        if (levelTransitionDelay > 0f)
+            yield return new WaitForSecondsRealtime(levelTransitionDelay);
+
+        SceneLoader.ReloadActiveScene();
+    }
+
+    void StopGameplaySystems()
+    {
+        FailureSystem.Instance?.SetActive(false);
+        CoreXBrain.Instance?.StopDirector();
     }
 
     void RestartScene()

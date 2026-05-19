@@ -51,7 +51,10 @@ public class FixieAnimationRuntime : MonoBehaviour
 
     [Header("Blend")]
     [SerializeField] private float walkThreshold = 0.45f;
-    [SerializeField] private float blendSpeed = 8f;
+    [SerializeField] private float blendSpeed = 16f;
+    [SerializeField] private float airborneBlendSpeed = 28f;
+    [SerializeField] private float jumpRequestWindow = 0.16f;
+    [SerializeField] private float jumpSnapWeight = 0.85f;
     [SerializeField] private bool animationDebugLogs = false;
 
     [Header("Loop Control")]
@@ -201,6 +204,9 @@ public class FixieAnimationRuntime : MonoBehaviour
 
             float speed = Mathf.Clamp01(movement.SpeedNormalized);
             bool grounded = movement.IsGrounded;
+            bool jumpRequested = movement.HasJumpQueued ||
+                Time.time - movement.LastJumpRequestedTime <= jumpRequestWindow ||
+                Time.time - movement.LastJumpStartedTime <= jumpRequestWindow;
 
             // Lo hacemos así para evitar cualquier error de nombre con VerticalVelocity.
             float verticalVelocity = movement.RB != null ? movement.RB.velocity.y : 0f;
@@ -213,7 +219,12 @@ public class FixieAnimationRuntime : MonoBehaviour
 
             AnimationState nextState;
 
-            if (!grounded)
+            if (jumpRequested)
+            {
+                targetJump = 1f;
+                nextState = AnimationState.Jump;
+            }
+            else if (!grounded)
             {
                 if (verticalVelocity > 0.5f)
                 {
@@ -235,10 +246,10 @@ public class FixieAnimationRuntime : MonoBehaviour
             {
                 float t = walkThreshold <= 0.001f ? 1f : Mathf.InverseLerp(0f, walkThreshold, speed);
 
-                targetIdle = 1f - t;
-                targetWalk = t;
+                targetWalk = movement.HasMoveInput ? Mathf.Max(t, movement.MoveInputMagnitude) : t;
+                targetIdle = 1f - targetWalk;
 
-                nextState = t > 0.15f ? AnimationState.Walk : AnimationState.Idle;
+                nextState = movement.HasMoveInput || t > 0.15f ? AnimationState.Walk : AnimationState.Idle;
             }
             else
             {
@@ -250,7 +261,13 @@ public class FixieAnimationRuntime : MonoBehaviour
                 nextState = t > 0.45f ? AnimationState.Run : AnimationState.Walk;
             }
 
-            float step = blendSpeed * Time.deltaTime;
+            if (nextState != currentState)
+                ApplyStateTransition(nextState);
+
+            float activeBlendSpeed = nextState == AnimationState.Jump || nextState == AnimationState.Fall
+                ? airborneBlendSpeed
+                : blendSpeed;
+            float step = activeBlendSpeed * Time.deltaTime;
 
             currentWeights[0] = Mathf.MoveTowards(currentWeights[0], targetIdle, step);
             currentWeights[1] = Mathf.MoveTowards(currentWeights[1], targetWalk, step);
@@ -275,6 +292,34 @@ public class FixieAnimationRuntime : MonoBehaviour
         {
             HandleException("Update", exception);
         }
+    }
+
+    private void ApplyStateTransition(AnimationState nextState)
+    {
+        if (nextState == AnimationState.Jump)
+        {
+            ResetClipTime(3);
+            currentWeights[3] = Mathf.Max(currentWeights[3], Mathf.Clamp01(jumpSnapWeight));
+            currentWeights[0] *= 0.25f;
+            currentWeights[1] *= 0.35f;
+            currentWeights[2] *= 0.35f;
+            currentWeights[4] = 0f;
+        }
+        else if (nextState == AnimationState.Fall)
+        {
+            ResetClipTime(4);
+        }
+    }
+
+    private void ResetClipTime(int index)
+    {
+        if (index < 0 || index >= clipTimes.Length)
+            return;
+
+        clipTimes[index] = 0f;
+
+        if (clipPlayables[index].IsValid())
+            clipPlayables[index].SetTime(0f);
     }
 
     private void NormalizeAndApplyWeights()

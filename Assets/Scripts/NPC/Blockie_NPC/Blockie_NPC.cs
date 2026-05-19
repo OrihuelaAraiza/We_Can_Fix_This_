@@ -1,6 +1,8 @@
 using UnityEngine;
+using UnityEngine.AI;
 
 [RequireComponent(typeof(Rigidbody))]
+[RequireComponent(typeof(NavMeshAgent))]
 public class BlockieNPC : NPCBehaviourBase
 {
     [Header("Speed")]
@@ -22,101 +24,125 @@ public class BlockieNPC : NPCBehaviourBase
     [Header("Player")]
     public string playerTag = "Player";
 
+    [Header("NavMesh Roaming")]
+    public float roamRadius = 12f;
+    public float minRoamDistance = 3f;
+    public float arriveDistance = 0.6f;
+    public float destinationCheckInterval = 0.25f;
+    public float stuckSeconds = 1.5f;
+    public float stuckMoveDistance = 0.12f;
+    public float navMeshSampleRadius = 4f;
+    public float acceleration = 12f;
+
     private Rigidbody rb;
-    private bool isTurning = false;
-    private Quaternion targetRotation;
+    private NavMeshAgent agent;
+    private Vector3 homePosition;
+    private Vector3 lastProgressPosition;
+    private float nextDecisionTime;
+    private float stuckTimer;
     private int playersPushing = 0;
+    private bool warnedMissingNavMesh;
 
     void Start()
     {
         rb = GetComponent<Rigidbody>();
+        agent = GetComponent<NavMeshAgent>();
+        if (agent == null)
+            agent = gameObject.AddComponent<NavMeshAgent>();
 
         rb.mass = mass;
         rb.drag = drag;
         rb.angularDrag = angularDrag;
+        rb.isKinematic = true;
         rb.constraints = RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationZ;
+
+        ConfigureAgent();
+        homePosition = transform.position;
+        lastProgressPosition = transform.position;
+        PickNewDestination();
     }
 
-    void FixedUpdate()
+    protected override void OnDisabled()
     {
-        if (IsDisabled) return;
+        if (agent != null && agent.enabled && agent.isOnNavMesh)
+        {
+            agent.isStopped = true;
+            agent.ResetPath();
+        }
+    }
 
-        float currentSpeed = baseSpeed + (playersPushing * extraSpeedPerPlayer);
+    protected override void OnEnabled()
+    {
+        if (agent != null && agent.enabled && agent.isOnNavMesh)
+            agent.isStopped = false;
+    }
+
+    void Update()
+    {
+        if (IsDisabled)
+            return;
+
+        if (!EnsureAgentOnNavMesh())
+            return;
+
+        agent.speed = baseSpeed + (playersPushing * extraSpeedPerPlayer);
         playersPushing = 0;
 
-        if (isTurning)
-        {
-            DoTurn();
-        }
-        else
-        {
-            CheckPathAndMove(currentSpeed);
-        }
-    }
-
-    void CheckPathAndMove(float speed)
-    {
-        Vector3 origin = transform.position + Vector3.up * rayHeight;
-
-        bool frontBlocked = Physics.Raycast(origin, transform.forward, forwardCheck, obstacleMask);
-        bool leftBlocked = Physics.Raycast(origin, -transform.right, sideCheck, obstacleMask);
-        bool rightBlocked = Physics.Raycast(origin, transform.right, sideCheck, obstacleMask);
-
-        Debug.DrawRay(origin, transform.forward * forwardCheck, frontBlocked ? Color.red : Color.green);
-        Debug.DrawRay(origin, -transform.right * sideCheck, leftBlocked ? Color.red : Color.yellow);
-        Debug.DrawRay(origin, transform.right * sideCheck, rightBlocked ? Color.red : Color.blue);
-
-        if (!frontBlocked)
-        {
-            Vector3 nextPos = rb.position + transform.forward * speed * Time.fixedDeltaTime;
-            rb.MovePosition(nextPos);
+        if (Time.time < nextDecisionTime)
             return;
-        }
 
-        if (!leftBlocked && !rightBlocked)
-        {
-            int randomSide = Random.Range(0, 2);
+        nextDecisionTime = Time.time + destinationCheckInterval;
 
-            if (randomSide == 0)
-                StartTurn(-90f);
-            else
-                StartTurn(90f);
-        }
-        else if (!leftBlocked)
-        {
-            StartTurn(-90f);
-        }
-        else if (!rightBlocked)
-        {
-            StartTurn(90f);
-        }
-        else
-        {
-            StartTurn(180f);
-        }
+        bool needsNewDestination =
+            !agent.hasPath ||
+            agent.pathStatus != NavMeshPathStatus.PathComplete ||
+            NavMeshSpawnUtility.HasArrived(agent, arriveDistance) ||
+            NavMeshSpawnUtility.UpdateStuckTimer(agent, ref lastProgressPosition, ref stuckTimer, stuckMoveDistance, stuckSeconds);
+
+        if (needsNewDestination)
+            PickNewDestination();
     }
 
-    void StartTurn(float angle)
+    void ConfigureAgent()
     {
-        isTurning = true;
-        targetRotation = Quaternion.Euler(0f, transform.eulerAngles.y + angle, 0f);
+        if (agent == null)
+            return;
+
+        agent.speed = baseSpeed;
+        agent.acceleration = acceleration;
+        agent.angularSpeed = turnSpeed;
+        agent.stoppingDistance = arriveDistance;
+        agent.autoBraking = false;
+        agent.obstacleAvoidanceType = ObstacleAvoidanceType.HighQualityObstacleAvoidance;
     }
 
-    void DoTurn()
+    bool EnsureAgentOnNavMesh()
     {
-        Quaternion newRotation = Quaternion.RotateTowards(
-            rb.rotation,
-            targetRotation,
-            turnSpeed * Time.fixedDeltaTime
-        );
+        if (agent == null || !agent.enabled)
+            return false;
 
-        rb.MoveRotation(newRotation);
+        if (agent.isOnNavMesh)
+            return true;
 
-        if (Quaternion.Angle(rb.rotation, targetRotation) < 1f)
+        if (NavMeshSpawnUtility.TryWarpToNearest(agent, transform.position, navMeshSampleRadius))
+            return true;
+
+        if (!warnedMissingNavMesh)
         {
-            rb.MoveRotation(targetRotation);
-            isTurning = false;
+            warnedMissingNavMesh = true;
+            Debug.LogWarning("[BlockieNPC] Could not place Blockie on the NavMesh.", this);
         }
+
+        return false;
+    }
+
+    void PickNewDestination()
+    {
+        stuckTimer = 0f;
+        lastProgressPosition = transform.position;
+
+        if (!NavMeshSpawnUtility.TryFindReachablePoint(agent, homePosition, minRoamDistance, roamRadius, 14, out _))
+            agent.ResetPath();
     }
 
     void OnCollisionStay(Collision collision)

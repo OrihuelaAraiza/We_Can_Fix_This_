@@ -89,8 +89,9 @@ public class RuntimeShipNavMesh : MonoBehaviour
         surface.useGeometry = NavMeshCollectGeometry.PhysicsColliders;
         surface.layerMask = LayerMask.GetMask("Default", "Ground");
         surface.defaultArea = 0;
-        surface.center = shipInterior.position;
-        surface.size = ComputeBuildSize(shipInterior);
+        Bounds buildBounds = ComputeWorldBuildBounds(shipInterior);
+        surface.center = transform.InverseTransformPoint(buildBounds.center);
+        surface.size = WorldSizeToSurfaceLocalSize(buildBounds.size);
         surface.BuildNavMesh();
 
         isReady = true;
@@ -114,7 +115,7 @@ public class RuntimeShipNavMesh : MonoBehaviour
         return candidate != null ? candidate : null;
     }
 
-    private Vector3 ComputeBuildSize(Transform shipInterior)
+    private Bounds ComputeWorldBuildBounds(Transform shipInterior)
     {
         Bounds bounds = new Bounds(shipInterior.position, minimumBuildVolume);
         bool initialized = false;
@@ -136,12 +137,29 @@ public class RuntimeShipNavMesh : MonoBehaviour
         }
 
         if (!initialized)
-            return minimumBuildVolume;
+            return bounds;
 
         Vector3 size = bounds.size + Vector3.one * buildVolumePadding;
-        return new Vector3(
+        size = new Vector3(
             Mathf.Max(size.x, minimumBuildVolume.x),
             Mathf.Max(size.y, minimumBuildVolume.y),
             Mathf.Max(size.z, minimumBuildVolume.z));
+
+        return new Bounds(bounds.center, size);
+    }
+
+    private Vector3 WorldSizeToSurfaceLocalSize(Vector3 worldSize)
+    {
+        Vector3 scale = transform.lossyScale;
+        return new Vector3(
+            SafeDivide(worldSize.x, scale.x),
+            SafeDivide(worldSize.y, scale.y),
+            SafeDivide(worldSize.z, scale.z));
+    }
+
+    private static float SafeDivide(float value, float divisor)
+    {
+        float magnitude = Mathf.Abs(divisor);
+        return magnitude > 0.0001f ? value / magnitude : value;
     }
 }

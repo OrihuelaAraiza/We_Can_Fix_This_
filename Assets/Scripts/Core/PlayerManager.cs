@@ -87,6 +87,7 @@ public partial class PlayerManager : MonoBehaviour
             yield break;
         }
 
+        playerInput.neverAutoSwitchControlSchemes = true;
         PrepareSpawnedPlayer(playerInput.gameObject);
 
         Rigidbody rb = playerInput.GetComponent<Rigidbody>();
@@ -701,7 +702,7 @@ public partial class PlayerManager : MonoBehaviour
 
     FixieAnimationSet GetAnimationSetForSlot(int slotIndex)
     {
-        int index = Mathf.Clamp(slotIndex, 0, runtimeAnimationSets.Length - 1);
+        int index = WrapSlotIndex(slotIndex, runtimeAnimationSets.Length);
         FixieAnimationSet cached = runtimeAnimationSets[index];
         if (cached != null)
             return cached;
@@ -724,8 +725,17 @@ public partial class PlayerManager : MonoBehaviour
         if (fixieVisualPrefabs == null || fixieVisualPrefabs.Length == 0)
             return null;
 
-        int index = Mathf.Clamp(slotIndex, 0, fixieVisualPrefabs.Length - 1);
+        int index = WrapSlotIndex(slotIndex, fixieVisualPrefabs.Length);
         return fixieVisualPrefabs[index];
+    }
+
+    static int WrapSlotIndex(int slotIndex, int count)
+    {
+        if (count <= 0)
+            return 0;
+
+        int index = slotIndex % count;
+        return index < 0 ? index + count : index;
     }
 
     Transform EnsureModelRoot(Transform playerRoot)

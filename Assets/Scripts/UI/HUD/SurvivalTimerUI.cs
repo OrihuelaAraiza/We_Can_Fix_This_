@@ -1,10 +1,15 @@
 using UnityEngine;
 using TMPro;
+using System;
+using Wcft.Core;
 
 public class SurvivalTimerUI : MonoBehaviour
 {
     [SerializeField] public TMP_Text timerValue;
     [SerializeField] public float    survivalDuration = 600f;
+    [SerializeField] float criticalTimeThreshold = 60f;
+
+    public static event Action OnTimeCritical;
 
     static readonly Color COL_NORMAL = HexColor("#e7bf4e");
     static readonly Color COL_WARN   = HexColor("#ff9b39");
@@ -12,11 +17,14 @@ public class SurvivalTimerUI : MonoBehaviour
 
     float _timeRemaining;
     bool  _running;
+    bool  _criticalRaised;
 
     void Start()
     {
+        survivalDuration = LevelProgression.Current.DurationSeconds;
         _timeRemaining = survivalDuration;
         _running       = true;
+        _criticalRaised = false;
         UpdateDisplay();
     }
 
@@ -34,6 +42,12 @@ public class SurvivalTimerUI : MonoBehaviour
         }
         else
         {
+            if (!_criticalRaised && _timeRemaining <= criticalTimeThreshold)
+            {
+                _criticalRaised = true;
+                OnTimeCritical?.Invoke();
+            }
+
             UpdateDisplay();
         }
     }
