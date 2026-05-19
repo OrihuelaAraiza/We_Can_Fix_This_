@@ -3,7 +3,11 @@ guid: 6ed687991998c42c292fb894000c244b
 MonoImporter:
   externalObjects: {}
   serializedVersion: 2
-  defaultReferences: []
+  defaultReferences:
+  - clankPrefab: {fileID: 1697963494113195501, guid: 64a8239901a0c74459dd6dadde0c892d,
+      type: 3}
+  - boxPrefab: {fileID: 2910177788184889049, guid: 7b1afea2a4237854aac9a708c517274f,
+      type: 3}
   executionOrder: 0
   icon: {instanceID: 0}
   userData: 

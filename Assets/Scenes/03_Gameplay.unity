@@ -2493,7 +2493,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   stationType: 3
   repairDuration: 6
-  shipDrainOnBroken: 1
   state: 0
   repairProgress: 0
   currentLocationLabel: UNKNOWN
@@ -2501,6 +2500,10 @@ MonoBehaviour:
   colorBroken: {r: 1, g: 0, b: 0, a: 1}
   colorRepairing: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
   colorFixed: {r: 0, g: 1, b: 1, a: 1}
+  stationLight: {fileID: 0}
+  lightRangeBroken: 5
+  lightIntensityBroken: 2.5
+  lightFlickerSpeed: 6
   autoCreateWorldStatusUI: 1
 --- !u!65 &464011553
 BoxCollider:
@@ -3141,6 +3144,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   timerValue: {fileID: 302601625}
   survivalDuration: 600
+  criticalTimeThreshold: 60
 --- !u!224 &585275760
 RectTransform:
   m_ObjectHideFlags: 0
@@ -3276,7 +3280,7 @@ Transform:
   m_GameObject: {fileID: 605151548}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 1.5, y: 0.6, z: 1.5}
+  m_LocalPosition: {x: 1.5, y: 1, z: 1.5}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -3628,7 +3632,10 @@ MonoBehaviour:
   boxSpawnInterval: 25
   maxBoxes: 8
   dropZoneRadius: 1.5
+  boxSpawnerCount: 2
+  dropZoneCount: 2
   minSpacing: 3
+  minDistanceBetweenBoxAndDrop: 8
 --- !u!1 &646166748
 GameObject:
   m_ObjectHideFlags: 0
@@ -4364,7 +4371,7 @@ Transform:
   m_GameObject: {fileID: 698631701}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -1.5, y: 0.6, z: 1.5}
+  m_LocalPosition: {x: -1.5, y: 1, z: 1.5}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -5633,7 +5640,7 @@ Transform:
   m_GameObject: {fileID: 976708039}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 1.5, y: 0.6, z: -1.5}
+  m_LocalPosition: {x: 1.5, y: 1, z: -1.5}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -6649,7 +6656,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   stationType: 2
   repairDuration: 5
-  shipDrainOnBroken: 1
   state: 0
   repairProgress: 0
   currentLocationLabel: UNKNOWN
@@ -6657,6 +6663,10 @@ MonoBehaviour:
   colorBroken: {r: 1, g: 0, b: 0, a: 1}
   colorRepairing: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
   colorFixed: {r: 0, g: 1, b: 1, a: 1}
+  stationLight: {fileID: 0}
+  lightRangeBroken: 5
+  lightIntensityBroken: 2.5
+  lightFlickerSpeed: 6
   autoCreateWorldStatusUI: 1
 --- !u!65 &1179168842
 BoxCollider:
@@ -6853,7 +6863,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   stationType: 0
   repairDuration: 5
-  shipDrainOnBroken: 1
   state: 0
   repairProgress: 0
   currentLocationLabel: UNKNOWN
@@ -6861,6 +6870,10 @@ MonoBehaviour:
   colorBroken: {r: 1, g: 0, b: 0, a: 1}
   colorRepairing: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
   colorFixed: {r: 0, g: 1, b: 1, a: 1}
+  stationLight: {fileID: 0}
+  lightRangeBroken: 5
+  lightIntensityBroken: 2.5
+  lightFlickerSpeed: 6
   autoCreateWorldStatusUI: 1
 --- !u!65 &1228927172
 BoxCollider:
@@ -10977,6 +10990,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   restartDelay: 3
+  levelTransitionDelay: 2.25
   gameOver: 0
   gameWon: 0
 --- !u!4 &1958684333
@@ -11386,7 +11400,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   stationType: 1
   repairDuration: 5
-  shipDrainOnBroken: 1
   state: 0
   repairProgress: 0
   currentLocationLabel: UNKNOWN
@@ -11394,6 +11407,10 @@ MonoBehaviour:
   colorBroken: {r: 1, g: 0, b: 0, a: 1}
   colorRepairing: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
   colorFixed: {r: 0, g: 1, b: 1, a: 1}
+  stationLight: {fileID: 0}
+  lightRangeBroken: 5
+  lightIntensityBroken: 2.5
+  lightFlickerSpeed: 6
   autoCreateWorldStatusUI: 1
 --- !u!65 &2012463298
 BoxCollider:
@@ -11682,7 +11699,7 @@ Transform:
   m_GameObject: {fileID: 2085396267}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -1.5, y: 0.6, z: -1.5}
+  m_LocalPosition: {x: -1.5, y: 1, z: -1.5}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
